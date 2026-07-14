@@ -4,7 +4,7 @@ All tasks live in `tasks/` as JSON files with the naming convention: `[priority]
 
 ## Default Template
 
-Use `_default-template.json` as the base for every new task. Copy it, rename it following the naming convention, and fill in the fields.
+Use `0_task_template.json` as the base for every new task. Copy it, rename it following the naming convention, and fill in the fields.
 
 ## Schema
 
@@ -33,4 +33,4 @@ The `origin` field tracks how a task was created.
 - File prefix = priority number
 - Title part = kebab-case summary
 - Examples: `1_fix-routing-bug.json`, `2_add-edge-labels.json`, `3_improve-node-colors.json`
-- The `_default-template.json` file is never picked up by agents (underscore prefix).
+- The `0_task_template.json` file is the template and should not be picked up by agents as a real task (prefix `0_`).
