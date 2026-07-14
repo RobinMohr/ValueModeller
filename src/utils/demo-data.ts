@@ -15,6 +15,9 @@ export const demoNodes: SipocNode[] = [
       applicationsInvolved: 'SAP ERP\nShopify Storefront\nSalesforce CRM',
       involvedTeams: 'Sales Team\nCustomer Service',
       knownIssues: 'Manual order entry from phone orders causes delays',
+      cycleTime: '5',
+      leadTime: '30',
+      valueAddPercent: '60',
     },
   },
   {
@@ -31,6 +34,9 @@ export const demoNodes: SipocNode[] = [
       applicationsInvolved: 'SAP Warehouse Management\nInventory Tracker',
       involvedTeams: 'Warehouse Team',
       knownIssues: '',
+      cycleTime: '2',
+      leadTime: '10',
+      valueAddPercent: '80',
     },
   },
   {
@@ -47,6 +53,9 @@ export const demoNodes: SipocNode[] = [
       applicationsInvolved: 'Stripe Payment Gateway\nSAP Finance Module',
       involvedTeams: 'Finance Department\nIT Operations',
       knownIssues: 'Timeout errors during peak hours\nNo retry mechanism for failed payments',
+      cycleTime: '1',
+      leadTime: '5',
+      valueAddPercent: '90',
     },
   },
   {
@@ -63,13 +72,16 @@ export const demoNodes: SipocNode[] = [
       applicationsInvolved: 'DHL Shipping Portal\nSAP Logistics',
       involvedTeams: 'Warehouse Team\nLogistics Partner',
       knownIssues: 'Label printing occasionally fails for international orders',
+      cycleTime: '15',
+      leadTime: '240',
+      valueAddPercent: '45',
     },
   },
 ];
 
 export const demoEdges: SipocEdge[] = [
-  { id: 'e1-2', source: 'node-1', target: 'node-2', type: 'smoothstep', animated: true },
-  { id: 'e1-3', source: 'node-1', target: 'node-3', type: 'smoothstep', animated: true },
-  { id: 'e2-4', source: 'node-2', target: 'node-4', type: 'smoothstep', animated: true },
-  { id: 'e3-4', source: 'node-3', target: 'node-4', type: 'smoothstep', animated: true },
+  { id: 'e1-2', source: 'node-1', target: 'node-2', type: 'smart', animated: true, data: { label: 'Confirmed Order' } },
+  { id: 'e1-3', source: 'node-1', target: 'node-3', type: 'smart', animated: true, data: { label: 'Confirmed Order' } },
+  { id: 'e2-4', source: 'node-2', target: 'node-4', type: 'smart', animated: true, data: { label: 'Stock Status Report' } },
+  { id: 'e3-4', source: 'node-3', target: 'node-4', type: 'smart', animated: true, data: { label: 'Payment Confirmation' } },
 ];
