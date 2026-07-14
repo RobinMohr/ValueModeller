@@ -1021,3 +1021,138 @@ to:
 **Summary:** Verified that the dev agent loop already enforces the `develop` branch (refusing to work on `main`), automatically stages all changes, generates a meaningful commit message from the completed task title, and pushes to `origin/develop` after each successful iteration. The implementation includes: branch existence check/creation, automatic checkout, porcelain status check before committing, and push with upstream tracking (`-u`). No code changes needed — feature was already fully implemented in a prior iteration.
 
 ---
+
+
+
+## [2026-07-15T00:46] fix: AI Assist "could not parse AI response as JSON" error
+
+**Category:** Critical Bug Fix — User Request
+
+**What was broken:**
+The "AI Assist" mode in the TecFactory new task form would frequently fail with:
+```
+Error: Could not parse AI response as JSON
+```
+This happened because the task-creator-agent (via ACP) returns text that includes tool invocation output, markdown code fences, reasoning text, and other content mixed in with the actual JSON task object.
+
+**Root cause:**
+The previous JSON extraction logic used only two strategies:
+1. Direct `JSON.parse(result.trim())` — fails if any surrounding text exists
+2. Greedy regex `result.match(/\{[\s\S]*\}/)` — matches from the FIRST `{` to the LAST `}` across the entire output. If the agent reads source files (which contain `{...}`) or includes explanatory text, this regex captures invalid multi-object spanning content that can't be parsed.
+
+**Fix:**
+Replaced the two-strategy parser with a robust `extractTaskJson()` function using four progressive strategies:
+1. **Direct parse** — try `JSON.parse` on the entire trimmed response (handles pure JSON responses)
+2. **Markdown code fence extraction** — regex for ` ```json ... ``` ` and ` ``` ... ``` ` blocks, preferring ones with a `title` field
+3. **Balanced-brace scanner with title preference** — walks the text character-by-character tracking brace depth and string literals to find complete `{...}` substrings, then tries parsing each one. Prefers the LAST valid JSON object containing a `title` field (since the agent's final answer is typically at the end)
+4. **Any valid JSON object fallback** — if no object has a `title` field, returns the last parseable JSON object found
+
+Also improved error messaging: parse failures now tell the user to "try rephrasing your prompt with more specific requirements" instead of the cryptic internal error message.
+
+**Files changed:**
+- `tecfactory/server.js` — Added `extractTaskJson()` and `findJsonCandidates()` helper functions, replaced inline parsing logic, improved error response message
+
+**Impact:**
+- AI Assist task creation now reliably extracts the task JSON even when the agent includes markdown fences, reasoning text, or tool output alongside the JSON response
+- Users get actionable error messages when parsing still fails
+- Server logs the raw AI output on failure for debugging
+
+**Build:** ✅ Passes (`tsc -b && vite build` — 0 errors)
+
+
+
+## [2026-07-15T00:46] feat: Collapsible log panels in TecFactory agent monitor
+
+**Category:** UX Polish — Agent Monitor
+
+**What was implemented:**
+- Added a **per-agent collapse/expand toggle button** (▼/▲ chevron) in each agent card's control bar. Clicking it hides or shows the log output panel for that agent.
+- Added **global "Collapse All" / "Expand All" buttons** in the Agents tab toolbar. When all agents are collapsed, only "Expand All" is shown; otherwise "Collapse All" is shown.
+- **Session-persistent state** — collapsed agent IDs are stored in `sessionStorage` under key `tf_collapsed`. Refreshing the page within the same session preserves which panels were collapsed.
+- When collapsed, the agent card shows only the header (name, status, controls, activity indicator) — the log output area is hidden via `display: none`.
+- Smooth visual transition: collapsed cards remove the bottom border from the header for a clean single-line look.
+
+**Files changed:**
+- `tecfactory/public/index.html` — Added Collapse All / Expand All buttons in agents toolbar
+- `tecfactory/public/app.js` — Added `collapsedAgents` Set, `toggleCollapse()`, `collapseAll()`, `expandAll()`, `applyCollapseState()`, `updateGlobalCollapseButtons()`, `persistCollapsed()` methods; collapse toggle button in agent card; initial state restoration from sessionStorage
+- `tecfactory/public/style.css` — Added `.btn-collapse` styles, `.agent-card.collapsed` state (hides output, removes header border)
+
+**Impact:**
+- Users can collapse log panels of agents they're not actively monitoring, saving vertical space when multiple agents are running
+- Global collapse/expand provides quick one-click toggle for all agents simultaneously
+- State persists across page refreshes within the same browser session, so users don't lose their layout preference
+
+**Build:** ✅ Passes (`tsc -b && vite build` — 0 errors)
+
+
+
+## [2026-07-15T00:50] fix: Improve Edit Task form layout and spacing
+
+**Category:** UX Polish — TecFactory Agent Monitor
+
+**What was fixed:**
+1. **Origin row restructured** — Removed the two empty `<div class="form-group"></div>` placeholder elements that were wasting horizontal space in a 3-column grid. Replaced the `form-row` class with a new `form-row-single` class that renders the Origin field as a compact single-column layout (max-width: 220px).
+2. **Improved vertical separation** — Added `padding-bottom: 0.25rem` to `.form-row-single` to create visual separation between the Origin hint text ("Set automatically — cannot be changed") and the Description label below it.
+3. **Overall form density improved** — Increased the `#taskForm` gap from `1rem` to `1.25rem` for better vertical rhythm between all form sections, creating clearer visual groupings.
+4. **Priority/Type/State row** — The 3-column `.form-row` grid already gives equal proportion to all three fields; with the increased gap the row no longer feels cramped.
+
+**Files changed:**
+- `tecfactory/public/index.html` — Removed empty placeholder divs, changed Origin row from `form-row` to `form-row-single`
+- `tecfactory/public/style.css` — Added `.form-row-single` class, increased `#taskForm` gap to 1.25rem
+
+**Impact:**
+- The Edit Task form no longer has wasted empty columns in the Origin row
+- Better visual separation between form sections prevents labels from visually merging together
+- Consistent vertical rhythm across the entire form makes it feel less cramped
+- No functional changes — purely visual/layout improvements
+
+**Build:** ✅ Passes (`tsc -b && vite build` — 0 errors)
+
+
+## 2026-07-15T00:53 — Fix: Task template excluded from TecFactory task board
+
+**What changed:**
+- Added filter `!f.startsWith('0_task_template')` to the `loadAllTasks()` function in `tecfactory/server.js`
+- The `0_task_template.json` file is now excluded when loading tasks for the REST API and WebSocket broadcasts
+
+**Impact:**
+- The template file no longer appears as a task in the TecFactory task board UI
+- Only real tasks are displayed to users
+
+**File modified:**
+- `tecfactory/server.js`
+
+
+
+## [2026-07-15T00:53] fix: Exclude task template from all TecFactory task operations
+
+**Category:** Critical Bug Fix — Task Board
+
+**What was fixed:**
+- The `0_task_template.json` file (an empty template used for creating new tasks) was excluded from the main `loadAllTasks()` function but NOT from two other functions that also scan the tasks directory:
+  - `getDevAgentActivity()` — scans for in-progress tasks to show agent activity
+  - `performRollback()` — resets in-progress tasks when killing an agent
+- Added the `!f.startsWith('0_task_template')` filter to both functions for consistency
+- All 3 `readdirSync(TASKS_DIR)` calls now consistently exclude the template file
+
+**Files changed:**
+- `tecfactory/server.js` — Added template filter to `getDevAgentActivity()` and `performRollback()`
+
+**Impact:**
+- Prevents any edge case where the template file could interfere with agent activity detection or rollback operations
+- Consistent filtering across all task-scanning functions in the server
+- The template file is now invisible to all TecFactory operations (API, activity tracking, rollback)
+
+**Build:** ✅ Passes (`tsc -b && vite build` — 0 errors)
+
+
+
+## 2026-07-15T00:55 — chore: Correct task state for collapsible log panels
+
+**Task:** `tasks/3_collapsible-log-panels-in-tecfactory-agent-monitor.json` → state set to `developed`
+
+**What happened:** The collapsible log panels feature was fully implemented in a prior iteration (see entry at 2026-07-15T00:46 above) but the task state was not updated from `todo` to `developed`. This run corrects that oversight.
+
+**Verification:** Implementation confirmed via grep — `toggleCollapse`, `collapsedAgents`, `collapseAll`, `expandAll` all present in `tecfactory/public/app.js` and `tecfactory/public/index.html`. Build passes (0 errors, 292 modules).
+
+**No code changes** — task state correction only.

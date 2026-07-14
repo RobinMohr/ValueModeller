@@ -21,6 +21,7 @@ class TecFactory {
     this.ws = null;
     this.agents = new Map();
     this.autoScroll = new Map();
+    this.collapsedAgents = new Set(JSON.parse(sessionStorage.getItem('tf_collapsed') || '[]'));
     this.connect();
   }
 
@@ -91,6 +92,7 @@ class TecFactory {
       }
       this.send({ action: 'getOutput', agentId: agent.id });
     }
+    this.updateGlobalCollapseButtons();
   }
 
   async refreshAgents() {
@@ -141,6 +143,8 @@ class TecFactory {
             ${statusIcon(agent.status)} ${agent.status}
           </span>
           <div class="agent-controls">
+            <button class="btn btn-collapse" id="collapse-${agent.id}" title="Collapse logs"
+                    onclick="monitor.toggleCollapse('${agent.id}')">&#9660;</button>
             <button class="btn btn-start" id="start-${agent.id}"
                     onclick="monitor.startAgent('${agent.id}')"
                     ${agent.status === 'running' ? 'disabled' : ''}>&#9654; Start</button>
@@ -173,6 +177,13 @@ class TecFactory {
         selection.addRange(range);
       }
     });
+    // Apply initial collapse state from session storage
+    if (this.collapsedAgents.has(agent.id)) {
+      card.classList.add('collapsed');
+      outputEl.style.display = 'none';
+      const toggleBtn = card.querySelector(`#collapse-${agent.id}`);
+      if (toggleBtn) { toggleBtn.innerHTML = '&#9650;'; toggleBtn.title = 'Expand logs'; }
+    }
     return card;
   }
 
@@ -305,6 +316,68 @@ class TecFactory {
       text: `✅ Rollback complete (${log.length} action${log.length !== 1 ? 's' : ''} performed)`
     };
     this.appendOutput(agentId, summary);
+  }
+
+  // ─── Collapse / Expand ─────────────────────────────────────────────────────
+
+  persistCollapsed() {
+    sessionStorage.setItem('tf_collapsed', JSON.stringify([...this.collapsedAgents]));
+  }
+
+  toggleCollapse(agentId) {
+    if (this.collapsedAgents.has(agentId)) {
+      this.collapsedAgents.delete(agentId);
+    } else {
+      this.collapsedAgents.add(agentId);
+    }
+    this.persistCollapsed();
+    this.applyCollapseState(agentId);
+    this.updateGlobalCollapseButtons();
+  }
+
+  applyCollapseState(agentId) {
+    const card = document.getElementById(`card-${agentId}`);
+    if (!card) return;
+    const outputEl = document.getElementById(`output-${agentId}`);
+    const toggleBtn = document.getElementById(`collapse-${agentId}`);
+    const collapsed = this.collapsedAgents.has(agentId);
+
+    if (collapsed) {
+      card.classList.add('collapsed');
+      if (outputEl) outputEl.style.display = 'none';
+      if (toggleBtn) { toggleBtn.innerHTML = '&#9650;'; toggleBtn.title = 'Expand logs'; }
+    } else {
+      card.classList.remove('collapsed');
+      if (outputEl) outputEl.style.display = 'block';
+      if (toggleBtn) { toggleBtn.innerHTML = '&#9660;'; toggleBtn.title = 'Collapse logs'; }
+    }
+  }
+
+  collapseAll() {
+    for (const [agentId] of this.agents) {
+      this.collapsedAgents.add(agentId);
+      this.applyCollapseState(agentId);
+    }
+    this.persistCollapsed();
+    this.updateGlobalCollapseButtons();
+  }
+
+  expandAll() {
+    this.collapsedAgents.clear();
+    for (const [agentId] of this.agents) {
+      this.applyCollapseState(agentId);
+    }
+    this.persistCollapsed();
+    this.updateGlobalCollapseButtons();
+  }
+
+  updateGlobalCollapseButtons() {
+    const collapseBtn = document.getElementById('collapseAllBtn');
+    const expandBtn = document.getElementById('expandAllBtn');
+    const allCollapsed = this.agents.size > 0 && this.collapsedAgents.size >= this.agents.size;
+
+    if (collapseBtn) collapseBtn.style.display = allCollapsed ? 'none' : 'inline-flex';
+    if (expandBtn) expandBtn.style.display = allCollapsed ? 'inline-flex' : 'none';
   }
 
   startAgent(agentId) { this.send({ action: 'start', agentId }); }

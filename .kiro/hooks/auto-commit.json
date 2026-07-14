@@ -1,0 +1,14 @@
+{
+  "version": "v1",
+  "hooks": [
+    {
+      "name": "Auto-commit on agent completion",
+      "trigger": "Stop",
+      "description": "Automatically stages and commits all changes when an agent session completes, ensuring work is preserved in git history.",
+      "action": {
+        "type": "command",
+        "command": "git add -A && git commit -m \"feat: agent changes [auto-commit]\" --allow-empty-message || echo \"Nothing to commit\""
+      }
+    }
+  ]
+}

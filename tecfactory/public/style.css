@@ -153,6 +153,7 @@ main {
 .agents-toolbar {
   display: flex;
   justify-content: flex-end;
+  gap: 0.5rem;
   margin-bottom: 1.5rem;
 }
 
@@ -366,6 +367,36 @@ main {
 .btn-icon:hover { background: var(--ta-gray-600); color: var(--ta-white); border-color: var(--ta-gray-500); }
 .btn-icon-danger:hover { background: rgba(239, 68, 68, 0.2); color: #fca5a5; border-color: #ef4444; }
 
+/* ─── Collapse/Expand Button ──────────────────────────────────────────────── */
+
+.btn-collapse {
+  background: var(--ta-gray-600);
+  color: var(--ta-gray-200);
+  border: none;
+  width: 32px;
+  height: 32px;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 0.7rem;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.15s;
+}
+.btn-collapse:hover { background: var(--ta-gray-500); color: var(--ta-white); }
+
+.agent-card.collapsed .agent-output {
+  display: none;
+}
+
+.agent-card.collapsed {
+  border-color: var(--ta-gray-700);
+}
+
+.agent-card.collapsed .agent-header {
+  border-bottom: none;
+}
+
 /* ─── Output Console ──────────────────────────────────────────────────────── */
 
 .agent-output {
@@ -379,6 +410,7 @@ main {
   user-select: text;
   cursor: text;
   outline: none;
+  transition: height 0.2s ease;
 }
 
 .agent-output:focus {
@@ -656,7 +688,7 @@ main {
   padding: 1.5rem;
   display: flex;
   flex-direction: column;
-  gap: 1rem;
+  gap: 1.25rem;
 }
 
 .form-group {
@@ -739,6 +771,13 @@ main {
   display: grid;
   grid-template-columns: 1fr 1fr 1fr;
   gap: 1rem;
+}
+
+.form-row-single {
+  display: grid;
+  grid-template-columns: 1fr;
+  max-width: 220px;
+  padding-bottom: 0.25rem;
 }
 
 .form-actions {

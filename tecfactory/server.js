@@ -33,7 +33,7 @@ function getTaskFilename(task) {
 
 function loadAllTasks() {
   if (!existsSync(TASKS_DIR)) return [];
-  const files = readdirSync(TASKS_DIR).filter(f => f.endsWith('.json'));
+  const files = readdirSync(TASKS_DIR).filter(f => f.endsWith('.json') && !f.startsWith('0_task_template'));
   const tasks = [];
   for (const file of files) {
     try {
@@ -308,6 +308,108 @@ async function runAcpTaskCreator(userPrompt, cwd, timeoutMs = 90000) {
 }
 
 // POST /api/tasks/generate — AI-assisted task generation via kiro-cli ACP
+
+/**
+ * Attempts to extract a valid task JSON object from the AI response text.
+ * Uses multiple strategies to handle various agent output formats:
+ * 1. Direct parse of the entire response
+ * 2. Extract from markdown code fences (```json ... ``` or ``` ... ```)
+ * 3. Find the last valid JSON object containing a "title" field
+ * 4. Find any valid JSON object (non-greedy, iterating candidates)
+ */
+function extractTaskJson(text) {
+  if (!text || !text.trim()) return null;
+
+  const trimmed = text.trim();
+
+  // Strategy 1: Direct parse (agent responded with pure JSON)
+  try {
+    const parsed = JSON.parse(trimmed);
+    if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) return parsed;
+  } catch { /* continue */ }
+
+  // Strategy 2: Extract from markdown code fences
+  const fencePatterns = [
+    /```json\s*\n?([\s\S]*?)\n?\s*```/gi,
+    /```\s*\n?([\s\S]*?)\n?\s*```/gi
+  ];
+  for (const pattern of fencePatterns) {
+    let match;
+    while ((match = pattern.exec(trimmed)) !== null) {
+      try {
+        const parsed = JSON.parse(match[1].trim());
+        if (parsed && typeof parsed === 'object' && parsed.title) return parsed;
+      } catch { /* try next match */ }
+    }
+  }
+
+  // Strategy 3: Find JSON objects that contain a "title" field
+  // Use a balanced-brace scanner to find valid JSON objects
+  const candidates = findJsonCandidates(trimmed);
+  // Prefer the last candidate with a "title" field (most likely the final answer)
+  for (let i = candidates.length - 1; i >= 0; i--) {
+    try {
+      const parsed = JSON.parse(candidates[i]);
+      if (parsed && typeof parsed === 'object' && parsed.title) return parsed;
+    } catch { /* try next */ }
+  }
+
+  // Strategy 4: Try any candidate JSON object (last one first)
+  for (let i = candidates.length - 1; i >= 0; i--) {
+    try {
+      const parsed = JSON.parse(candidates[i]);
+      if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) return parsed;
+    } catch { /* try next */ }
+  }
+
+  return null;
+}
+
+/**
+ * Scans text for balanced-brace JSON object candidates.
+ * Returns an array of substrings that start with { and end with a matching }.
+ */
+function findJsonCandidates(text) {
+  const candidates = [];
+  for (let i = 0; i < text.length; i++) {
+    if (text[i] === '{') {
+      let depth = 0;
+      let inString = false;
+      let escape = false;
+      for (let j = i; j < text.length; j++) {
+        const ch = text[j];
+        if (escape) {
+          escape = false;
+          continue;
+        }
+        if (ch === '\\' && inString) {
+          escape = true;
+          continue;
+        }
+        if (ch === '"' && !escape) {
+          inString = !inString;
+          continue;
+        }
+        if (!inString) {
+          if (ch === '{') depth++;
+          if (ch === '}') {
+            depth--;
+            if (depth === 0) {
+              const candidate = text.slice(i, j + 1);
+              // Only consider candidates that look like they might be JSON (have a colon)
+              if (candidate.includes(':') && candidate.length < 5000) {
+                candidates.push(candidate);
+              }
+              break;
+            }
+          }
+        }
+      }
+    }
+  }
+  return candidates;
+}
+
 app.post('/api/tasks/generate', async (req, res) => {
   const { prompt } = req.body;
   if (!prompt || !prompt.trim()) {
@@ -317,18 +419,12 @@ app.post('/api/tasks/generate', async (req, res) => {
   try {
     const result = await runAcpTaskCreator(prompt.trim(), PROJECT_ROOT);
 
-    // Try to extract JSON from the agent's response
+    // Try to extract JSON from the agent's response using multiple strategies
     let taskData;
-    try {
-      taskData = JSON.parse(result.trim());
-    } catch {
-      // Agent might have included surrounding text — find the JSON object
-      const jsonMatch = result.match(/\{[\s\S]*\}/);
-      if (jsonMatch) {
-        taskData = JSON.parse(jsonMatch[0]);
-      } else {
-        throw new Error('Could not parse AI response as JSON');
-      }
+    taskData = extractTaskJson(result);
+    if (!taskData) {
+      console.error('[ai-assist] Failed to parse AI response. Raw output:', result.substring(0, 2000));
+      throw new Error('Could not parse AI response as JSON');
     }
 
     // Validate and normalize the generated task
@@ -358,7 +454,14 @@ app.post('/api/tasks/generate', async (req, res) => {
     broadcast({ type: 'task-created', task: { ...task, _filename: filename } });
     res.status(201).json({ ...task, _filename: filename });
   } catch (err) {
-    res.status(500).json({ error: err.message || 'AI task generation failed' });
+    const userMessage = err.message || 'AI task generation failed';
+    // Provide a more helpful error message to the client
+    const isParseError = userMessage.includes('parse') || userMessage.includes('JSON');
+    res.status(500).json({
+      error: isParseError
+        ? 'AI generated a response but it could not be parsed as a valid task. Please try rephrasing your prompt with more specific requirements.'
+        : userMessage
+    });
   }
 });
 
@@ -661,7 +764,7 @@ const MAX_OUTPUT_LINES = 1000;
 function getDevAgentActivity() {
   try {
     if (!existsSync(TASKS_DIR)) return null;
-    const files = readdirSync(TASKS_DIR).filter(f => f.endsWith('.json'));
+    const files = readdirSync(TASKS_DIR).filter(f => f.endsWith('.json') && !f.startsWith('0_task_template'));
     for (const file of files) {
       try {
         const content = JSON.parse(readFileSync(join(TASKS_DIR, file), 'utf-8'));
@@ -1031,7 +1134,7 @@ function performRollback(agentId, agentConfig) {
   // Step 1: Reset in-progress tasks back to "todo"
   try {
     if (existsSync(TASKS_DIR)) {
-      const files = readdirSync(TASKS_DIR).filter(f => f.endsWith('.json'));
+      const files = readdirSync(TASKS_DIR).filter(f => f.endsWith('.json') && !f.startsWith('0_task_template'));
       for (const file of files) {
         try {
           const filepath = join(TASKS_DIR, file);

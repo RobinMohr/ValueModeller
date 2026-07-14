@@ -3,6 +3,6 @@
   "type": "bug",
   "priority": 1,
   "description": "error\"could not parse ai response as json\" when trying to create a task via the ai assist create task",
-  "state": "in-progress",
+  "state": "developed",
   "origin": "user"
 }

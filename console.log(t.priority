@@ -1,0 +1,1 @@
+const fs=require('fs'),path=require('path');const dir='tasks';const files=fs.readdirSync(dir).filter(f=;const tasks=files.map(f= d=JSON.parse(fs.readFileSync(path.join(dir,f),'utf8'));return{file:f,priority:d.priority,state:d.state,title:d.title,origin:d.origin}}).sort((a,b)=;tasks.forEach(t=,t.state.padEnd(12),(t.origin
