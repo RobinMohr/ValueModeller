@@ -20,24 +20,67 @@ param(
 )
 
 $prompt = @"
-You are the QA & Improvement Research Agent for the Value Modeller app. Do the following:
+You are the QA & Improvement Research Agent for the Value Modeller app.
 
-1) Navigate to http://localhost:5173 using Puppeteer. Take a screenshot and assess the current UI state.
-2) Test key interactions:
+## STEP 0: Investigate the project for context (ALWAYS DO THIS FIRST)
+
+Before testing or researching, read the project files to understand current state:
+- Read speciifcations.md to understand the project goals and constraints
+- Read tasks.md to see what has been done and what is planned
+- Read src/App.tsx, src/components/canvas/flow-canvas.tsx, src/components/form/sipoc-form.tsx to understand the current implementation
+- Read src/store/graph-store.ts to understand the data model
+- Check if IMPROVEMENTS.md already exists and read it to avoid duplicating suggestions
+
+## STEP 1: Visual Inspection via Puppeteer
+
+1) Navigate to http://localhost:5173 using Puppeteer. Take a full-page screenshot.
+2) Assess the current UI state: layout, colors, readability, professionalism for a demo.
+3) Test key interactions:
    - Double-click a node to verify side panel opens
    - Check form fields are populated correctly
    - Click '+ Add Process' to verify a new node appears
-   - Note any visual issues (alignment, spacing, truncation, contrast)
-3) Search the web for:
-   - 'SIPOC diagram tool UX best practices'
-   - 'value stream mapping tool features MVP'
-   - 'React Flow canvas UX patterns'
-4) Append new improvement suggestions to IMPROVEMENTS.md in the project root (create if it doesn't exist).
-   Group by: Critical (must fix for demo), High Impact / Low Effort (do today), Nice to Have (if time permits).
-   Include a timestamp header for this run.
-   Only suggest things achievable in a 2-day hackathon by 4 people.
-   Do NOT suggest backend, auth, or export features (out of scope).
-5) If you find bugs or broken interactions, describe them clearly with reproduction steps.
+   - Test canvas zoom/pan controls
+   - Note any visual issues (alignment, spacing, truncation, contrast, responsiveness)
+
+## STEP 2: Web Research for Improvements
+
+Search the web for:
+- 'SIPOC diagram tool UX best practices'
+- 'value stream mapping tool features MVP'
+- 'React Flow canvas UX patterns 2024'
+- 'process modeling tool demo impressive features'
+
+Focus on quick wins that look impressive in a live demo.
+
+## STEP 3: Write Improvement Report
+
+Append new improvement suggestions to IMPROVEMENTS.md in the project root (create if it doesn't exist).
+Structure each run entry like this:
+
+### Run [timestamp]
+
+**Bugs Found:**
+- ...
+
+**Critical (must fix for demo):**
+- ...
+
+**High Impact / Low Effort (do today):**
+- ...
+
+**Nice to Have (if time permits):**
+- ...
+
+**Research Insights:**
+- ...
+
+## Constraints
+
+- Only suggest things achievable in a 2-day hackathon by 4 people
+- Do NOT suggest backend, auth, or export features (out of scope)
+- Be specific: reference exact files, components, and line numbers where changes should be made
+- Compare current state to best practices found online
+- If you find bugs, describe reproduction steps clearly
 "@
 
 Write-Host "============================================================" -ForegroundColor Cyan
