@@ -15,7 +15,7 @@ REM
 REM Usage: scripts\qa-loop.bat
 REM ============================================================
 
-set INTERVAL_SECONDS=300
+set INTERVAL_SECONDS=0
 set ITERATION=0
 
 echo ============================================================
@@ -31,7 +31,10 @@ echo [%date% %time%] === Iteration %ITERATION% ===
 kiro --no-interactive --trust-tools --prompt "You are the QA & Improvement Research Agent for the Value Modeller app. ALWAYS START by reading project files for context: speciifcations.md, tasks.md, src/App.tsx, src/components/canvas/flow-canvas.tsx, src/components/form/sipoc-form.tsx, src/store/graph-store.ts, and IMPROVEMENTS.md (if it exists). Then: 1) Navigate to http://localhost:5173 using Puppeteer. Take a full-page screenshot. 2) Test key interactions: double-click a node to verify side panel opens, check form fields, click Add Process, test zoom/pan. Note visual issues. 3) Search the web for 'SIPOC diagram tool UX best practices', 'value stream mapping tool features MVP', 'React Flow canvas UX patterns 2024'. 4) Append findings to IMPROVEMENTS.md with a timestamp header. Group by: Bugs Found, Critical (for demo), High Impact/Low Effort, Nice to Have, Research Insights. Be specific: reference exact files and components. Only suggest things achievable in 2-day hackathon by 4 people. Do NOT suggest backend, auth, or export."
 
 echo.
-echo [%date% %time%] Iteration %ITERATION% complete. Sleeping %INTERVAL_SECONDS%s...
+echo [%date% %time%] Iteration %ITERATION% complete.
+if %INTERVAL_SECONDS% GTR 0 (
+    echo   Sleeping %INTERVAL_SECONDS%s...
+    timeout /t %INTERVAL_SECONDS% /nobreak
+)
 echo.
-timeout /t %INTERVAL_SECONDS% /nobreak
 goto loop

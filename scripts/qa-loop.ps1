@@ -16,7 +16,7 @@
 # ============================================================
 
 param(
-    [int]$IntervalSeconds = 300
+    [int]$IntervalSeconds = 0
 )
 
 $prompt = @"
@@ -104,8 +104,12 @@ while ($true) {
     }
 
     Write-Host ""
-    Write-Host "[$timestamp] Iteration $iteration complete. Sleeping ${IntervalSeconds}s..." -ForegroundColor Gray
-    Write-Host ""
+    Write-Host "[$timestamp] Iteration $iteration complete." -ForegroundColor Gray
     
-    Start-Sleep -Seconds $IntervalSeconds
+    if ($IntervalSeconds -gt 0) {
+        Write-Host "  Sleeping ${IntervalSeconds}s..." -ForegroundColor Gray
+        Start-Sleep -Seconds $IntervalSeconds
+    }
+
+    Write-Host ""
 }
