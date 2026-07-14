@@ -11,8 +11,10 @@
  *   node dist/agent-loop.js --agent task-order-agent --type task-order --max-iterations 1
  *   node dist/agent-loop.js --agent my-custom-agent --type custom --prompt "Do something"
  */
-import { resolve } from "node:path";
-import { readFile } from "node:fs/promises";
+import { resolve, join } from "node:path";
+import { readFile, readdir } from "node:fs/promises";
+import { readdirSync, readFileSync } from "node:fs";
+import { execFileSync } from "node:child_process";
 import { KiroRunner } from "./kiro-runner.js";
 import { logAgentError } from "./error-logger.js";
 
@@ -160,7 +162,6 @@ function stripAnsiAndEmoji(text: string): string {
 async function cleanupOrphanedProcesses(): Promise<void> {
   if (process.platform !== "win32") return;
   try {
-    const { execFileSync } = await import("node:child_process");
     // Only target kiro-cli.exe processes running the "acp" subcommand,
     // to avoid killing an unrelated interactive kiro-cli session the user
     // might have open elsewhere.
@@ -208,8 +209,6 @@ async function cleanupOrphanedProcesses(): Promise<void> {
 /** Check if there are actionable tasks for the dev agent. */
 async function hasWork(cwd: string): Promise<boolean> {
   try {
-    const { readdirSync, readFileSync } = await import("node:fs");
-    const { join } = await import("node:path");
     const tasksDir = join(cwd, "tasks");
     const files = readdirSync(tasksDir).filter((f) => f.endsWith(".json"));
     for (const file of files) {
@@ -218,6 +217,158 @@ async function hasWork(cwd: string): Promise<boolean> {
     }
     return false;
   } catch {
+    return false;
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Git helpers for dev agent (branch management, commit, push)
+// ---------------------------------------------------------------------------
+
+const TARGET_BRANCH = "develop";
+
+/**
+ * Ensure the working tree is on the `develop` branch.
+ * If the branch doesn't exist locally, create it from the current HEAD.
+ * If it exists but isn't checked out, switch to it.
+ */
+function ensureDevelopBranch(cwd: string): boolean {
+  try {
+    // Get current branch name
+    const currentBranch = execFileSync("git", ["rev-parse", "--abbrev-ref", "HEAD"], {
+      cwd,
+      encoding: "utf-8",
+      timeout: 10_000,
+    }).trim();
+
+    if (currentBranch === TARGET_BRANCH) {
+      log(`  Git: already on '${TARGET_BRANCH}' branch.`, "gray");
+      return true;
+    }
+
+    log(`  Git: currently on '${currentBranch}', switching to '${TARGET_BRANCH}'...`, "yellow");
+
+    // Check if develop branch exists locally
+    try {
+      execFileSync("git", ["rev-parse", "--verify", TARGET_BRANCH], {
+        cwd,
+        encoding: "utf-8",
+        timeout: 10_000,
+        stdio: "pipe",
+      });
+      // Branch exists, check it out
+      execFileSync("git", ["checkout", TARGET_BRANCH], {
+        cwd,
+        encoding: "utf-8",
+        timeout: 10_000,
+      });
+    } catch {
+      // Branch doesn't exist, create it from current HEAD
+      log(`  Git: '${TARGET_BRANCH}' branch doesn't exist. Creating it...`, "yellow");
+      execFileSync("git", ["checkout", "-b", TARGET_BRANCH], {
+        cwd,
+        encoding: "utf-8",
+        timeout: 10_000,
+      });
+    }
+
+    log(`  Git: now on '${TARGET_BRANCH}' branch.`, "green");
+    return true;
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err);
+    log(`  Git: failed to switch to '${TARGET_BRANCH}': ${msg}`, "red");
+    return false;
+  }
+}
+
+/**
+ * Build a meaningful commit message from the tasks that were completed.
+ * Looks for tasks with state 'in-progress' or recently changed to 'developed'.
+ */
+function getCommitMessage(cwd: string): string {
+  try {
+    const tasksDir = join(cwd, "tasks");
+    const files = readdirSync(tasksDir).filter((f) => f.endsWith(".json"));
+
+    // Stage all first so we can check what's staged
+    const stagedFiles = execFileSync("git", ["diff", "--cached", "--name-only"], {
+      cwd,
+      encoding: "utf-8",
+      timeout: 10_000,
+    }).trim();
+
+    // Find tasks that were developed in this iteration
+    const developedTasks: string[] = [];
+    for (const file of files) {
+      try {
+        const content = JSON.parse(readFileSync(join(tasksDir, file), "utf-8"));
+        if (content.state === "developed" || content.state === "in-progress") {
+          if (stagedFiles.includes(`tasks/${file}`)) {
+            developedTasks.push(content.title || file.replace(".json", ""));
+          }
+        }
+      } catch {
+        /* skip unreadable task files */
+      }
+    }
+
+    if (developedTasks.length > 0) {
+      const taskTitles = developedTasks.join(", ");
+      return `feat: ${taskTitles}`;
+    }
+
+    // Fallback: use a generic message with timestamp
+    return `chore: dev agent changes (${new Date().toISOString().slice(0, 16)})`;
+  } catch {
+    return `chore: dev agent changes (${new Date().toISOString().slice(0, 16)})`;
+  }
+}
+
+/**
+ * Stage all changes, commit with a meaningful message, and push to remote.
+ * Returns true if successful, false otherwise.
+ */
+function commitAndPush(cwd: string): boolean {
+  try {
+    // Check if there are any changes to commit
+    const status = execFileSync("git", ["status", "--porcelain"], {
+      cwd,
+      encoding: "utf-8",
+      timeout: 10_000,
+    }).trim();
+
+    if (!status) {
+      log(`  Git: no changes to commit.`, "gray");
+      return true;
+    }
+
+    log(`  Git: staging all changes...`, "gray");
+    execFileSync("git", ["add", "."], {
+      cwd,
+      timeout: 30_000,
+    });
+
+    // Build commit message from completed task
+    const commitMessage = getCommitMessage(cwd);
+    log(`  Git: committing: "${commitMessage}"`, "cyan");
+    execFileSync("git", ["commit", "-m", commitMessage], {
+      cwd,
+      encoding: "utf-8",
+      timeout: 30_000,
+    });
+
+    log(`  Git: pushing to remote...`, "cyan");
+    execFileSync("git", ["push", "-u", "origin", TARGET_BRANCH], {
+      cwd,
+      encoding: "utf-8",
+      timeout: 60_000,
+    });
+
+    log(`  Git: pushed successfully to origin/${TARGET_BRANCH}.`, "green");
+    return true;
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err);
+    log(`  Git: commit/push failed: ${msg}`, "red");
     return false;
   }
 }
@@ -427,6 +578,16 @@ async function main(): Promise<void> {
       }
     }
 
+    // For dev agents, ensure we're on the develop branch before starting work
+    if (config.type === "dev") {
+      if (!ensureDevelopBranch(cwd)) {
+        log(`[${timestamp()}] Cannot switch to '${TARGET_BRANCH}' branch. Waiting 30s...`, "red");
+        await sleep(30_000);
+        if (stopping) break;
+        continue;
+      }
+    }
+
     iteration++;
     const startTime = Date.now();
     log(`[${timestamp()}] === Iteration ${iteration} ===`, "yellow");
@@ -439,6 +600,11 @@ async function main(): Promise<void> {
         `[${timestamp()}] Iteration ${iteration} done. (Duration: ${duration}s)`,
         "green"
       );
+
+      // For dev agents, commit and push changes after successful iteration
+      if (config.type === "dev") {
+        commitAndPush(cwd);
+      }
     } else {
       log(
         `[${timestamp()}] Iteration ${iteration} ended with issues. (Duration: ${duration}s)`,
