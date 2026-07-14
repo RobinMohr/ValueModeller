@@ -1,91 +1,34 @@
 # ============================================================
-# QA & Improvement Agent Loop (PowerShell version)
+# QA & Improvement Agent Loop (PowerShell)
 #
-# Runs Kiro CLI in headless mode repeatedly to:
-# 1. Open the app via Puppeteer and inspect it
-# 2. Research improvements via web search
-# 3. Write findings to IMPROVEMENTS.md
+# Runs kiro-cli repeatedly using the qa-improvement-agent.
+# The agent definition lives at .kiro/agents/qa-improvement-agent.json
 #
-# Prerequisites:
-#   - npm run dev must be running (http://localhost:5173)
-#   - kiro CLI must be installed and authenticated
-#   - Puppeteer MCP server must be configured
+# Voraussetzungen:
+#   - npm run dev muss in separatem Terminal laufen
+#   - kiro-cli muss installiert sein
+#   - Puppeteer MCP Server muss konfiguriert sein
 #
-# Usage: .\scripts\qa-loop.ps1
-#        .\scripts\qa-loop.ps1 -IntervalSeconds 120
+# Ausfuehren:
+#   cd "c:\Projects\1_Work\Hackathon\Value Modeller\ValueModeller"
+#   .\scripts\qa-loop.ps1
 # ============================================================
 
 param(
-    [int]$IntervalSeconds = 0
+    [int]$IntervalSeconds = 30,
+    [int]$TimeoutSeconds = 600,
+    [int]$MaxIterations = 0  # 0 = infinite
 )
 
-$prompt = @"
-You are the QA & Improvement Research Agent for the Value Modeller app.
+$ErrorActionPreference = "Continue"
 
-## STEP 0: Investigate the project for context (ALWAYS DO THIS FIRST)
-
-Before testing or researching, read the project files to understand current state:
-- Read speciifcations.md to understand the project goals and constraints
-- Read tasks.md to see what has been done and what is planned
-- Read src/App.tsx, src/components/canvas/flow-canvas.tsx, src/components/form/sipoc-form.tsx to understand the current implementation
-- Read src/store/graph-store.ts to understand the data model
-- Check if IMPROVEMENTS.md already exists and read it to avoid duplicating suggestions
-
-## STEP 1: Visual Inspection via Puppeteer
-
-1) Navigate to http://localhost:5173 using Puppeteer. Take a full-page screenshot.
-2) Assess the current UI state: layout, colors, readability, professionalism for a demo.
-3) Test key interactions:
-   - Double-click a node to verify side panel opens
-   - Check form fields are populated correctly
-   - Click '+ Add Process' to verify a new node appears
-   - Test canvas zoom/pan controls
-   - Note any visual issues (alignment, spacing, truncation, contrast, responsiveness)
-
-## STEP 2: Web Research for Improvements
-
-Search the web for:
-- 'SIPOC diagram tool UX best practices'
-- 'value stream mapping tool features MVP'
-- 'React Flow canvas UX patterns 2024'
-- 'process modeling tool demo impressive features'
-
-Focus on quick wins that look impressive in a live demo.
-
-## STEP 3: Write Improvement Report
-
-Append new improvement suggestions to IMPROVEMENTS.md in the project root (create if it doesn't exist).
-Structure each run entry like this:
-
-### Run [timestamp]
-
-**Bugs Found:**
-- ...
-
-**Critical (must fix for demo):**
-- ...
-
-**High Impact / Low Effort (do today):**
-- ...
-
-**Nice to Have (if time permits):**
-- ...
-
-**Research Insights:**
-- ...
-
-## Constraints
-
-- Only suggest things achievable in a 2-day hackathon by 4 people
-- Do NOT suggest backend, auth, or export features (out of scope)
-- Be specific: reference exact files, components, and line numbers where changes should be made
-- Compare current state to best practices found online
-- If you find bugs, describe reproduction steps clearly
-"@
+$prompt = "Run the QA and Improvement Research Agent. Follow all steps in your agent instructions: read project files, test the app with Puppeteer at http://localhost:5173, research improvements via web search, and update IMPROVEMENTS.md. IMPORTANT: 1) After you are done with Puppeteer testing, close the browser by running puppeteer_evaluate with script 'window.close()' or navigate to about:blank so the browser window does not stay open. 2) Do NOT add duplicate ideas to IMPROVEMENTS.md. Read the existing file first, and if an idea already exists, either skip it or extend/refine the existing entry in place. Only add genuinely new findings."
 
 Write-Host "============================================================" -ForegroundColor Cyan
-Write-Host " Value Modeller - QA & Improvement Agent Loop" -ForegroundColor Cyan
-Write-Host " Running every $IntervalSeconds seconds (Ctrl+C to stop)" -ForegroundColor Cyan
+Write-Host " Value Modeller - QA and Improvement Agent Loop" -ForegroundColor Cyan
+Write-Host (" Interval: {0}s | Timeout: {1}s | Max: {2}" -f $IntervalSeconds, $TimeoutSeconds, $(if ($MaxIterations -eq 0) { "infinite" } else { $MaxIterations })) -ForegroundColor Cyan
+Write-Host " Agent: qa-improvement-agent" -ForegroundColor Cyan
+Write-Host " Press Ctrl+C to stop" -ForegroundColor Cyan
 Write-Host "============================================================" -ForegroundColor Cyan
 Write-Host ""
 
@@ -93,23 +36,67 @@ $iteration = 0
 
 while ($true) {
     $iteration++
-    $timestamp = Get-Date -Format "yyyy-MM-dd HH:mm:ss"
-    Write-Host "[$timestamp] === Iteration $iteration ===" -ForegroundColor Yellow
+    $startTime = Get-Date
+    $timestamp = $startTime.ToString("yyyy-MM-dd HH:mm:ss")
+    Write-Host ("[$timestamp] === Iteration $iteration ===") -ForegroundColor Yellow
+
+    $psi = New-Object System.Diagnostics.ProcessStartInfo
+    $psi.FileName = "kiro-cli"
+    $psi.Arguments = ('chat --no-interactive -a --agent qa-improvement-agent "{0}"' -f $prompt)
+    $psi.UseShellExecute = $false
+    $psi.RedirectStandardOutput = $true
+    $psi.RedirectStandardError = $true
+    $psi.WorkingDirectory = (Get-Location).Path
+
+    $process = New-Object System.Diagnostics.Process
+    $process.StartInfo = $psi
 
     try {
-        kiro --no-interactive --trust-tools --prompt $prompt
+        $process.Start() | Out-Null
+
+        $stdoutTask = $process.StandardOutput.ReadToEndAsync()
+        $stderrTask = $process.StandardError.ReadToEndAsync()
+
+        $exited = $process.WaitForExit($TimeoutSeconds * 1000)
+
+        if (-not $exited) {
+            Write-Host "  TIMEOUT: kiro-cli exceeded timeout, killing process." -ForegroundColor Red
+            $process.Kill()
+            $process.WaitForExit(5000)
+        }
+
+        $stdout = $stdoutTask.Result
+        $stderr = $stderrTask.Result
+
+        if ($stdout) { Write-Host $stdout }
+        if ($stderr -and $stderr.Trim()) { Write-Host ("  STDERR: " + $stderr) -ForegroundColor DarkGray }
+
+        $exitCode = $process.ExitCode
     }
     catch {
-        Write-Host "  ERROR: kiro command failed: $_" -ForegroundColor Red
+        Write-Host ("  ERROR starting kiro-cli: " + $_) -ForegroundColor Red
+        $exitCode = 1
+    }
+    finally {
+        if ($process) { $process.Dispose() }
+    }
+
+    $duration = [math]::Round(((Get-Date) - $startTime).TotalSeconds)
+    $endTimestamp = Get-Date -Format "yyyy-MM-dd HH:mm:ss"
+
+    if ($exitCode -ne 0) {
+        Write-Host ("  WARNING: Exit-Code $exitCode (Duration: ${duration}s)") -ForegroundColor Red
+    }
+    else {
+        Write-Host ("[$endTimestamp] Iteration $iteration done. (Duration: ${duration}s)") -ForegroundColor Green
     }
 
     Write-Host ""
-    Write-Host "[$timestamp] Iteration $iteration complete." -ForegroundColor Gray
-    
-    if ($IntervalSeconds -gt 0) {
-        Write-Host "  Sleeping ${IntervalSeconds}s..." -ForegroundColor Gray
-        Start-Sleep -Seconds $IntervalSeconds
+    if ($MaxIterations -gt 0 -and $iteration -ge $MaxIterations) {
+        Write-Host "  Max iterations ($MaxIterations) reached. Stopping." -ForegroundColor Cyan
+        break
     }
-
+    Write-Host ("  Next iteration in {0}s... (Ctrl+C to stop)" -f $IntervalSeconds) -ForegroundColor Gray
+    Start-Sleep -Seconds $IntervalSeconds
     Write-Host ""
 }
