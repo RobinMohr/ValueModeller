@@ -21,6 +21,6 @@ export const useUiStore = create<UiStore>()((set) => ({
   },
 
   closeSidePanel: () => {
-    set({ isSidePanelOpen: false });
+    set({ isSidePanelOpen: false, selectedNodeId: null });
   },
 }));

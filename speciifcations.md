@@ -13,7 +13,7 @@ A web application that allows product owners to visualize and enter SIPOC proces
 
 ### SIPOC
 
-Each process node in the value stream captures five categories:
+Each process node in the value stream captures five categories plus additional metadata:
 
 | Element    | Description                                      |
 |------------|--------------------------------------------------|
@@ -22,6 +22,14 @@ Each process node in the value stream captures five categories:
 | Process    | The activity or transformation being performed   |
 | Output     | What the process produces                        |
 | Customer   | Who receives the outputs                         |
+
+Each process step also captures:
+
+| Field                  | Description                                                        |
+|------------------------|--------------------------------------------------------------------|
+| Applications Involved  | Which applications or systems are used in this process step        |
+| Involved Teams         | Which teams or departments participate in this process step        |
+| Known Issues           | Any known problems, bottlenecks, or improvement opportunities      |
 
 ### Value Stream Chain
 

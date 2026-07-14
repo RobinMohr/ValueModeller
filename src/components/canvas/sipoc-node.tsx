@@ -4,6 +4,11 @@ import type { SipocNode } from '../../types/sipoc.types';
 import { cn } from '../../utils/cn';
 import { useUiStore } from '../../store/ui-store';
 
+function countLines(text: string): number {
+  if (!text || !text.trim()) return 0;
+  return text.split('\n').filter((line) => line.trim() !== '').length;
+}
+
 export const SipocNodeComponent = memo(function SipocNodeComponent({
   data,
   id,
@@ -11,11 +16,11 @@ export const SipocNodeComponent = memo(function SipocNodeComponent({
 }: NodeProps<SipocNode>) {
   const openSidePanel = useUiStore((s) => s.openSidePanel);
 
-  const totalItems =
-    data.suppliers.length +
-    data.inputs.length +
-    data.outputs.length +
-    data.customers.length;
+  const supplierCount = countLines(data.suppliers);
+  const inputCount = countLines(data.inputs);
+  const outputCount = countLines(data.outputs);
+  const customerCount = countLines(data.customers);
+  const totalItems = supplierCount + inputCount + outputCount + customerCount;
 
   return (
     <div
@@ -53,16 +58,16 @@ export const SipocNodeComponent = memo(function SipocNodeComponent({
         )}
         <div className="flex gap-2 mt-1">
           <span className="text-xs px-1.5 py-0.5 rounded bg-blue-50 text-blue-700">
-            S:{data.suppliers.length}
+            S:{supplierCount}
           </span>
           <span className="text-xs px-1.5 py-0.5 rounded bg-green-50 text-green-700">
-            I:{data.inputs.length}
+            I:{inputCount}
           </span>
           <span className="text-xs px-1.5 py-0.5 rounded bg-orange-50 text-orange-700">
-            O:{data.outputs.length}
+            O:{outputCount}
           </span>
           <span className="text-xs px-1.5 py-0.5 rounded bg-purple-50 text-purple-700">
-            C:{data.customers.length}
+            C:{customerCount}
           </span>
         </div>
         {totalItems === 0 && (

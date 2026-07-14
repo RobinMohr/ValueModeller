@@ -1,21 +1,44 @@
-import { useCallback, useMemo } from 'react';
+import { useCallback } from 'react';
 import { useGraphStore } from '../../store/graph-store';
 import { useUiStore } from '../../store/ui-store';
 import { Button } from '../ui/button';
 import { Input } from '../ui/input';
-import { SipocListSection } from './sipoc-list-section';
 import type { SipocNodeData } from '../../types/sipoc.types';
+
+interface SipocTextAreaFieldProps {
+  id: string;
+  label: string;
+  value: string;
+  placeholder: string;
+  onChange: (value: string) => void;
+}
+
+function SipocTextAreaField({ id, label, value, placeholder, onChange }: SipocTextAreaFieldProps) {
+  return (
+    <div className="flex flex-col gap-1">
+      <label htmlFor={id} className="text-sm font-medium text-gray-700">
+        {label}
+      </label>
+      <textarea
+        id={id}
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        placeholder={placeholder}
+        className="rounded-md border border-gray-300 px-3 py-2 text-sm shadow-sm transition-colors placeholder:text-gray-400 focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500 min-h-[80px] resize-y"
+        rows={3}
+      />
+    </div>
+  );
+}
 
 export function SipocForm() {
   const selectedNodeId = useUiStore((s) => s.selectedNodeId);
   const closeSidePanel = useUiStore((s) => s.closeSidePanel);
-  const getNodeById = useGraphStore((s) => s.getNodeById);
   const updateNodeData = useGraphStore((s) => s.updateNodeData);
   const deleteNode = useGraphStore((s) => s.deleteNode);
 
-  const node = useMemo(
-    () => (selectedNodeId ? getNodeById(selectedNodeId) : undefined),
-    [selectedNodeId, getNodeById]
+  const node = useGraphStore((s) =>
+    selectedNodeId ? s.nodes.find((n) => n.id === selectedNodeId) : undefined
   );
 
   const handleUpdate = useCallback(
@@ -66,51 +89,73 @@ export function SipocForm() {
           placeholder="e.g., Order Processing"
         />
 
-        <div className="flex flex-col gap-1">
-          <label htmlFor="process-description" className="text-sm font-medium text-gray-700">
-            Process Description
-          </label>
-          <textarea
-            id="process-description"
-            value={node.data.processDescription}
-            onChange={(e) => handleUpdate('processDescription', e.target.value)}
-            placeholder="Describe what this process does..."
-            className="rounded-md border border-gray-300 px-3 py-2 text-sm shadow-sm transition-colors placeholder:text-gray-400 focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500 min-h-[80px] resize-y"
-            rows={3}
+        <SipocTextAreaField
+          id="process-description"
+          label="Process Description"
+          value={node.data.processDescription}
+          placeholder="Describe what this process does..."
+          onChange={(value) => handleUpdate('processDescription', value)}
+        />
+
+        <SipocTextAreaField
+          id="suppliers"
+          label="Suppliers"
+          value={node.data.suppliers}
+          placeholder="Who provides inputs to this process? (one per line)"
+          onChange={(value) => handleUpdate('suppliers', value)}
+        />
+
+        <SipocTextAreaField
+          id="inputs"
+          label="Inputs"
+          value={node.data.inputs}
+          placeholder="What materials, data, or resources enter? (one per line)"
+          onChange={(value) => handleUpdate('inputs', value)}
+        />
+
+        <SipocTextAreaField
+          id="outputs"
+          label="Outputs"
+          value={node.data.outputs}
+          placeholder="What does this process produce? (one per line)"
+          onChange={(value) => handleUpdate('outputs', value)}
+        />
+
+        <SipocTextAreaField
+          id="customers"
+          label="Customers"
+          value={node.data.customers}
+          placeholder="Who receives the outputs? (one per line)"
+          onChange={(value) => handleUpdate('customers', value)}
+        />
+
+        <div className="border-t border-gray-200 pt-6 space-y-6">
+          <h3 className="text-sm font-semibold text-gray-700 uppercase tracking-wider">Additional Details</h3>
+
+          <SipocTextAreaField
+            id="applications-involved"
+            label="Applications Involved"
+            value={node.data.applicationsInvolved ?? ''}
+            placeholder="Which applications or systems are involved in this process step?"
+            onChange={(value) => handleUpdate('applicationsInvolved', value)}
+          />
+
+          <SipocTextAreaField
+            id="involved-teams"
+            label="Involved Teams"
+            value={node.data.involvedTeams ?? ''}
+            placeholder="Which teams or departments are involved in this process step?"
+            onChange={(value) => handleUpdate('involvedTeams', value)}
+          />
+
+          <SipocTextAreaField
+            id="known-issues"
+            label="Known Issues"
+            value={node.data.knownIssues ?? ''}
+            placeholder="Any known problems, bottlenecks, or improvement opportunities?"
+            onChange={(value) => handleUpdate('knownIssues', value)}
           />
         </div>
-
-        <SipocListSection
-          title="Suppliers"
-          description="Who provides inputs to this process?"
-          items={node.data.suppliers}
-          color="blue"
-          onChange={(items) => handleUpdate('suppliers', items)}
-        />
-
-        <SipocListSection
-          title="Inputs"
-          description="What materials, data, or resources enter?"
-          items={node.data.inputs}
-          color="green"
-          onChange={(items) => handleUpdate('inputs', items)}
-        />
-
-        <SipocListSection
-          title="Outputs"
-          description="What does this process produce?"
-          items={node.data.outputs}
-          color="orange"
-          onChange={(items) => handleUpdate('outputs', items)}
-        />
-
-        <SipocListSection
-          title="Customers"
-          description="Who receives the outputs?"
-          items={node.data.customers}
-          color="purple"
-          onChange={(items) => handleUpdate('customers', items)}
-        />
       </div>
 
       <div className="p-4 border-t border-gray-200">

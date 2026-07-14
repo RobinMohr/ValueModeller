@@ -22,7 +22,7 @@ param(
 
 $ErrorActionPreference = "Continue"
 
-$prompt = "Run the QA and Improvement Research Agent. Follow all steps in your agent instructions: read project files, test the app with Puppeteer at http://localhost:5173, research improvements via web search, and update IMPROVEMENTS.md. IMPORTANT: 1) After you are done with Puppeteer testing, close the browser by running puppeteer_evaluate with script 'window.close()' or navigate to about:blank so the browser window does not stay open. 2) Do NOT add duplicate ideas to IMPROVEMENTS.md. Read the existing file first, and if an idea already exists, either skip it or extend/refine the existing entry in place. Only add genuinely new findings."
+$prompt = "Run the QA and Improvement Research Agent. Follow all steps in your agent instructions: read project files, test the app with Puppeteer at http://localhost:5173, research improvements via web search, and update IMPROVEMENTS.md. CRITICAL: When calling puppeteer_navigate for the FIRST time, you MUST pass launchOptions with headless mode: { ""headless"": true, ""args"": [""--no-sandbox"", ""--disable-gpu""] }. This is required for autonomous operation without a visible browser window. Do NOT add duplicate ideas to IMPROVEMENTS.md. Read the existing file first, and if an idea already exists, either skip it or extend/refine the existing entry in place. Only add genuinely new findings."
 
 Write-Host "============================================================" -ForegroundColor Cyan
 Write-Host " Value Modeller - QA and Improvement Agent Loop" -ForegroundColor Cyan
@@ -39,7 +39,9 @@ while ($true) {
     $startTime = Get-Date
     $timestamp = $startTime.ToString("yyyy-MM-dd HH:mm:ss")
     Write-Host ("[$timestamp] === Iteration $iteration ===") -ForegroundColor Yellow
+    Write-Host ""
 
+    # Start kiro-cli with output redirected so we can stream it AND detect completion.
     $psi = New-Object System.Diagnostics.ProcessStartInfo
     $psi.FileName = "kiro-cli"
     $psi.Arguments = ('chat --no-interactive -a --agent qa-improvement-agent "{0}"' -f $prompt)
@@ -51,39 +53,91 @@ while ($true) {
     $process = New-Object System.Diagnostics.Process
     $process.StartInfo = $psi
 
+    $exitCode = 0
+    $completed = $false
+
     try {
         $process.Start() | Out-Null
+        Write-Host ("  PID: {0}" -f $process.Id) -ForegroundColor DarkGray
 
-        $stdoutTask = $process.StandardOutput.ReadToEndAsync()
+        # Read stderr in background to prevent deadlocks
         $stderrTask = $process.StandardError.ReadToEndAsync()
 
-        $exited = $process.WaitForExit($TimeoutSeconds * 1000)
+        # Stream stdout line by line, watching for the completion marker
+        $deadline = $startTime.AddSeconds($TimeoutSeconds)
 
-        if (-not $exited) {
-            Write-Host "  TIMEOUT: kiro-cli exceeded timeout, killing process." -ForegroundColor Red
-            $process.Kill()
-            $process.WaitForExit(5000)
+        while (-not $process.StandardOutput.EndOfStream) {
+            if ((Get-Date) -gt $deadline) {
+                Write-Host ""
+                Write-Host "  TIMEOUT: exceeded ${TimeoutSeconds}s, killing." -ForegroundColor Red
+                break
+            }
+
+            $line = $process.StandardOutput.ReadLine()
+            if ($null -ne $line) {
+                Write-Host $line
+
+                # Detect the kiro-cli completion marker
+                if ($line -match "Credits:.*Time:") {
+                    $completed = $true
+                }
+            }
         }
 
-        $stdout = $stdoutTask.Result
+        # Give it a moment to exit gracefully, then force-kill the process tree.
+        # The MCP server (Puppeteer) often doesn't exit on its own, so we kill aggressively.
+        if ($completed) {
+            $gracefulExit = $process.WaitForExit(3000)
+            if (-not $gracefulExit) {
+                Write-Host "  kiro-cli completed. Killing process tree to release MCP servers." -ForegroundColor DarkGray
+                # Kill the entire process tree (includes MCP servers, Puppeteer, etc.)
+                taskkill /PID $process.Id /T /F 2>$null | Out-Null
+                $process.WaitForExit(5000)
+            }
+            $exitCode = 0
+        }
+        else {
+            # Timed out or stream ended without completion marker
+            if (-not $process.HasExited) {
+                Write-Host "  Force-killing kiro-cli (no completion marker)." -ForegroundColor Yellow
+                taskkill /PID $process.Id /T /F 2>$null | Out-Null
+                $process.WaitForExit(5000)
+            }
+            $exitCode = if ($process.HasExited) { $process.ExitCode } else { -1 }
+        }
+
+        # Print any stderr
         $stderr = $stderrTask.Result
-
-        if ($stdout) { Write-Host $stdout }
-        if ($stderr -and $stderr.Trim()) { Write-Host ("  STDERR: " + $stderr) -ForegroundColor DarkGray }
-
-        $exitCode = $process.ExitCode
+        if ($stderr -and $stderr.Trim()) {
+            Write-Host ("  STDERR: " + $stderr) -ForegroundColor DarkGray
+        }
     }
     catch {
-        Write-Host ("  ERROR starting kiro-cli: " + $_) -ForegroundColor Red
+        Write-Host ("  ERROR: " + $_) -ForegroundColor Red
         $exitCode = 1
+        if ($process -and -not $process.HasExited) {
+            taskkill /PID $process.Id /T /F 2>$null | Out-Null
+        }
     }
     finally {
         if ($process) { $process.Dispose() }
     }
 
+    # Clean up any orphaned Puppeteer/Chromium/Edge processes started during this iteration
+    $browserNames = @("chrome", "chromium", "msedge", "headless_shell")
+    $chromeProcs = Get-Process -Name $browserNames -ErrorAction SilentlyContinue |
+        Where-Object { $_.StartTime -ge $startTime }
+    if ($chromeProcs) {
+        foreach ($cp in $chromeProcs) {
+            Write-Host ("  Killing orphaned browser process: {0} (PID: {1})" -f $cp.ProcessName, $cp.Id) -ForegroundColor DarkGray
+            Stop-Process -Id $cp.Id -Force -ErrorAction SilentlyContinue
+        }
+    }
+
     $duration = [math]::Round(((Get-Date) - $startTime).TotalSeconds)
     $endTimestamp = Get-Date -Format "yyyy-MM-dd HH:mm:ss"
 
+    Write-Host ""
     if ($exitCode -ne 0) {
         Write-Host ("  WARNING: Exit-Code $exitCode (Duration: ${duration}s)") -ForegroundColor Red
     }

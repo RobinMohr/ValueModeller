@@ -99,3 +99,20 @@ Structure:
 - `puppeteer_navigate`, `puppeteer_screenshot`, `puppeteer_click`, `puppeteer_evaluate` — for visual testing
 - `web_search`, `web_fetch` — for researching best practices
 - `read_file`, `fs_write`, `fs_append` — for reading code and writing the report
+
+## CRITICAL: Puppeteer Headless Mode
+
+**You MUST run Puppeteer in headless mode for autonomous operation.**
+
+When calling `puppeteer_navigate`, ALWAYS pass `launchOptions` with headless enabled:
+
+```json
+{
+  "url": "http://localhost:5173",
+  "launchOptions": { "headless": true, "args": ["--no-sandbox", "--disable-gpu"] }
+}
+```
+
+This ensures the browser does NOT open a visible window that blocks the process from completing. Without this, the kiro-cli session will hang indefinitely waiting for the browser window to be manually closed.
+
+Only pass `launchOptions` on the FIRST `puppeteer_navigate` call in a session (subsequent navigations reuse the same browser instance and don't need it repeated unless the browser needs restarting).

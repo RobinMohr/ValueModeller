@@ -8,20 +8,13 @@ export const demoNodes: SipocNode[] = [
     data: {
       label: 'Receive Order',
       processDescription: 'Customer places an order via web or phone',
-      suppliers: [
-        { id: 's1-1', value: 'Customer' },
-        { id: 's1-2', value: 'Sales Team' },
-      ],
-      inputs: [
-        { id: 'i1-1', value: 'Purchase Order' },
-        { id: 'i1-2', value: 'Customer Requirements' },
-      ],
-      outputs: [
-        { id: 'o1-1', value: 'Confirmed Order' },
-      ],
-      customers: [
-        { id: 'c1-1', value: 'Order Processing Team' },
-      ],
+      suppliers: 'Customer\nSales Team',
+      inputs: 'Purchase Order\nCustomer Requirements',
+      outputs: 'Confirmed Order',
+      customers: 'Order Processing Team',
+      applicationsInvolved: 'SAP ERP\nShopify Storefront\nSalesforce CRM',
+      involvedTeams: 'Sales Team\nCustomer Service',
+      knownIssues: 'Manual order entry from phone orders causes delays',
     },
   },
   {
@@ -31,18 +24,13 @@ export const demoNodes: SipocNode[] = [
     data: {
       label: 'Check Inventory',
       processDescription: 'Verify stock availability for ordered items',
-      suppliers: [
-        { id: 's2-1', value: 'Order Processing Team' },
-      ],
-      inputs: [
-        { id: 'i2-1', value: 'Confirmed Order' },
-      ],
-      outputs: [
-        { id: 'o2-1', value: 'Stock Status Report' },
-      ],
-      customers: [
-        { id: 'c2-1', value: 'Warehouse Team' },
-      ],
+      suppliers: 'Order Processing Team',
+      inputs: 'Confirmed Order',
+      outputs: 'Stock Status Report',
+      customers: 'Warehouse Team',
+      applicationsInvolved: 'SAP Warehouse Management\nInventory Tracker',
+      involvedTeams: 'Warehouse Team',
+      knownIssues: '',
     },
   },
   {
@@ -52,19 +40,13 @@ export const demoNodes: SipocNode[] = [
     data: {
       label: 'Process Payment',
       processDescription: 'Charge customer payment method',
-      suppliers: [
-        { id: 's3-1', value: 'Payment Gateway' },
-      ],
-      inputs: [
-        { id: 'i3-1', value: 'Confirmed Order' },
-        { id: 'i3-2', value: 'Payment Details' },
-      ],
-      outputs: [
-        { id: 'o3-1', value: 'Payment Confirmation' },
-      ],
-      customers: [
-        { id: 'c3-1', value: 'Finance Department' },
-      ],
+      suppliers: 'Payment Gateway',
+      inputs: 'Confirmed Order\nPayment Details',
+      outputs: 'Payment Confirmation',
+      customers: 'Finance Department',
+      applicationsInvolved: 'Stripe Payment Gateway\nSAP Finance Module',
+      involvedTeams: 'Finance Department\nIT Operations',
+      knownIssues: 'Timeout errors during peak hours\nNo retry mechanism for failed payments',
     },
   },
   {
@@ -74,28 +56,20 @@ export const demoNodes: SipocNode[] = [
     data: {
       label: 'Ship Order',
       processDescription: 'Pack and dispatch items to customer',
-      suppliers: [
-        { id: 's4-1', value: 'Warehouse Team' },
-        { id: 's4-2', value: 'Shipping Partner' },
-      ],
-      inputs: [
-        { id: 'i4-1', value: 'Stock Status Report' },
-        { id: 'i4-2', value: 'Payment Confirmation' },
-      ],
-      outputs: [
-        { id: 'o4-1', value: 'Shipped Package' },
-        { id: 'o4-2', value: 'Tracking Number' },
-      ],
-      customers: [
-        { id: 'c4-1', value: 'Customer' },
-      ],
+      suppliers: 'Warehouse Team\nShipping Partner',
+      inputs: 'Stock Status Report\nPayment Confirmation',
+      outputs: 'Shipped Package\nTracking Number',
+      customers: 'Customer',
+      applicationsInvolved: 'DHL Shipping Portal\nSAP Logistics',
+      involvedTeams: 'Warehouse Team\nLogistics Partner',
+      knownIssues: 'Label printing occasionally fails for international orders',
     },
   },
 ];
 
 export const demoEdges: SipocEdge[] = [
-  { id: 'e1-2', source: 'node-1', target: 'node-2', type: 'smoothstep' },
-  { id: 'e1-3', source: 'node-1', target: 'node-3', type: 'smoothstep' },
-  { id: 'e2-4', source: 'node-2', target: 'node-4', type: 'smoothstep' },
-  { id: 'e3-4', source: 'node-3', target: 'node-4', type: 'smoothstep' },
+  { id: 'e1-2', source: 'node-1', target: 'node-2', type: 'smoothstep', animated: true },
+  { id: 'e1-3', source: 'node-1', target: 'node-3', type: 'smoothstep', animated: true },
+  { id: 'e2-4', source: 'node-2', target: 'node-4', type: 'smoothstep', animated: true },
+  { id: 'e3-4', source: 'node-3', target: 'node-4', type: 'smoothstep', animated: true },
 ];

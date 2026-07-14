@@ -1,17 +1,15 @@
 import type { Node, Edge } from '@xyflow/react';
 
-export interface SipocEntry {
-  id: string;
-  value: string;
-}
-
 export interface SipocNodeData {
   label: string;
   processDescription: string;
-  suppliers: SipocEntry[];
-  inputs: SipocEntry[];
-  outputs: SipocEntry[];
-  customers: SipocEntry[];
+  suppliers: string;
+  inputs: string;
+  outputs: string;
+  customers: string;
+  applicationsInvolved: string;
+  involvedTeams: string;
+  knownIssues: string;
   [key: string]: unknown;
 }
 
