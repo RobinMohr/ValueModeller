@@ -1,0 +1,12 @@
+{
+  "title": "Improve accessibility with full keyboard navigation for the canvas",
+  "priority": 3,
+  "type": "improvement",
+  "state": "developed",
+  "description": "React Flow supports built-in keyboard navigation and accessibility features (aria- defaults, keyboard controls) since v11. Our app already has some ARIA labels on nodes and the canvas, but lacks full keyboard navigation support for power users and accessibility compliance. Improvements: 1) Enable Tab-key navigation between nodes, 2) Add keyboard shortcut to open the side panel for the focused node (Enter/Space already works on nodes but tab focus between them is missing), 3) Add visible focus indicators on edges, 4) Ensure the MiniMap and Controls are keyboard-accessible. Reference: synergycodes.com guide on building usable and accessible diagrams with React Flow.",
+  "files": [
+    "src/components/canvas/flow-canvas.tsx",
+    "src/components/canvas/sipoc-node.tsx"
+  ],
+  "origin": "ai"
+}

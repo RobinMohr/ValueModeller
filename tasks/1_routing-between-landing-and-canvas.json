@@ -1,0 +1,13 @@
+{
+  "title": "Routing: Landing page at / and canvas editor at /stream/:id",
+  "priority": 1,
+  "type": "improvement",
+  "state": "developed",
+  "description": "Set up react-router-dom with HashRouter. Route / shows the LandingPage component. Route /stream/:id loads the corresponding value stream into the graph store and shows the existing AppShell canvas view. When entering a stream, loadStream is called; when navigating away, unloadStream saves state back. This connects the landing page to the existing canvas editor seamlessly.",
+  "files": [
+    "src/App.tsx",
+    "src/main.tsx",
+    "src/components/layout/app-shell.tsx"
+  ],
+  "origin": "user"
+}

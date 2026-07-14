@@ -1,0 +1,12 @@
+{
+  "title": "Copy/Paste Nodes (Ctrl+C / Ctrl+V)",
+  "priority": 2,
+  "type": "improvement",
+  "state": "developed",
+  "description": "Implement copy/paste functionality for selected nodes. When a user selects one or more nodes and presses Ctrl+C, then Ctrl+V, new nodes should be created with the same data but at a slightly offset position. This is a standard expectation in any node-based editor. Implementation: listen for keyboard events (Ctrl+C stores selected nodes in clipboard state, Ctrl+V creates duplicates with offset positions). Low effort since addNode already exists in graph-store, just need to clone existing node data with new IDs and offset positions.",
+  "files": [
+    "src/components/canvas/flow-canvas.tsx",
+    "src/store/graph-store.ts"
+  ],
+  "origin": "ai"
+}

@@ -1,0 +1,11 @@
+{
+  "title": "Back navigation and stream name in header",
+  "priority": 1,
+  "type": "improvement",
+  "state": "developed",
+  "description": "The AppShell header must show the current value stream name and provide a back button/link to return to the landing page (/). On navigation away, the graph store unloads the stream (saving state). The header integrates stream identity so users always know which stream they are editing.",
+  "files": [
+    "src/components/layout/app-shell.tsx"
+  ],
+  "origin": "user"
+}

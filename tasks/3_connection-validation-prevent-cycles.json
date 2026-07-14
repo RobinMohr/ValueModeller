@@ -1,0 +1,12 @@
+{
+  "title": "Connection validation (prevent cycles)",
+  "priority": 3,
+  "type": "improvement",
+  "state": "developed",
+  "description": "Add validation to prevent users from creating connections that would form cycles in the graph. Value streams should be DAGs. Use React Flow's isValidConnection prop to check before allowing a new connection.",
+  "files": [
+    "src/components/canvas/flow-canvas.tsx",
+    "src/utils/cycle-detection.ts"
+  ],
+  "origin": "ai"
+}

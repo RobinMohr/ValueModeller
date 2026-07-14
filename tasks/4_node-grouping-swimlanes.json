@@ -1,0 +1,12 @@
+{
+  "title": "Node grouping / swimlanes",
+  "type": "idea",
+  "priority": 4,
+  "necessity": "low",
+  "description": "Allow users to group processes by department or team using React Flow's Group Node feature. Maps to real organizational structures and adds an advanced layer to the canvas.",
+  "effort": "3-4 hours",
+  "impact": "low",
+  "files": ["src/components/canvas/flow-canvas.tsx", "src/components/canvas/group-node.tsx", "src/store/graph-store.ts", "src/types/sipoc.types.ts", "src/components/canvas/node-palette.tsx"],
+  "state": "developed",
+  "origin": "ai"
+}

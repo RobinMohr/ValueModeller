@@ -1,0 +1,11 @@
+{
+  "title": "Fix Process Metrics form fields missing dark mode styles",
+  "priority": 2,
+  "type": "problem",
+  "state": "developed",
+  "description": "The Process Metrics section in sipoc-form.tsx (Cycle Time, Lead Time, Value Add %) is missing dark mode classes on its labels, inputs, heading, and helper text. The SipocTextAreaField component above already has proper dark: variants (dark:border-gray-600, dark:bg-gray-700, dark:text-gray-100, dark:text-gray-300 for labels). The metrics section uses plain text-gray-700 for labels, border-gray-300 without dark variants for inputs, and no dark background on the input fields. Also the 'Process Metrics' h3 heading and the 'Additional Details' h3 heading use text-gray-700 without a dark: variant. Fix by adding dark:text-gray-300 to labels/headings and dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 to input fields.",
+  "files": [
+    "src/components/form/sipoc-form.tsx"
+  ],
+  "origin": "ai"
+}

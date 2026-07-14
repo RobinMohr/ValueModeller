@@ -1,0 +1,13 @@
+{
+  "title": "Add process metrics/KPI fields to SIPOC nodes",
+  "priority": 2,
+  "type": "improvement",
+  "state": "developed",
+  "description": "Add optional fields for Cycle Time, Lead Time, and Value Add % to each process node's data model and form. This moves the tool from pure SIPOC toward Value Stream Mapping (VSM). Update SipocNodeData type, sipoc-form, and demo data.",
+  "files": [
+    "src/types/sipoc.types.ts",
+    "src/components/form/sipoc-form.tsx",
+    "src/utils/demo-data.ts"
+  ],
+  "origin": "ai"
+}

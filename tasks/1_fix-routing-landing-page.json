@@ -1,0 +1,14 @@
+{
+  "title": "Fix routing to enable Landing Page & multi-stream",
+  "priority": 1,
+  "type": "improvement",
+  "state": "developed",
+  "description": "Add react-router-dom routing to App.tsx with routes: / → LandingPage, /stream/:id → AppShell. Connect the graph store's loadStream/unloadStream to route changes. The LandingPage component and value-stream-store already exist but are currently dead code.",
+  "files": [
+    "src/App.tsx",
+    "src/main.tsx",
+    "src/components/landing/landing-page.tsx",
+    "src/store/value-stream-store.ts"
+  ],
+  "origin": "ai"
+}

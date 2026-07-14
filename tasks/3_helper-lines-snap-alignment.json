@@ -1,0 +1,12 @@
+{
+  "title": "Helper Lines / Snap-to-Grid Alignment for Node Positioning",
+  "priority": 3,
+  "type": "improvement",
+  "state": "developed",
+  "description": "Add visual alignment helper lines that appear when dragging nodes to assist in precise positioning and alignment between nodes. React Flow has an official 'Helper Lines' example (reactflow.dev/examples/interaction/helper-lines) that shows visual guides appearing automatically as users drag nodes, with a snapping mechanism for precise positioning. This is a significant UX polish feature for node-based editors — it makes the canvas feel professional and eliminates the 'messiness' of manually positioned nodes. Combined with our existing Auto Layout feature, this gives users two complementary ways to organize their process maps: automatic layout for quick organization and helper lines for manual fine-tuning. Effort is moderate since the official example provides a reference implementation pattern.",
+  "files": [
+    "src/components/canvas/flow-canvas.tsx",
+    "src/utils/helper-lines.ts",
+    "src/components/canvas/helper-lines.tsx"
+  ]
+}

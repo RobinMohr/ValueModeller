@@ -1,0 +1,8 @@
+{
+  "title": "ai agent working visability",
+  "type": "improvement",
+  "priority": 2,
+  "description": "i want to know at all times, which ai agent is working on which exact task\nfor the developer tasks, i want to see the task title and for the qa one i only want to know, if he is currently waiting to loop again, or actively testing",
+  "state": "developed",
+  "origin": "user"
+}

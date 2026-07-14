@@ -1,0 +1,11 @@
+{
+  "title": "Drag-and-Drop Node Palette Sidebar",
+  "priority": 1,
+  "type": "improvement",
+  "state": "developed",
+  "description": "Replace or supplement the current '+ Add Process' button with a drag-and-drop sidebar palette. Users drag a node type from a sidebar onto the canvas to create a new process node at the exact drop location. Use the native HTML Drag and Drop API as documented in React Flow's official examples.",
+  "files": [
+    "src/components/canvas/flow-canvas.tsx"
+  ],
+  "origin": "ai"
+}

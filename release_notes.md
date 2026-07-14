@@ -55,3 +55,936 @@
 - `src/components/form/sipoc-form.tsx`
 
 **Why:** The previous pattern used `useMemo` with `getNodeById` as a dependency. Since `getNodeById` is a stable function reference from the store, `useMemo` would never recalculate when node data actually changed in the store. The form worked due to React reconciliation coincidences, but this was a code smell that could cause stale data display bugs. The new pattern uses a direct Zustand selector that properly subscribes to store changes, ensuring the form always reflects the latest node data.
+
+---
+
+## 2026-07-14T15:18 — Dynamic Save State Indicator
+
+**Priority:** Critical (Must Fix for Demo)
+
+**What changed:**
+- Replaced the static "Auto-saved" badge in the header with a dynamic `SaveIndicator` component that shows real-time save feedback.
+- Created a new `useSaveStatus` hook (`src/hooks/use-save-status.ts`) that tracks graph store changes and transitions through states: idle → saving → saved.
+- When the user makes any change (add/move/edit nodes or edges), the badge shows "Saving…" with a yellow pulse animation, then transitions to "Saved ✓" in green after 400ms.
+- On initial load (before any user changes), no badge is shown (idle state).
+
+**Files changed:**
+- `src/hooks/use-save-status.ts` (new file)
+- `src/components/layout/app-shell.tsx` (replaced static badge with SaveIndicator)
+
+**Why:** The previous static "Auto-saved" badge gave no actual feedback about save state. Users had no way to know if their changes were persisted to localStorage. The new indicator provides clear visual confirmation when data is being saved and when it's done, building user confidence in the tool during live demos.
+
+## 2026-07-14T15:19 — Node Completion Color Indicator
+
+**What changed:**
+- Added a colored left border to SIPOC nodes in `src/components/canvas/sipoc-node.tsx` that indicates completion status:
+  - **Gray** (border-l-gray-300) = No SIPOC fields filled (empty node)
+  - **Blue** (border-l-blue-400) = Partially filled (1-3 of the 4 SIPOC fields have entries)
+  - **Green** (border-l-green-500) = All 4 SIPOC fields (Suppliers, Inputs, Outputs, Customers) have at least one entry
+- Enhanced ARIA label to include completion status for screen reader accessibility
+
+**Impact:**
+- Users can immediately see process completeness at a glance without opening the form
+- Provides clear visual feedback on which nodes need more detail
+- Improves demo presentation by showing data state visually on the canvas
+
+---
+
+## [2026-07-14T15:21] feat: Auto-layout with dagre
+
+**What:** Added an "Auto Layout" button to the canvas toolbar that automatically arranges all nodes in a clean left-to-right hierarchical layout using the dagre graph layout algorithm.
+
+**Changes:**
+- Installed `@dagrejs/dagre@1.1.4` dependency
+- Created `src/utils/auto-layout.ts` — a utility function that takes nodes/edges and returns repositioned nodes using dagre's directed graph layout algorithm (LR direction, 50px node separation, 100px rank separation)
+- Added "Auto Layout" button to the toolbar in `src/components/canvas/flow-canvas.tsx` between "Add Process" and "Fit View"
+- After layout, automatically fits the view with a smooth animation
+
+**Impact:**
+- One-click arrangement of messy or manually-placed nodes into a clean, readable flow
+- Demonstrates that the tool understands graph topology — a "wow" feature for demos
+- Especially useful after adding multiple nodes or after a reset to quickly organize the canvas
+
+---
+
+## [2026-07-14T15:24] feat: Add edge labels showing output→input flow
+
+**What was implemented:**
+- Created a custom `LabeledEdge` component (`src/components/canvas/labeled-edge.tsx`) that renders a styled label on edges showing what data flows between processes
+- Demo edges now display their output→input relationship (e.g., "Confirmed Order →", "Stock Status Report →", "Payment Confirmation →")
+- When users create new connections, the edge label is automatically derived from the source node's first output
+- Labels render as compact, semi-transparent badges positioned at the midpoint of each edge
+
+**Files changed:**
+- `src/components/canvas/labeled-edge.tsx` — new custom edge component with EdgeLabelRenderer
+- `src/components/canvas/flow-canvas.tsx` — registered `edgeTypes`, custom `handleConnect` with auto-labeling
+- `src/utils/demo-data.ts` — demo edges now use `type: 'labeled'` with descriptive labels
+
+**Impact:**
+- Demonstrates deep understanding of SIPOC methodology — connections represent output-to-input flow
+- Makes the value stream immediately readable: viewers can see what data/artifacts flow between processes at a glance
+- Auto-labeling from source node outputs reduces manual work and keeps the diagram self-documenting
+
+## [2026-07-14T15:26] feat: Keyboard shortcuts help panel
+
+**Category:** High Impact / Low Effort — UX Polish
+
+**Files changed:**
+- `src/components/canvas/keyboard-shortcuts-panel.tsx` (new)
+- `src/components/canvas/flow-canvas.tsx` (import + render)
+
+**Summary:**
+Added a `?` button in the bottom-right corner of the canvas that toggles a keyboard shortcuts overlay. The panel lists all available interactions (double-click to open details, Delete/Backspace to remove, Ctrl+A to select all, drag to move, scroll to zoom, drag canvas to pan, drag handle to connect). The button shows active state when open, uses proper ARIA attributes (aria-label, aria-expanded, role="dialog"), and the overlay dismisses on toggle. This adds polish and shows attention to UX accessibility — important for the live demo.
+
+
+## [2026-07-14T16:01] feat: Landing page routing & multi-stream navigation
+
+**Category:** Critical (Must Fix for Demo)
+
+**Files changed:**
+- `src/App.tsx` — Replaced direct AppShell render with React Router routes (`/` → LandingPage, `/stream/:id` → StreamEditor, `*` → redirect to `/`)
+- `src/main.tsx` — Wrapped App with `<BrowserRouter>` from react-router-dom
+- `src/components/layout/stream-editor.tsx` (new) — Wrapper component that loads/unloads streams from the value-stream-store based on route params, redirects to landing if stream not found
+- `src/components/layout/app-shell.tsx` — Added "← Streams" back-navigation button, displays active stream name and description in header
+
+**Summary:**
+Connected the existing but unreachable landing page and multi-stream architecture to the app via React Router. The app now starts at a landing page showing all value streams as cards (with metadata: process count, teams, apps, segments, timestamps). Users click a stream to open it in the canvas editor, and can navigate back via the "Streams" button in the header. The StreamEditor component handles loading/unloading stream data from the value-stream-store into the graph-store based on route parameters, with auto-save on navigation away. This transforms the demo from a single-canvas tool into a multi-stream management platform.
+
+## [2026-07-14T16:17] feat: Stream-Level Summary Statistics Panel
+
+**Category:** High Impact — Analytical Differentiator
+
+**What was implemented:**
+- Created a new `StreamStatsPanel` component (`src/components/layout/stream-stats-panel.tsx`) that aggregates and displays real-time summary statistics for the current value stream.
+- Added a toggleable "Stats" button in the AppShell header that expands/collapses the statistics panel below the header bar.
+- The panel shows 7 stat badges in a responsive grid: Processes, Connections, Completion %, Teams, Apps, Issues, and SIPOC Done ratio.
+- Aggregates data from BOTH node-level fields (applicationsInvolved, involvedTeams, knownIssues on each SipocNodeData) AND stream-level metadata (from the ValueStream store), deduplicating entries.
+- Displays detailed lists: known issues (with bullet points, capped at 5 with "+N more"), team pills, and application pills.
+- Color-coded badges: red for issues present, green for no issues / 100% complete, amber for partial completion.
+
+**Files changed:**
+- `src/components/layout/stream-stats-panel.tsx` (new file)
+- `src/components/layout/app-shell.tsx` (added Stats toggle button and collapsible panel)
+
+**Impact:**
+- Transforms the tool from a pure diagramming tool into an analytical one — users can immediately see gaps, team involvement, application landscape, and known issues at a glance.
+- This is a UNIQUE differentiator: no other SIPOC diagramming tool aggregates process-level data into stream-level analytics.
+- Excellent for demo presentations: "5 processes | 4 connections | 6 teams | 5 apps | 3 issues | 100% complete" tells an instant story about the value stream's health and complexity.
+
+## [2026-07-14T16:20] feat: Copy/Paste & Duplicate Nodes (Ctrl+C/V/D)
+
+**Category:** High Impact — Power User Feature
+
+**What changed:**
+- Added `duplicateNodes` action to the graph store (`src/store/graph-store.ts`) that clones one or more selected nodes with offset positions, preserves all SIPOC data, appends "(copy)" to the label, and recreates inter-node edges between the duplicated set.
+- Added keyboard event handling in `FlowCanvasInner` (`src/components/canvas/flow-canvas.tsx`) for three shortcuts:
+  - **Ctrl+C** — copies selected node IDs to an in-memory clipboard
+  - **Ctrl+V** — pastes (duplicates) clipboard nodes at +50px offset
+  - **Ctrl+D** — duplicates selected nodes immediately (no clipboard step)
+- Keyboard handlers correctly ignore events when user is typing in form inputs/textareas.
+- After paste/duplicate, new nodes are auto-selected and original nodes are deselected for easy repositioning.
+- Updated `keyboard-shortcuts-panel.tsx` to document the new shortcuts.
+
+**Files changed:**
+- `src/store/graph-store.ts` — added `duplicateNodes` to interface and implementation
+- `src/components/canvas/flow-canvas.tsx` — added clipboard ref, useEffect keydown listener
+- `src/components/canvas/keyboard-shortcuts-panel.tsx` — added Ctrl+C, Ctrl+V, Ctrl+D entries
+
+**Impact:**
+- Dramatically speeds up workflow building when processes have similar structures
+- Standard expectation in any node-based editor — shows professional maturity
+- Excellent demo feature: "look how fast I can build a process flow!"
+
+## [2026-07-14T16:22] feat: Process Metrics/KPI Fields (Cycle Time, Lead Time, Value Add %)
+
+**Category:** High Impact — Value Stream Mapping Differentiator
+
+**What was implemented:**
+- Extended `SipocNodeData` type with three new optional string fields: `cycleTime`, `leadTime`, and `valueAddPercent`
+- Added a "Process Metrics" section to the SIPOC detail form (`sipoc-form.tsx`) with a compact 3-column grid layout for the metrics fields, plus a helper description explaining each metric
+- Updated the canvas node component (`sipoc-node.tsx`) to display metrics as colored badges (CT: indigo, LT: amber, VA: emerald) below the SIPOC counts when populated
+- Added realistic sample metrics to all demo nodes: Receive Order (CT: 5 min, LT: 30 min, VA: 60%), Check Inventory (CT: 2 min, LT: 10 min, VA: 80%), Process Payment (CT: 1 min, LT: 5 min, VA: 90%), Ship Order (CT: 15 min, LT: 4 hrs, VA: 45%)
+- Updated `graph-store.ts` addNode to include empty defaults for the new fields
+
+**Files changed:**
+- `src/types/sipoc.types.ts` — added `cycleTime`, `leadTime`, `valueAddPercent` fields
+- `src/components/form/sipoc-form.tsx` — new "Process Metrics" form section
+- `src/components/canvas/sipoc-node.tsx` — metrics badges on canvas nodes
+- `src/utils/demo-data.ts` — demo data with sample metrics
+- `src/store/graph-store.ts` — empty defaults in addNode
+
+**Impact:**
+- Transforms the tool from pure SIPOC diagramming into Value Stream Mapping (VSM) territory
+- Users can now capture quantitative process data directly on each node
+- Metrics visible on the canvas at a glance — immediately shows which processes are bottlenecks (high lead time, low value-add)
+- Demo data tells a compelling story: payment processing has 90% value-add in 1 min, but shipping takes 4 hrs with only 45% value-add — an obvious optimization target
+
+## [2026-07-14T16:30] feat: Undo/Redo Support (Ctrl+Z / Ctrl+Shift+Z / Ctrl+Y)
+
+**Category:** High Impact — Professional-grade Editor Feature
+
+**What was implemented:**
+- Created a new `history-store.ts` (`src/store/history-store.ts`) that maintains an undo/redo history stack with a maximum of 50 snapshots.
+- The history store subscribes to graph store changes (nodes/edges) and automatically captures snapshots with 300ms debouncing to batch rapid changes (e.g., node dragging produces one undo step, not dozens).
+- Added **Undo** (↩) and **Redo** (↪) buttons to the canvas toolbar, with disabled state when there's nothing to undo/redo.
+- Added keyboard shortcuts: **Ctrl+Z** for undo, **Ctrl+Shift+Z** or **Ctrl+Y** for redo.
+- History is automatically cleared when navigating between streams (loading/unloading) to prevent cross-stream undo confusion.
+- The undo/redo system correctly avoids recording its own state changes (no infinite loops).
+- Updated the keyboard shortcuts panel to document the new shortcuts.
+
+**Files changed:**
+- `src/store/history-store.ts` (new file) — History stack with debounced snapshot capture
+- `src/components/canvas/flow-canvas.tsx` — Added undo/redo buttons to toolbar, keyboard handlers
+- `src/components/canvas/keyboard-shortcuts-panel.tsx` — Added Ctrl+Z and Ctrl+Shift+Z entries
+- `src/components/layout/stream-editor.tsx` — Clear history on stream load/unload
+
+**Impact:**
+- Professional-grade editing experience — users can freely experiment and undo mistakes
+- Standard feature expected in any serious editor tool
+- Debounced snapshots mean dragging a node = 1 undo step, not many
+- Excellent for demo: "made a mistake? just Ctrl+Z!" shows the tool is production-ready
+
+## [2026-07-14T16:35] fix: Remove duplicate Process Metrics section in SIPOC form
+
+**Category:** Critical Bug Fix
+
+**What changed:**
+- Removed the duplicate "Process Metrics" section from `sipoc-form.tsx`. The form previously rendered two identical metric sections (Cycle Time, Lead Time, Value Add %) causing user confusion and duplicate form inputs.
+- Kept the polished second version which has: relative-positioned unit labels (`min`, `min`, `%`), `inputMode="numeric"` for mobile keyboards, proper `aria-label` attributes for accessibility, and consistent `text-sm` styling.
+- Removed the simpler first version which had `text-xs` styling, no unit labels, and placeholder text instead of proper accessibility attributes.
+
+**Files changed:**
+- `src/components/form/sipoc-form.tsx`
+
+**Impact:**
+- Users now see only one set of Process Metrics fields in the side panel form, eliminating confusion about which fields to fill
+- Fixes a visible bug that would be embarrassing in a live demo
+- Retains the better-designed version with proper accessibility (aria-labels) and UX (unit indicators)
+
+## [2026-07-14T16:37] feat: Proximity Connect (auto-edge creation on node drop)
+
+**Category:** High Impact — Workflow Acceleration
+
+**What was implemented:**
+- Created a new `useProximityConnect` hook (`src/hooks/use-proximity-connect.ts`) that detects when a dragged node is within 150px of another node and shows a ghost edge indicator.
+- While dragging, a dotted indigo line (ghost edge) appears between the dragged node and the nearest node, showing exactly which connection will be created on drop.
+- On drop, if proximity is met, a labeled edge is automatically created between the two nodes. Direction is determined by horizontal position (left node → source, right node → target).
+- Edge labels are auto-derived from the source node's first output (same behavior as manual connections).
+- Duplicate edges are never created — the hook checks existing edges before suggesting a connection.
+- Integrated into `FlowCanvasInner` via `onNodeDrag` and `onNodeDragStop` React Flow props.
+- Updated keyboard shortcuts panel to document the "Drag near node → Auto-connect" interaction.
+
+**Files changed:**
+- `src/hooks/use-proximity-connect.ts` (new file) — Proximity detection logic with ghost edge state
+- `src/components/canvas/flow-canvas.tsx` — Integrated hook, added `useMemo` for display edges, wired drag handlers
+- `src/components/canvas/keyboard-shortcuts-panel.tsx` — Added proximity connect entry
+
+**Impact:**
+- Dramatically reduces the effort needed to connect nodes — just drag one near another instead of carefully connecting handles
+- Visual ghost edge gives immediate feedback about what will happen, preventing surprises
+- Particularly useful for building flows quickly during demos: drag → drop → connected!
+- Standard UX pattern in modern node-based editors (Figma, Miro, etc.)
+
+## [2026-07-14T16:41] feat: Inline Edge Label Editing (double-click to edit)
+
+**Category:** Medium Impact — UX Polish
+
+**What was implemented:**
+- Enhanced the `LabeledEdge` component to support inline editing of edge labels via double-click.
+- Double-clicking an edge label toggles it into an editable text input. Pressing Enter or clicking away commits the change; pressing Escape cancels.
+- Added `updateEdgeData` action to the graph store to persist edge label changes.
+- Edges without a label now show "(click to label)" as a placeholder, inviting users to describe the flow.
+- Edge labels are automatically persisted to the value stream store via the existing auto-save subscription.
+
+**Files changed:**
+- `src/components/canvas/labeled-edge.tsx` — Added editing state, double-click handler, input field with keyboard support (Enter to confirm, Escape to cancel, blur to commit)
+- `src/store/graph-store.ts` — Added `updateEdgeData` action to the store interface and implementation
+
+**Impact:**
+- Users can now customize edge labels to precisely describe the data/artifacts flowing between processes, rather than relying solely on auto-derived labels from source node outputs.
+- Adds professional polish — double-click-to-edit is a standard interaction pattern in diagramming tools.
+- Unlabeled edges now visually indicate they can be labeled, encouraging users to document all flows.
+
+## [2026-07-14T16:43] feat: Table and Cards view toggle for value stream management
+
+**Category:** Critical — Landing Page UX
+
+**What was implemented:**
+- Added a **Cards / Table** view mode toggle to the landing page header, letting users switch between two display modes for their value streams.
+- **Cards view** (existing): Responsive grid of cards showing stream name, description, metadata pills (teams, apps, segments), process count, and last-updated date.
+- **Table view** (new): A structured HTML table with columns for Name, Processes, Teams, Apps, Segments, Updated date, and Actions. Rows are clickable to open the stream. Compact metadata badges show counts at a glance.
+- The toggle uses a segmented control with icons (grid icon for cards, list icon for table) and proper ARIA roles (`radiogroup`, `radio`, `aria-checked`).
+- Refactored the landing page into smaller focused components: `ViewModeToggle`, `EmptyState`, `CardsView`, `TableView`, `DeleteAction`, `CreateStreamDialog` for better readability and maintainability.
+- Shared `DeleteAction` component ensures consistent delete confirmation UX in both views.
+- Table rows have hover states and the entire row is clickable, with the Actions column stopping event propagation to prevent accidental navigation when clicking delete.
+
+**Files changed:**
+- `src/components/landing/landing-page.tsx` — Complete refactor with view mode toggle and table view
+
+**Impact:**
+- Users can choose their preferred way to browse value streams: visual cards for quick scanning, or a dense table for comparing metadata across many streams.
+- Table view is especially useful when managing 5+ value streams as it shows all key metrics in a compact, scannable format.
+- Professional UX pattern (Cards/Table toggle) common in enterprise tools like Jira, Azure DevOps, and Notion.
+
+## [2026-07-14T16:46] feat: Node Search/Filter (Ctrl+F)
+
+**Category:** High Impact — Scalability & Power User Feature
+
+**What was implemented:**
+- Created a `NodeSearchPanel` component (`src/components/canvas/node-search-panel.tsx`) that provides full-text search across all process nodes.
+- **Search scope:** Process name, description, and all SIPOC fields (Suppliers, Inputs, Outputs, Customers, Applications, Teams, Issues).
+- **Keyboard shortcut:** Ctrl+F (or ⌘F on Mac) opens the search panel, Escape closes it.
+- **Result navigation:** Arrow keys move through results, Enter zooms/pans the canvas to the selected node using `fitView`.
+- **Visual feedback:** Matching nodes are highlighted (selected) on the canvas as the user types. Clicking a result focuses the canvas on that specific node.
+- **Result display:** Each result shows the node name, which field matched, and a snippet of the matching text.
+- Integrated into the canvas via a search icon button in the top-right corner (always visible) that expands into the full search panel.
+- Updated `keyboard-shortcuts-panel.tsx` to document the Ctrl+F shortcut.
+
+**Files changed:**
+- `src/components/canvas/node-search-panel.tsx` (new file)
+- `src/components/canvas/flow-canvas.tsx` — imported and rendered NodeSearchPanel
+- `src/components/canvas/keyboard-shortcuts-panel.tsx` — added Ctrl+F entry
+
+**Impact:**
+- Users can instantly find any process in large value streams (10+ nodes) without manual scanning.
+- Shows the tool is designed for real-world complexity, not just trivial 4-node demos.
+- Standard feature in professional editors — elevates the app from "hackathon prototype" to "production-ready tool."
+- Keyboard-first interaction (Ctrl+F, arrow keys, Enter) supports power users and accessibility.
+
+## [2026-07-14T17:52] feat: Dark Mode Toggle (Light / Dark / System)
+
+**Category:** Nice to Have — Visual Polish & Technical Competence
+
+**What was implemented:**
+- Added a **dark mode toggle** to both the landing page header and the stream editor header. The toggle cycles through three modes: Light (☀️) → Dark (🌙) → System (🖥️).
+- Created a `theme-store.ts` Zustand store with localStorage persistence that manages the theme state and applies/removes the `dark` class on the `<html>` element.
+- Updated `tailwind.config.js` to use `darkMode: 'class'` strategy for class-based dark mode control.
+- Added comprehensive `dark:` variant classes to all major components:
+  - **AppShell** — header, side panel, stats panel container
+  - **Landing Page** — page background, stream cards, table view, metadata pills, create dialog, empty state, view mode toggle
+  - **SIPOC Node** — node background, borders, text, metric badges, SIPOC count badges
+  - **SIPOC Form** — labels, textareas, panel header
+  - **Button** — all variants (primary, secondary, ghost, danger)
+  - **Input** — border, background, text, placeholder
+  - **SaveIndicator** — saving/saved state badges
+- Added dark mode CSS overrides for React Flow internals: controls, background, minimap, edges, and panel.
+- Theme is initialized early in `main.tsx` to prevent flash of unstyled content.
+- System theme preference is respected and auto-updates when the OS theme changes.
+- Also fixed pre-existing build errors (unused helper-lines imports) that were blocking compilation.
+
+**Files changed:**
+- `tailwind.config.js` — added `darkMode: 'class'`
+- `src/store/theme-store.ts` (new) — theme state with persistence & DOM sync
+- `src/components/ui/theme-toggle.tsx` (new) — cycle toggle button with icons
+- `src/components/ui/button.tsx` — dark variants for all button styles
+- `src/components/ui/input.tsx` — dark variants for input fields
+- `src/components/layout/app-shell.tsx` — dark classes + ThemeToggle import
+- `src/components/landing/landing-page.tsx` — dark classes throughout + ThemeToggle
+- `src/components/canvas/sipoc-node.tsx` — dark variants for node rendering
+- `src/components/form/sipoc-form.tsx` — dark variants for form panel
+- `src/components/canvas/flow-canvas.tsx` — removed unused helper-lines imports (build fix)
+- `src/index.css` — dark mode CSS for React Flow overrides
+- `src/main.tsx` — early theme store initialization
+- `index.html` — dark-aware body classes
+
+**Impact:**
+- Looks modern and demonstrates technical competence during the demo
+- Users can choose their preferred visual mode (light, dark, or system-following)
+- Dark mode reduces eye strain for extended use
+- Shows attention to UX detail — a hallmark of professional applications
+
+## [2026-07-14T18:03] feat: Node Context Menu (right-click)
+
+**Category:** Nice to Have — Professional UX Polish
+
+**What was implemented:**
+- Created a `NodeContextMenu` component (`src/components/canvas/node-context-menu.tsx`) that renders a floating context menu when users right-click any process node on the canvas.
+- Menu items include: **Edit Details** (opens side panel), **Duplicate** (clones the node), **Select All** (selects all nodes), and **Delete** (removes the node with danger styling).
+- The menu automatically adjusts position to stay within the viewport bounds.
+- Dismisses on click outside, pressing Escape, or clicking any menu item.
+- Proper ARIA roles (`role="menu"`, `role="menuitem"`) for accessibility.
+- Dark mode support via `dark:` Tailwind variants on all menu elements.
+- Integrated into `FlowCanvasInner` via React Flow's `onNodeContextMenu` prop.
+- Context menu closes when clicking the canvas pane (`onPaneClick`).
+- Updated keyboard shortcuts panel to document the right-click interaction.
+
+**Files changed:**
+- `src/components/canvas/node-context-menu.tsx` (new file)
+- `src/components/canvas/flow-canvas.tsx` — added context menu state, handlers, and rendering
+- `src/components/canvas/keyboard-shortcuts-panel.tsx` — added right-click entry
+
+**Impact:**
+- Standard UX pattern in professional node-based editors (Figma, Miro, etc.)
+- Speeds up common interactions — users can Edit, Duplicate, or Delete without keyboard shortcuts or searching for buttons
+- Improves discoverability of features for new users who instinctively right-click
+- Accessible menu with proper ARIA roles and keyboard dismissal (Escape)
+
+## [2026-07-14T18:07] feat: Helper Lines / Snap-to-Grid Alignment
+
+**Category:** Medium Impact — Professional UX Polish
+
+**What was implemented:**
+- Integrated the existing `helper-lines.ts` utility and `HelperLinesRenderer` component into the canvas drag workflow.
+- When dragging a node, purple dashed alignment lines appear automatically when the node aligns with any other node's edges or center (horizontal and vertical alignment).
+- The snap threshold is 5px — when within range, the dragged node snaps precisely to the alignment position for pixel-perfect positioning.
+- Alignment checks cover 9 reference points per axis: left/center/right × left/center/right for vertical lines, and top/center/bottom × top/center/bottom for horizontal lines.
+- Helper lines disappear immediately when dragging stops.
+- Works in conjunction with the existing Proximity Connect feature (both fire during drag without conflict).
+
+**Files changed:**
+- `src/components/canvas/flow-canvas.tsx` — Integrated helper lines computation into `onNodesChange` handler, added helper lines state, wrapped `onNodeDragStop` to clear lines, rendered `HelperLinesRenderer`
+- `src/utils/helper-lines.ts` — (previously created, now integrated)
+- `src/components/canvas/helper-lines.tsx` — (previously created, now rendered in canvas)
+
+**Impact:**
+- Users can now precisely align nodes without relying solely on Auto Layout
+- Provides visual feedback during drag operations, making manual positioning feel professional
+- Eliminates the "messiness" of manually positioned nodes — even without auto-layout, users can create clean, aligned diagrams
+- Combined with Auto Layout, gives users two complementary organization approaches: automatic for quick setup, manual with snap guides for fine-tuning
+- Standard UX pattern in professional design tools (Figma, Miro, etc.)
+
+## [2026-07-14T18:11] feat: Accessibility — Full Keyboard Navigation for Canvas
+
+**Category:** Medium Impact — Accessibility & Power User Feature
+
+**What was implemented:**
+- Created a `useGraphKeyboardNav` hook (`src/hooks/use-graph-keyboard-nav.ts`) providing graph-aware keyboard navigation between connected nodes on the canvas.
+- **Arrow keys** navigate along connections: ArrowRight/ArrowDown moves to downstream (target) nodes, ArrowLeft/ArrowUp moves to upstream (source) nodes. When multiple connections exist, the topmost (by y-position) is chosen.
+- **Tab / Shift+Tab** cycles through all nodes in spatial order (left-to-right, top-to-bottom), wrapping around at the ends.
+- **Home / End** jump to the first (leftmost) or last (rightmost) node in the value stream.
+- **Enter / Space** open the side panel for the focused node (existing behavior, now handled by the hook).
+- Navigation auto-pans/zooms the canvas to keep the focused node visible using `fitView`.
+- Added **visible focus indicators** via `focus-visible:ring-2 ring-primary-500` on node elements (purple ring visible only on keyboard focus, not mouse clicks).
+- Added a **skip navigation link** ("Skip to canvas") in the AppShell header — invisible by default, appears on Tab focus for screen reader users to bypass header controls.
+- Added `role="application"` and descriptive `aria-label` to the canvas `<main>` element to communicate the interaction model to screen readers.
+- Enhanced ARIA attributes on SIPOC nodes: `aria-roledescription="process node"`, comprehensive `aria-label` including metrics data and navigation instructions, `aria-hidden="true"` on decorative badge elements.
+- Added `aria-label` attributes to connection handles ("Input connection handle" / "Output connection handle").
+- Added CSS for visible focus indicators on React Flow nodes and controls buttons (`:focus-visible` styles).
+- Updated the keyboard shortcuts panel with new navigation entries (arrows, Tab, Home, End) and added dark mode support.
+- Added explanatory footer text to the shortcuts panel: "Arrow keys navigate between connected nodes when a node is focused."
+
+**Files changed:**
+- `src/hooks/use-graph-keyboard-nav.ts` (new) — Graph-aware keyboard navigation hook
+- `src/components/canvas/sipoc-node.tsx` — Integrated nav hook, enhanced ARIA, focus-visible ring
+- `src/components/canvas/keyboard-shortcuts-panel.tsx` — New shortcuts documented, dark mode, overflow scroll
+- `src/components/layout/app-shell.tsx` — Skip link, canvas main role/aria-label
+- `src/index.css` — Focus-visible CSS for nodes and controls
+
+**Impact:**
+- Users can now fully navigate the value stream graph without a mouse — essential for accessibility (WCAG 2.1 AA compliance) and power users
+- Arrow keys follow the logical flow of the value stream (upstream/downstream), making the navigation semantically meaningful
+- Visible focus ring clearly shows which node has keyboard focus, preventing "lost focus" confusion
+- Skip link allows screen reader users to jump directly to the canvas without tabbing through all header controls
+- Demonstrates accessibility commitment — important for enterprise demos and real-world usability
+
+## [2026-07-14T18:16] feat: Smart Edge Routing (avoids passing through nodes)
+
+**Category:** Medium Impact — Graph Readability
+
+**What was implemented:**
+- Created a `SmartEdge` component (`src/components/canvas/smart-edge.tsx`) that automatically detects when an edge's path would pass through intermediate nodes and routes around them.
+- Created `src/utils/edge-routing.ts` with utilities for:
+  - **Obstruction detection** — uses Liang-Barsky line clipping algorithm to efficiently test if the direct line between source/target handles intersects any node bounding boxes (with 20px padding).
+  - **Smart path computation** — when obstructions are detected, computes an orthogonal route (above or below the obstacle block) that avoids all intermediate nodes. Chooses the shorter detour direction automatically.
+  - **Rounded path generation** — uses quadratic Bézier curves (SVG `Q` commands) at waypoints for smooth rounded corners instead of sharp 90° turns.
+- When no obstruction is detected, the SmartEdge falls back to the standard `getSmoothStepPath` for optimal default rendering.
+- Replaced all `labeled` edge type references with `smart` throughout the codebase: `flow-canvas.tsx` (defaultEdgeOptions, handleConnect, handleProximityEdge), `demo-data.ts`.
+- The SmartEdge component retains full feature parity with LabeledEdge: inline label editing (double-click), dark mode support, and animated flow indicators.
+
+**Files changed:**
+- `src/utils/edge-routing.ts` (new) — Obstruction detection and smart path computation utilities
+- `src/components/canvas/smart-edge.tsx` (new) — Smart edge component with node-avoiding routing
+- `src/components/canvas/flow-canvas.tsx` — Registered SmartEdge type, updated all edge creation to use 'smart' type
+- `src/utils/demo-data.ts` — Updated demo edges to use 'smart' type
+
+**Impact:**
+- Edges no longer visually pass through intermediate nodes, eliminating graph misreading
+- Users can now clearly follow edge paths even in complex value streams with many crossing connections
+- Falls back gracefully to standard smooth step routing when no obstructions exist (no performance penalty)
+- Significantly improves readability for branching/merging patterns where edges frequently crossed through other nodes
+
+## [2026-07-14T18:20] feat: Guided Demo Mode / Walkthrough (▶ Demo button)
+
+**Category:** Nice to Have — Presentation Helper
+
+**What was implemented:**
+- Created a `GuidedDemoPanel` component (`src/components/canvas/guided-demo-panel.tsx`) that provides a step-by-step guided walkthrough of the value stream for live presentations.
+- A **"▶ Demo"** button appears in the top-right corner of the canvas. Clicking it starts the walkthrough.
+- The walkthrough:
+  - Computes **topological order** of nodes (following the actual flow direction) to present them in logical sequence.
+  - **Auto-pans and zooms** to each node with smooth animation as the presenter navigates.
+  - Shows a floating **info card** at the bottom with: progress bar, node role (Starting Point / Branching / Merge / Final Step), process name, description, and metrics (CT/LT/VA%).
+  - **Step dots** allow jumping to any step directly.
+  - **Auto-play mode** advances every 4 seconds for hands-free presentation.
+- **Navigation controls:**
+  - ← / → buttons (or arrow keys) for manual navigation
+  - ⏵ / ⏸ button for auto-play toggle
+  - "Details" button opens the side panel for the current node
+  - "✕ Exit" button (or Escape) stops the demo and resets selection
+  - Space bar advances to next step
+- Dark mode support throughout the panel.
+- Accessible: `role="dialog"`, `aria-live="polite"`, `aria-label` on all buttons.
+
+**Files changed:**
+- `src/components/canvas/guided-demo-panel.tsx` (new file) — Full guided demo component with topological ordering, auto-play, keyboard navigation
+- `src/components/canvas/flow-canvas.tsx` — Imported and rendered GuidedDemoPanel inside ReactFlow
+
+**Impact:**
+- Makes live demo presentations significantly smoother — presenters can walk through the value stream step-by-step with one click
+- Auto-pan ensures each node is centered and visible during presentation
+- Topological ordering means the walkthrough follows the actual flow logic (start → branch → merge → end)
+- Auto-play mode allows hands-free presentation with 4-second intervals
+- Shows process metrics inline, reinforcing the VSM differentiator during demos
+
+
+## [2026-07-14T18:32] feat: Node Grouping / Swimlanes
+
+**Category:** Nice to Have — Organizational Structure
+
+**What was implemented:**
+- Created a `GroupNodeComponent` (`src/components/canvas/group-node.tsx`) that renders as a resizable, color-coded dashed container (swimlane) on the canvas.
+- Group nodes feature:
+  - **6 color themes** (blue, green, purple, amber, rose, teal) — auto-assigned by rotation when creating new groups.
+  - **Resizable** — uses React Flow's `NodeResizer` to let users resize the container (min 300×250px).
+  - **Inline label editing** — double-click the group header to rename it.
+  - **Visual team icon** in the header for easy identification.
+  - **Dark mode support** via Tailwind `dark:` variants.
+- Added a **"Group" palette item** to the drag-and-drop `NodePalette` — users drag a group/swimlane onto the canvas alongside process nodes.
+- Added `addGroupNode` and `assignNodeToGroup` actions to the graph store:
+  - `addGroupNode(position)` — creates a new group node with auto-assigned color, placed at the front of the node array (renders behind process nodes).
+  - `assignNodeToGroup(nodeId, groupId)` — assigns a process node to a group (sets `parentId` + `extent: 'parent'`), making it a child that moves with the group.
+- **Auto-group detection on drop:** When a process node is dragged and dropped inside a group node's bounds, it is automatically assigned to that group. When dragged outside all groups, it is unassigned.
+- Updated `SipocNodeData` type with optional `color` field to support group node data within the same type system (no breaking union type changes needed).
+- Registered `group` in the `nodeTypes` map in `flow-canvas.tsx`.
+- Groups are persisted alongside other nodes via the existing stream save/load mechanism.
+
+**Files changed:**
+- `src/components/canvas/group-node.tsx` (new) — Resizable, color-coded swimlane component with inline editing
+- `src/components/canvas/node-palette.tsx` — Added "Group" drag item with team icon
+- `src/components/canvas/flow-canvas.tsx` — Registered group node type, updated drop handler for group creation, added group-detection logic to `onNodeDragStop`
+- `src/store/graph-store.ts` — Added `addGroupNode` and `assignNodeToGroup` actions
+- `src/types/sipoc.types.ts` — Added `GroupNodeData` interface and optional `color` to `SipocNodeData`
+
+**Impact:**
+- Users can now visually organize process nodes by department, team, or organizational function
+- Maps directly to real organizational structures — users can see which team owns which processes
+- Groups are resizable containers that act as swimlanes — child nodes move with the group when repositioned
+- Adds an advanced layer of visual organization beyond simple node-and-edge topology
+- Standard feature in enterprise process mapping tools (BPMN, Visio swimlanes)
+
+
+## [2026-07-14T23:43] feat: Task creation form — hide state/origin, add AI Assist mode
+
+**Category:** Critical — User Request (Agent Monitor UX)
+
+**What was implemented:**
+- **Removed "State" and "Origin" fields from the new task creation form.** When creating a task manually, the program now auto-sets `state: "todo"` and `origin: "user"`. These fields are no longer user-editable during creation.
+- **State and Origin remain visible (read-only for origin) when editing** an existing task — users can change state but cannot modify origin (it's set at creation time and preserved).
+- **Added a Manual/AI Assist mode toggle** at the top of the create form. Users can switch between:
+  - **Manual mode** — the traditional form with title, priority, type, description, and files fields.
+  - **AI Assist mode** — a simple textarea where the user enters a short prompt describing what they need. On submit, the server calls `kiro-cli chat` to generate a structured task JSON from the description.
+- **AI-generated tasks have `origin: "user-assisted"`** — distinguishing them from fully manual (`user`) or QA-loop-generated (`ai`) tasks.
+- **Server-side `/api/tasks/generate` endpoint** — accepts a prompt, spawns `kiro-cli chat --message --no-tools --agent kiro_default` to generate the task JSON, validates and normalizes the response, then writes the task file.
+- **Loading indicator** with spinner animation during AI generation.
+- **Styled mode toggle** (segmented control) with hover/active states matching the TecFactory design language.
+
+**Files changed:**
+- `agent-monitor/public/index.html` — Restructured task form with mode toggle, AI assist panel, hidden state/origin groups
+- `agent-monitor/public/app.js` — Updated TaskManager class: `setMode()`, `showCreateForm()` hides state/origin, `submitForm()` auto-sets state+origin on create, new `submitAiAssist()` method
+- `agent-monitor/public/style.css` — New styles for mode toggle, AI assist panel, spinner animation
+- `agent-monitor/server.js` — New `POST /api/tasks/generate` endpoint with kiro-cli integration
+
+**Impact:**
+- Users can no longer accidentally set incorrect state/origin values when creating tasks
+- AI Assist provides a frictionless way to create well-structured tasks from a simple description
+- Tasks created via AI Assist are clearly marked as `user-assisted` for traceability
+- The origin field correctly distinguishes human-created, AI-loop-created, and AI-assisted tasks
+
+
+## [2026-07-14T23:54] fix: Add localStorage error handling to prevent silent data loss
+
+**Category:** High Priority — Data Integrity
+
+**What was implemented:**
+- Created a custom `safeLocalStorage` adapter (`src/utils/safe-storage.ts`) that wraps all localStorage operations (`getItem`, `setItem`, `removeItem`) in try/catch blocks with user-visible error notifications.
+- **Quota monitoring:** Before each write, checks remaining localStorage capacity. If usage exceeds 90% of the 5MB limit, shows a warning toast advising users to export their data.
+- **QuotaExceededError handling:** If a write fails due to quota exceeded, shows a persistent (non-auto-dismissing) error toast alerting the user that their changes could not be saved.
+- **Generic error handling:** Any other storage failure (SecurityError in private browsing, etc.) shows an error toast with clear messaging.
+- Created a lightweight **toast notification system** (`src/store/toast-store.ts` + `src/components/ui/toast-container.tsx`):
+  - Zustand store managing toast lifecycle with auto-dismissal timers
+  - Toast types: info, success, warning, error (each with distinct colors)
+  - Accessible: `role="region"`, `aria-live="polite"`, `role="alert"` on individual toasts
+  - Dark mode support via Tailwind `dark:` variants
+  - Dismiss button on each toast
+- Updated `value-stream-store.ts` to use `createJSONStorage(() => safeLocalStorage)` instead of the default localStorage.
+- Updated `theme-store.ts` with the same safe storage adapter for consistency.
+- Added `ToastContainer` to `main.tsx` so notifications render globally.
+- Includes utility functions `getLocalStorageUsageBytes()`, `getLocalStorageUsageFormatted()`, and `getLocalStorageRemainingPercent()` for potential future use in a storage indicator UI.
+
+**Files changed:**
+- `src/utils/safe-storage.ts` (new) — Custom StateStorage adapter with error handling and quota monitoring
+- `src/store/toast-store.ts` (new) — Lightweight toast notification state management
+- `src/components/ui/toast-container.tsx` (new) — Toast notification renderer with accessibility
+- `src/store/value-stream-store.ts` — Switched to createJSONStorage with safeLocalStorage
+- `src/store/theme-store.ts` — Switched to createJSONStorage with safeLocalStorage
+- `src/main.tsx` — Added ToastContainer global render
+
+**Impact:**
+- Users are now immediately notified when data cannot be saved, preventing silent data loss
+- Proactive warning when approaching storage limits gives users time to export before it's too late
+- No more silent failures in private browsing mode or restricted storage environments
+- Toast system is reusable for future notifications across the app (success messages, validation errors, etc.)
+
+
+
+## [2026-07-14T23:57] feat: Task prioritization tie-breaking by origin
+
+**Category:** Enhancement (Agent Behavior)
+**Task:** `tasks/1_tasks-prioritization.json`
+
+**Files changed:**
+- `.kiro/agents/developer-agent.md` — Updated task selection logic in Phase 1 step 4 to prefer tasks by origin when priorities are equal: `"user"` first, then `"user-assisted"`, then `"ai"`
+
+**Summary:** When the developer agent encounters multiple `todo` tasks with the same priority number, it now selects the one created by a human (`origin: "user"`) over one created with AI assistance (`origin: "user-assisted"`), and both over fully AI-generated tasks (`origin: "ai"`). This ensures user-requested work is always addressed first within the same priority tier.
+
+---
+
+
+## [2026-07-14T23:59] chore: Mark task state — UI updates to create new task
+
+**Task:** `tasks/1_ui-updates-to-create-new-task.json` → state set to `developed`
+
+**Verification:** Implementation was confirmed complete (originally built at 23:43). All three requirements verified:
+1. ✅ State and Origin fields are hidden when creating a new task (`showCreateForm()` hides them)
+2. ✅ Program auto-sets `state: "todo"` and `origin: "user"` on manual creation
+3. ✅ AI Assist mode added — user enters a prompt, `POST /api/tasks/generate` calls `kiro-cli` to generate a structured task with `origin: "user-assisted"`
+
+**Files (previously modified):**
+- `agent-monitor/public/index.html` — Mode toggle, AI assist panel, hidden state/origin groups
+- `agent-monitor/public/app.js` — `setMode()`, `showCreateForm()`, `submitForm()`, `submitAiAssist()`
+- `agent-monitor/public/style.css` — Mode toggle and AI assist panel styles
+- `agent-monitor/server.js` — `POST /api/tasks/generate` endpoint
+
+**Build status:** ✅ Passes (`tsc -b && vite build` — 0 errors)
+
+---
+
+
+## 2026-07-15T00:01 — Fix Process Metrics dark mode styles
+
+**What changed:**
+- Added dark mode Tailwind classes to the Process Metrics section in `sipoc-form.tsx`
+- Labels now use `dark:text-gray-300` for proper contrast in dark mode
+- Input fields now use `dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100` matching the existing SipocTextAreaField pattern
+- Section headings ("Process Metrics", "Additional Details") now use `dark:text-gray-300`
+- Section dividers (`border-t`) now use `dark:border-gray-700`
+- Unit suffix spans (min, %) and helper text now use `dark:text-gray-500`
+- Footer border also updated with dark variant
+
+**Impact:**
+- Process Metrics and Additional Details sections are now fully readable in dark mode
+- Consistent styling across the entire SIPOC form panel
+- No more invisible or low-contrast text/inputs when dark mode is active
+
+**Files modified:**
+- `src/components/form/sipoc-form.tsx`
+
+
+
+## [2026-07-14T23:59] feat: Agent error logging with Errors tab in TecFactory
+
+**Category:** High Priority — Observability & Debugging
+
+**What was implemented:**
+- The **core error logging** was already in place: `scripts/src/error-logger.ts` writes rich `.md` error reports to the `errors/` folder when agents crash, timeout, or hit breaking errors. The `agent-monitor/server.js` also had `logAgentErrorToFile()` that logs when agent processes exit non-zero or fail to spawn.
+- **Added REST API endpoints** for error management:
+  - `GET /api/errors` — lists all error reports with extracted metadata (timestamp, agent, type, error summary)
+  - `GET /api/errors/:filename` — retrieves the full markdown content of a specific error report
+  - `DELETE /api/errors/:filename` — deletes a single error report
+  - `DELETE /api/errors` — clears all error reports
+- **Added "Errors" tab** to the TecFactory UI with:
+  - Error listing showing agent name, timestamp, error type badge, and truncated error summary
+  - Click-to-open detail view rendering the full markdown error report (with code blocks, tables, headers, lists)
+  - Delete individual errors or "Clear All" button
+  - Refresh button to reload errors
+  - Empty state ("No errors recorded. Agents are running smoothly.")
+- **Consolidated duplicate `ERRORS_DIR` constants** in server.js to use a single `ERRORS_DIR_PATH`.
+
+**Error reports include (per original requirement — all necessary reproduction info):**
+- Agent name, type, and iteration number
+- Full error message and stack trace
+- Agent configuration (timeout, interval, max iterations)
+- Working directory
+- Last 50 lines of agent output before the error
+- The prompt that was sent to the agent
+- Step-by-step reproduction instructions with exact CLI commands
+
+**Files changed:**
+- `agent-monitor/server.js` — Added GET/DELETE `/api/errors` endpoints, consolidated ERRORS_DIR
+- `agent-monitor/public/index.html` — Added Errors tab button + tab content section with detail overlay
+- `agent-monitor/public/style.css` — Error card, detail overlay, toolbar, empty state styles
+- `agent-monitor/public/app.js` — Added `ErrorManager` class with load, render, detail view, delete, clear, and markdown-to-HTML rendering
+
+**Impact:**
+- Users can now see all agent errors at a glance from the TecFactory dashboard without manually browsing the filesystem
+- Error reports contain everything needed to reproduce the issue — crucial for debugging autonomous agent loops
+- Delete/clear functionality prevents error report accumulation over time
+
+
+
+## [2026-07-15T00:03] feat: Rollback when killing AI agent
+
+**Category:** High Priority — Agent Lifecycle Management (User Request)
+
+**What was implemented:**
+- When forcefully stopping an AI agent via the TecFactory UI, a **confirmation dialog** now appears with a "Rollback changes" checkbox (enabled by default).
+- If rollback is enabled, two actions are performed automatically after killing the process:
+  1. **Task state reset** — Any task files in `tasks/` with state `"in-progress"` are reset back to `"todo"`, ensuring the task queue remains clean and the task can be re-picked by a future agent run.
+  2. **Git revert** — Runs `git checkout .` in the project root to discard all uncommitted file modifications made by the killed agent, restoring the codebase to its last committed state.
+- The rollback results are displayed in the agent's output stream as system messages (⏪ icons) so the user can verify what happened.
+- The WebSocket protocol now supports a `rollback` flag on the `stop` action, and a new `rollback` message type broadcasts the results to all connected clients.
+- When deleting a running agent, rollback is automatically performed.
+
+**Files changed:**
+- `agent-monitor/server.js` — Added `performRollback()` function, updated `stopAgent()` to accept `options.rollback`, updated WebSocket handler and DELETE endpoint
+- `agent-monitor/public/app.js` — Added stop confirmation dialog flow (`showStopDialog`, `confirmStop`, `cancelStop`), `handleRollback` message handler
+- `agent-monitor/public/index.html` — Added stop confirmation overlay dialog with rollback checkbox
+- `agent-monitor/public/style.css` — Styles for the stop dialog and rollback option
+
+**Impact:**
+- Users can now safely kill runaway or stuck agents without leaving the project in a dirty state
+- In-progress tasks are properly returned to the queue instead of being stuck in limbo
+- Uncommitted code changes from the killed agent are cleanly reverted
+- Clear visual feedback shows exactly what was rolled back
+
+
+
+## [2026-07-15T00:04] feat: TecFactory icon/branding update
+
+**Category:** Branding — User Request
+
+**What was implemented:**
+- Created a new **TecFactory logo** (`agent-monitor/public/tecfactory-logo.svg`) combining the brand orange (#ff8700) with an AI agent factory concept: a central gear/cog with a glowing "eye" center, surrounded by circuit-style connection nodes representing agents spawning from the factory.
+- Created a standalone **favicon** (`agent-monitor/public/favicon.svg`) using the same icon mark for browser tabs.
+- Updated `index.html`:
+  - Changed page title from "TecFactory — TecAlliance" to "TecFactory — Agent Monitor"
+  - Replaced `ta-logo.svg` reference with `tecfactory-logo.svg`
+  - Removed "TecAlliance" alt text, replaced with "TecFactory"
+  - Added `<link rel="icon">` pointing to the new favicon
+- Updated `style.css`:
+  - Changed header comment from "TecAlliance Brand Colors" to "TecFactory Brand Colors"
+  - Removed `filter: brightness(0) invert(1)` from logo img (new SVG has correct colors baked in)
+  - Slightly increased logo height from 24px to 28px for better visibility
+- **No explicit "TecAlliance" text** appears anywhere in the UI or visible source files.
+
+**Design concept:** The icon represents an AI factory — a gear (automation/manufacturing) with a central "eye" (AI intelligence) radiating connections to satellite nodes (the spawned agents). The orange color maintains brand continuity without using the name.
+
+**Files changed:**
+- `agent-monitor/public/tecfactory-logo.svg` (new) — Full logo with wordmark
+- `agent-monitor/public/favicon.svg` (new) — Standalone icon mark for browser tab
+- `agent-monitor/public/index.html` — Updated references, title, favicon
+- `agent-monitor/public/style.css` — Updated brand comment, removed logo filter
+
+**Build:** ✅ Passes (`tsc -b && vite build` — 0 errors)
+
+
+## 2026-07-15T00:06 — Memoize Edge Components for Performance
+
+**What changed:**
+- Wrapped `SmartEdge` component in `React.memo()` (`src/components/canvas/smart-edge.tsx`)
+- Wrapped `LabeledEdge` component in `React.memo()` (`src/components/canvas/labeled-edge.tsx`)
+- Verified `GroupNodeComponent` was already memoized — no change needed
+
+**Impact:**
+- Prevents unnecessary re-renders of edge components during canvas drag/pan/zoom operations when edge props haven't changed
+- `SmartEdge` performs expensive obstruction detection and path computation — memoization avoids repeating this work when only the viewport changes
+- Follows React Flow official performance guide: all custom node/edge components should be memoized or declared outside the parent component
+
+**Files modified:**
+- `src/components/canvas/smart-edge.tsx`
+- `src/components/canvas/labeled-edge.tsx`
+
+
+
+## [2026-07-15T00:06] feat: Loading/transition state when navigating between streams
+
+**Category:** UX Polish — Transition Feedback
+
+**What was implemented:**
+- Added a loading state to the `StreamEditor` component that shows a centered spinner with "Loading value stream…" text during the initial render frame after `loadStream` is called.
+- Uses `requestAnimationFrame` to wait one frame before hiding the spinner, ensuring React Flow has time to process the loaded nodes/edges before the canvas is shown.
+- The spinner uses Tailwind's `animate-spin` on a circular border element for a clean, lightweight loading indicator.
+- Full dark mode support: the loading screen uses `dark:bg-gray-900` background and `dark:text-gray-400` text.
+- Loading state resets when navigating away (cleanup in useEffect), so re-entering a stream always shows the transition.
+
+**Files changed:**
+- `src/components/layout/stream-editor.tsx` — Added `isLoading` state, `requestAnimationFrame` delay, and `StreamLoadingIndicator` component
+
+**Impact:**
+- Eliminates the "flash of empty canvas" when navigating from the landing page to a value stream
+- Provides immediate visual feedback that the app is doing something during navigation
+- Particularly important during live demos where sudden blank screens cause confusion
+- Graceful transition: spinner → loaded canvas feels polished and intentional
+
+
+## 2026-07-15T00:08 — Make Agent Logs Copy-able
+
+**What changed:**
+- Agent output panels in TecFactory are now focusable (`tabindex="0"`) with `user-select: text` and `cursor: text` CSS so users can click into the log area
+- Added a keyboard handler: clicking into the output area and pressing Ctrl+A selects only the logs within that panel (not the entire page)
+- Added a "📋 Copy" button to each agent's control bar that copies all log lines (with timestamps) to clipboard
+- Visual feedback ("✓ Copied") is shown briefly after a successful copy
+- Focus state adds an inner border glow so users know the output area is active
+
+**Impact:**
+- Users can now click into the log output, press Ctrl+A / Ctrl+C to copy all logs as plain text
+- The "Copy" button provides a one-click alternative for copying the full log history
+- Clipboard contains formatted lines: `HH:MM:SS  log content`
+
+**Files modified:**
+- `agent-monitor/public/app.js`
+- `agent-monitor/public/style.css`
+
+
+
+## [2026-07-15T00:08] feat: Node Hover Tooltip with SIPOC Preview
+
+**Category:** Nice to Have — UX Polish
+
+**What was implemented:**
+- Added a hover tooltip to SIPOC process nodes using React Flow's built-in `NodeToolbar` component with hover state management.
+- When a user hovers over a node for 400ms, a rich preview tooltip appears below the node showing:
+  - **Process description** (truncated to 100 chars) — gives context without opening the side panel
+  - **SIPOC summary** — counts of suppliers, inputs, outputs, and customers in a compact 2-column grid with color-coded labels
+  - **Process metrics** (if present) — Cycle Time, Lead Time, and Value Add % as colored badges
+  - **Hint** — "Double-click to view full details" to guide users to the full form
+- Tooltip behavior:
+  - **400ms delay** before showing — prevents flicker during casual mouse movement across the canvas
+  - **Hides when node is selected** — avoids tooltip overlapping with the open side panel
+  - **Hides for empty nodes** — only shows when there's content worth previewing
+  - **Non-interactive** (`pointer-events-none`) — doesn't interfere with drag, click, or connect operations
+  - **Disappears instantly** on mouse leave (no delay)
+- Full dark mode support via Tailwind `dark:` variants on all tooltip elements.
+- Proper accessibility: `role="tooltip"` and `aria-label` on the tooltip container.
+
+**Files changed:**
+- `src/components/canvas/sipoc-node.tsx` — Added `NodeToolbar` import, hover state with timeout, tooltip rendering with SIPOC preview content
+
+**Impact:**
+- Users can quickly preview a node's SIPOC data without opening the side panel — reduces friction during reviews and presentations
+- Especially useful when browsing large value streams (10+ nodes) to quickly scan content
+- The 400ms hover delay prevents tooltip spam during normal canvas interaction
+- Standard UX pattern (hover preview → click for details) familiar from tools like Figma, Notion, and Azure DevOps
+
+
+
+## [2026-07-15T00:12] fix: AI Assist task generation — fix kiro-cli arguments
+
+**Category:** High Priority — Bug Fix (User Request)
+
+**What was broken:**
+The "AI Assist" mode in the TecFactory new task form was failing with:
+```
+Error: kiro-cli exited with code 2: error: unexpected argument '--message' found
+tip: to pass '--message' as a value, use '-- --message'
+Usage: kiro-cli chat [OPTIONS] [INPUT]
+```
+
+**Root cause:**
+The `POST /api/tasks/generate` endpoint was calling `kiro-cli chat --message <prompt> --no-tools --agent kiro_default`, but `kiro-cli chat` doesn't have a `--message` flag or a `--no-tools` flag. The correct API is:
+- The prompt is passed as the positional `[INPUT]` argument
+- `--trust-tools=''` disables all tool usage (replaces `--no-tools`)
+- `--no-interactive` prevents the CLI from waiting for user input
+
+**Fix:**
+Changed the spawn args from:
+```js
+['chat', '--message', acpPrompt, '--no-tools', '--agent', 'kiro_default']
+```
+to:
+```js
+['chat', '--agent', 'kiro_default', '--trust-tools=', '--no-interactive', acpPrompt]
+```
+
+**Files changed:**
+- `agent-monitor/server.js` — Fixed `args` array in `/api/tasks/generate` endpoint
+
+**Impact:**
+- AI Assist task creation now works correctly — users can enter a short prompt and have kiro-cli generate a structured task JSON
+- The generated tasks are saved with `origin: "user-assisted"` as designed
+
+
+
+## [2026-07-15T00:14] chore: Restrict QA and task-order agents to read-only + task file creation
+
+**Category:** High Priority — Agent Safety (User Request)
+
+**What was implemented:**
+- Replaced `"tools": ["*"]` (unrestricted access) in both `qa-improvement-agent.json` and `task-order-agent.json` with **explicit tool allowlists**:
+  - **QA agent:** `read`, `glob`, `grep`, `code`, `write`, `shell`, `knowledge`, `web_search`, `web_fetch`, `puppeteer_navigate`, `puppeteer_screenshot`, `puppeteer_click`, `puppeteer_evaluate`, `puppeteer_fill`, `puppeteer_hover`, `puppeteer_select`
+  - **Task-order agent:** `read`, `glob`, `grep`, `code`, `write`, `shell`, `knowledge`
+- Added prominent **"CRITICAL: Write Access Restrictions"** sections to both the JSON `prompt` fields AND the `.md` instruction files, explicitly listing:
+  - **QA agent allowed writes:** `tasks/*.json` and `IMPROVEMENTS.md` only
+  - **Task-order agent allowed writes:** `tasks/*.json` only (priority field + file rename)
+  - **Forbidden paths for both:** `src/`, `public/`, `scripts/`, `agent-monitor/`, `.kiro/`, `package.json`, `tsconfig.json`, all config files
+  - **Forbidden operations:** `npm install`, `npm run build`, code implementation, file deletion outside allowed scope
+- Updated the "Tools Available" section in both `.md` files to reflect the new restricted tool set with clear scope annotations.
+
+**Files changed:**
+- `.kiro/agents/qa-improvement-agent.json` — explicit tools list + write restriction in prompt
+- `.kiro/agents/qa-improvement-agent.md` — write restrictions section + updated tools list
+- `.kiro/agents/task-order-agent.json` — explicit tools list + write restriction in prompt
+- `.kiro/agents/task-order-agent.md` — write restrictions section + updated tools list
+
+**Impact:**
+- QA and task-order agents can no longer accidentally modify source code, configs, or other project files
+- Prevents conflicts when multiple agents run on the same branch simultaneously
+- The developer agent retains full write access (it needs it to implement tasks)
+- Prompt-level guardrails provide clear instructions; tool allowlists provide a secondary enforcement layer
+- If an agent attempts to write outside allowed paths, the prompt instructions should cause it to self-correct
+
+**Build:** ✅ Passes (`tsc -b && vite build` — 0 errors)
+
+
+
+## [2026-07-15T00:14] feat: AI agent working visibility in TecFactory
+
+**Category:** High Priority — User Request
+
+**What was implemented:**
+- Real-time activity tracking for all agent types in the TecFactory web UI:
+  - **Developer agents:** Shows the exact task title currently being worked on (detected from tasks/ folder — any task with state "in-progress")
+  - **QA agents:** Shows whether the agent is actively testing, researching, writing findings, or waiting for the next cycle (detected by parsing recent output lines)
+  - **Task-order agents:** Shows "Re-prioritizing tasks" while running
+- **Server-side (agent-monitor/server.js):**
+  - Added `currentActivity` field to agent runtime state
+  - `getDevAgentActivity()` — scans tasks/ for in-progress tasks to determine dev agent work
+  - `parseQaAgentActivity()` — parses recent output for QA-specific state keywords (puppeteer/navigate = testing, web_search = researching, "next iteration in" = waiting)
+  - `updateAgentActivity()` — compares previous vs new activity and broadcasts only on changes
+  - Activity updates triggered on: task file changes (dev agents), output lines (QA agents)
+  - New WebSocket message type: `{ type: 'activity', agentId, activity }` broadcast to all clients
+  - REST endpoints updated to include `currentActivity` in responses
+- **Client-side (agent-monitor/public/app.js):**
+  - `updateActivity(agentId, activity)` — renders/hides the activity indicator on agent cards
+  - Activity shown with contextual icons (🔧 working, 🔍 testing, 📚 researching, ⏳ waiting, ⚡ active)
+  - Working state shows in amber/orange, waiting state shows in teal
+  - Activity text includes task title in bold for dev agents
+  - Handles `activity` WebSocket messages and renders initial state on page load
+- **Styling (agent-monitor/public/style.css):**
+  - `.agent-activity` container with subtle pulsing animation
+  - `.activity-working` — amber glow (matches TecFactory ignition brand color)
+  - `.activity-waiting` — teal glow for idle/waiting state
+  - Truncation with ellipsis for long task titles (max 300px)
+
+**Files changed:**
+- `agent-monitor/server.js` — Activity tracking logic, WebSocket broadcasts, REST API updates
+- `agent-monitor/public/app.js` — UI rendering of activity state on agent cards
+- `agent-monitor/public/style.css` — Activity indicator styling with brand colors and animation
+
+**Impact:**
+- Users can see at a glance exactly what each AI agent is doing without reading log output
+- Developer agent card shows the task title being implemented (e.g. "Working on: fix-add-process-bug")
+- QA agent card shows testing/researching/waiting state
+- Activity updates in real-time via WebSocket — no page refresh needed
+
+**Build:** ✅ Passes (`tsc -b && vite build` — 0 errors)
