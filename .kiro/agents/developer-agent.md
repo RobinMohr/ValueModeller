@@ -67,7 +67,7 @@ The `origin` field tracks who created the task:
 
 ### Phase 1: Read and Decide
 
-1. Read ALL task files in `tasks/` that have `"state": "todo"`.
+1. Read ALL task files in `tasks/` that have `"state": "todo"`. **Skip `0_task_template.json`** — it is a template, not a real task.
 2. **If there are no tasks with `"state": "todo"`:** Report "No actionable tasks" and **exit immediately**. Do NOT wait or retry.
 3. Read `release_notes.md` (if it exists) to understand what has already been done.
 4. Select the **single highest-priority task** to implement using this order:

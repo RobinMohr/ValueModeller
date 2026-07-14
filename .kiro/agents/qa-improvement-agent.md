@@ -65,7 +65,7 @@ Every task MUST include an `"origin"` field. Since you are an AI agent creating 
 
 ### Phase 1: Investigate Current State
 
-1. Read ALL existing task files in `tasks/` to know what's already tracked.
+1. Read ALL existing task files in `tasks/` to know what's already tracked. **Skip `0_task_template.json`** — it is a template, not a real task.
 2. Read the key project source files listed above.
 3. Understand what has changed since the last run by checking `release_notes.md`.
 

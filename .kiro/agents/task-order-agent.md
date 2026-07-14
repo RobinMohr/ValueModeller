@@ -40,7 +40,7 @@ The `origin` field tracks who created the task. **Do NOT modify this field** —
 
 ### Phase 1: Read Current State
 
-1. Read ALL JSON files in `tasks/`.
+1. Read ALL JSON files in `tasks/`. **Skip `0_task_template.json`** — it is a template, not a real task.
 2. Read `release_notes.md` to understand what's been completed.
 3. Read `speciifcations.md` for project goals.
 4. Note the current date/time to estimate remaining hackathon time.
