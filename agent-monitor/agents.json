@@ -1,0 +1,42 @@
+[
+  {
+    "id": "dev-loop",
+    "name": "Developer Agent",
+    "type": "dev",
+    "agent": "developer-agent",
+    "description": "Picks the highest-priority task from tasks/, implements it, and marks it developed.",
+    "intervalSeconds": 0,
+    "timeoutSeconds": 900,
+    "maxIterations": 0
+  },
+  {
+    "id": "qa-loop",
+    "name": "QA Agent",
+    "type": "qa",
+    "agent": "qa-improvement-agent",
+    "description": "Tests the app with Puppeteer, researches improvements, creates new task files.",
+    "intervalSeconds": 30,
+    "timeoutSeconds": 600,
+    "maxIterations": 0
+  },
+  {
+    "id": "task-order",
+    "name": "Task Prioritization Agent",
+    "type": "task-order",
+    "agent": "task-order-agent",
+    "description": "Re-evaluates and re-orders task priorities based on current project state.",
+    "intervalSeconds": 0,
+    "timeoutSeconds": 300,
+    "maxIterations": 1
+  },
+  {
+    "id": "another-dev-agent",
+    "name": "another dev agent",
+    "type": "dev",
+    "agent": "developer-agent",
+    "description": "develop",
+    "intervalSeconds": 0,
+    "timeoutSeconds": 900,
+    "maxIterations": 0
+  }
+]

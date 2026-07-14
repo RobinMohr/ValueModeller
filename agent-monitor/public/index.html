@@ -1,0 +1,275 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>TecFactory — Agent Monitor</title>
+  <link rel="icon" type="image/svg+xml" href="favicon.svg">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <header>
+    <div class="header-content">
+      <div class="logo">
+        <img src="tecfactory-logo.svg" alt="TecFactory" class="ta-logo-img">
+        <span class="logo-divider"></span>
+        <h1>TecFactory</h1>
+      </div>
+      <nav class="tabs">
+        <button class="tab active" data-tab="agents" onclick="switchTab('agents')">Agents</button>
+        <button class="tab" data-tab="tasks" onclick="switchTab('tasks')">Tasks</button>
+        <button class="tab" data-tab="errors" onclick="switchTab('errors')">Errors</button>
+      </nav>
+      <div class="connection-status" id="connectionStatus">
+        <span class="status-dot disconnected"></span>
+        <span class="status-text">Disconnected</span>
+      </div>
+    </div>
+  </header>
+
+  <main>
+    <!-- Agents Tab -->
+    <section class="tab-content active" id="tab-agents">
+      <div class="agents-toolbar">
+        <button class="btn btn-start" onclick="agentManager.showCreateForm()">+ New Agent</button>
+      </div>
+      <div class="agents-grid" id="agentsGrid">
+        <!-- Agent cards rendered here -->
+      </div>
+    </section>
+
+    <!-- Tasks Tab -->
+    <section class="tab-content" id="tab-tasks">
+      <div class="tasks-toolbar">
+        <div class="tasks-filters">
+          <button class="filter-btn active" data-filter="all" onclick="filterTasks('all')">All</button>
+          <button class="filter-btn" data-filter="todo" onclick="filterTasks('todo')">To Do</button>
+          <button class="filter-btn" data-filter="in-progress" onclick="filterTasks('in-progress')">In Progress</button>
+          <button class="filter-btn" data-filter="developed" onclick="filterTasks('developed')">Developed</button>
+          <button class="filter-btn" data-filter="done" onclick="filterTasks('done')">Done</button>
+        </div>
+        <button class="btn btn-start" onclick="taskManager.showCreateForm()">+ New Task</button>
+      </div>
+
+      <!-- Create/Edit Task Form -->
+      <div class="task-form-overlay" id="taskFormOverlay" style="display:none;">
+        <div class="task-form-panel">
+          <div class="task-form-header">
+            <h2 id="taskFormTitle">New Task</h2>
+            <button class="btn-close" onclick="taskManager.hideForm()">&times;</button>
+          </div>
+
+          <!-- Mode toggle (only shown when creating) -->
+          <div class="task-mode-toggle" id="taskModeToggle">
+            <button type="button" class="mode-btn active" data-mode="manual" onclick="taskManager.setMode('manual')">&#9998; Manual</button>
+            <button type="button" class="mode-btn" data-mode="ai-assist" onclick="taskManager.setMode('ai-assist')">&#129302; AI Assist</button>
+          </div>
+
+          <!-- AI Assist Mode -->
+          <div id="taskAiAssistPanel" style="display:none;">
+            <div class="form-group">
+              <label for="taskAiPrompt">Describe what you need</label>
+              <textarea id="taskAiPrompt" rows="4" placeholder="e.g. Add a button to export the value stream as PDF..."></textarea>
+              <span class="form-hint">AI will generate a structured task from your description</span>
+            </div>
+            <div class="form-actions">
+              <button type="button" class="btn btn-clear" onclick="taskManager.hideForm()">Cancel</button>
+              <button type="button" class="btn btn-start" id="taskAiSubmitBtn" onclick="taskManager.submitAiAssist()">&#129302; Generate Task</button>
+            </div>
+            <div class="ai-assist-status" id="aiAssistStatus" style="display:none;">
+              <span class="ai-spinner"></span>
+              <span id="aiAssistStatusText">Generating task...</span>
+            </div>
+          </div>
+
+          <!-- Manual Mode (standard form) -->
+          <form id="taskForm" onsubmit="taskManager.submitForm(event)">
+            <input type="hidden" id="taskFormFilename" value="">
+            <div class="form-group">
+              <label for="taskTitle">Title *</label>
+              <input type="text" id="taskTitle" required placeholder="Short task title...">
+            </div>
+            <div class="form-row">
+              <div class="form-group">
+                <label for="taskPriority">Priority *</label>
+                <select id="taskPriority" required>
+                  <option value="1">1 — Critical</option>
+                  <option value="2" selected>2 — High</option>
+                  <option value="3">3 — Medium</option>
+                  <option value="4">4 — Low</option>
+                </select>
+              </div>
+              <div class="form-group">
+                <label for="taskType">Type</label>
+                <select id="taskType">
+                  <option value="improvement">Improvement</option>
+                  <option value="bug">Bug</option>
+                  <option value="feature">Feature</option>
+                  <option value="idea">Idea</option>
+                </select>
+              </div>
+              <!-- State field: hidden when creating, visible when editing -->
+              <div class="form-group" id="taskStateGroup" style="display:none;">
+                <label for="taskState">State</label>
+                <select id="taskState">
+                  <option value="todo">To Do</option>
+                  <option value="in-progress">In Progress</option>
+                  <option value="developed">Developed</option>
+                  <option value="done">Done</option>
+                </select>
+              </div>
+            </div>
+            <!-- Origin field: hidden when creating, visible when editing (read-only display) -->
+            <div class="form-row" id="taskOriginRow" style="display:none;">
+              <div class="form-group">
+                <label for="taskOrigin">Origin</label>
+                <select id="taskOrigin" disabled>
+                  <option value="user">&#128100; User</option>
+                  <option value="ai">&#129302; AI</option>
+                  <option value="user-assisted">&#129309; User-Assisted</option>
+                </select>
+                <span class="form-hint">Set automatically — cannot be changed</span>
+              </div>
+              <div class="form-group"></div>
+              <div class="form-group"></div>
+            </div>
+            <div class="form-group">
+              <label for="taskDescription">Description *</label>
+              <textarea id="taskDescription" required rows="4" placeholder="Detailed description of the task..."></textarea>
+            </div>
+            <div class="form-group">
+              <label for="taskFiles">Files (comma-separated)</label>
+              <input type="text" id="taskFiles" placeholder="src/components/canvas/flow-canvas.tsx, ...">
+            </div>
+            <div class="form-actions">
+              <button type="button" class="btn btn-clear" onclick="taskManager.hideForm()">Cancel</button>
+              <button type="submit" class="btn btn-start" id="taskFormSubmitBtn">Create Task</button>
+            </div>
+          </form>
+        </div>
+      </div>
+
+      <div class="tasks-list" id="tasksList">
+        <!-- Task cards rendered here -->
+      </div>
+    </section>
+
+    <!-- Errors Tab -->
+    <section class="tab-content" id="tab-errors">
+      <div class="errors-toolbar">
+        <div class="errors-summary" id="errorsSummary">
+          <span class="errors-count">0 errors</span>
+        </div>
+        <button class="btn btn-danger-small" onclick="errorManager.clearAll()" id="clearAllErrorsBtn" style="display:none;">Clear All</button>
+        <button class="btn btn-start" onclick="errorManager.refresh()">↻ Refresh</button>
+      </div>
+      <div class="errors-list" id="errorsList">
+        <!-- Error cards rendered here -->
+      </div>
+      <!-- Error Detail View -->
+      <div class="error-detail-overlay" id="errorDetailOverlay" style="display:none;">
+        <div class="error-detail-panel">
+          <div class="error-detail-header">
+            <h2 id="errorDetailTitle">Error Report</h2>
+            <button class="btn-close" onclick="errorManager.hideDetail()">&times;</button>
+          </div>
+          <div class="error-detail-content" id="errorDetailContent">
+            <!-- Markdown content rendered here -->
+          </div>
+          <div class="error-detail-actions">
+            <button class="btn btn-clear" onclick="errorManager.hideDetail()">Close</button>
+            <button class="btn btn-danger-small" id="errorDetailDeleteBtn">Delete Error</button>
+          </div>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <!-- Create/Edit Agent Form Overlay -->
+  <div class="task-form-overlay" id="agentFormOverlay" style="display:none;">
+    <div class="task-form-panel">
+      <div class="task-form-header">
+        <h2 id="agentFormTitle">New Agent</h2>
+        <button class="btn-close" onclick="agentManager.hideForm()">&times;</button>
+      </div>
+      <form id="agentForm" onsubmit="agentManager.submitForm(event)">
+        <input type="hidden" id="agentFormId" value="">
+        <div class="form-group">
+          <label for="agentName">Name *</label>
+          <input type="text" id="agentName" required placeholder="My Developer Agent">
+        </div>
+        <div class="form-group">
+          <label for="agentType">Agent Type *</label>
+          <select id="agentType" required onchange="agentManager.onTypeChange()">
+            <option value="dev">Developer — Implements tasks from the backlog</option>
+            <option value="qa">QA / Research — Tests the app and researches improvements</option>
+            <option value="task-order">Task Prioritization — Re-orders task priorities</option>
+            <option value="custom">Custom — Run any agent with a custom prompt</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label for="agentAgentName">Kiro Agent Name *</label>
+          <input type="text" id="agentAgentName" required placeholder="developer-agent">
+          <span class="form-hint">Must match a file in .kiro/agents/ (without extension)</span>
+        </div>
+        <div class="form-group">
+          <label for="agentDescription">Description</label>
+          <input type="text" id="agentDescription" placeholder="What this agent does...">
+        </div>
+        <div class="form-row">
+          <div class="form-group">
+            <label for="agentInterval">Interval between runs (seconds)</label>
+            <input type="number" id="agentInterval" min="0" value="0" placeholder="0">
+            <span class="form-hint">0 = no wait</span>
+          </div>
+          <div class="form-group">
+            <label for="agentTimeout">Timeout per run (seconds)</label>
+            <input type="number" id="agentTimeout" min="30" value="900" placeholder="900">
+          </div>
+          <div class="form-group">
+            <label for="agentMaxIterations">Max runs</label>
+            <input type="number" id="agentMaxIterations" min="0" value="0" placeholder="0">
+            <span class="form-hint">0 = infinite</span>
+          </div>
+        </div>
+        <div class="form-group" id="customPromptGroup" style="display:none;">
+          <label for="agentCustomPrompt">Custom Prompt *</label>
+          <textarea id="agentCustomPrompt" rows="5" placeholder="Instructions for the agent..."></textarea>
+        </div>
+        <div class="form-actions">
+          <button type="button" class="btn btn-clear" onclick="agentManager.hideForm()">Cancel</button>
+          <button type="submit" class="btn btn-start" id="agentFormSubmitBtn">Create Agent</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Stop Agent Confirmation Dialog -->
+  <div class="task-form-overlay" id="stopAgentOverlay" style="display:none;" data-agent-id="">
+    <div class="task-form-panel stop-dialog-panel">
+      <div class="task-form-header">
+        <h2 id="stopAgentTitle">Stop Agent?</h2>
+        <button class="btn-close" onclick="monitor.cancelStop()">&times;</button>
+      </div>
+      <div class="stop-dialog-body">
+        <p id="stopAgentDescription">The agent process will be forcefully killed.</p>
+        <div class="stop-rollback-option">
+          <label class="rollback-checkbox-label">
+            <input type="checkbox" id="stopAgentRollback" checked>
+            <span class="rollback-checkbox-text">
+              <strong>Rollback changes</strong>
+              <span class="rollback-hint">Reset in-progress tasks to "todo" and revert uncommitted git changes</span>
+            </span>
+          </label>
+        </div>
+      </div>
+      <div class="form-actions">
+        <button type="button" class="btn btn-clear" onclick="monitor.cancelStop()">Cancel</button>
+        <button type="button" class="btn btn-stop" onclick="monitor.confirmStop()">&#9632; Stop Agent</button>
+      </div>
+    </div>
+  </div>
+
+  <script src="app.js"></script>
+</body>
+</html>

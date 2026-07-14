@@ -1,0 +1,22 @@
+{
+  "name": "value-modeller-scripts",
+  "version": "2.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "tsc",
+    "agent": "node \"./dist/agent-loop.js\"",
+    "dev": "node \"./dist/agent-loop.js\" --agent developer-agent --type dev",
+    "qa": "node \"./dist/agent-loop.js\" --agent qa-improvement-agent --type qa --interval 30 --timeout 600",
+    "task-order": "node \"./dist/agent-loop.js\" --agent task-order-agent --type task-order --max-iterations 1",
+    "dev:once": "node \"./dist/agent-loop.js\" --agent developer-agent --type dev --max-iterations 1",
+    "qa:once": "node \"./dist/agent-loop.js\" --agent qa-improvement-agent --type qa --max-iterations 1"
+  },
+  "dependencies": {
+    "@agentclientprotocol/sdk": "^0.19.0"
+  },
+  "devDependencies": {
+    "@types/node": "^22.0.0",
+    "typescript": "~5.7.0"
+  }
+}
