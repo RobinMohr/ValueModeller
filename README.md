@@ -17,10 +17,10 @@ npm run preview   # Preview the production build
 
 The project includes **TecFactory**, a WebSocket-based web UI for monitoring and controlling the autonomous agent loops from a single dashboard.
 
-### Running the Agent Monitor
+### Running TecFactory
 
 ```bash
-cd agent-monitor
+cd tecfactory
 npm install
 npm start         # Start at http://localhost:3500
 # or with auto-reload:
@@ -31,7 +31,7 @@ Open `http://localhost:3500` in a browser. The UI shows all configured agents wi
 
 ### Agent Configuration
 
-Agents are defined in `agent-monitor/agents.json`. Each entry specifies a command to spawn:
+Agents are defined in `tecfactory/agents.json`. Each entry specifies a command to spawn:
 
 ```json
 [
@@ -78,7 +78,7 @@ Three autonomous agent loops use `kiro-cli` to continuously improve the app. The
 | Requirement | Why |
 |---|---|
 | `kiro-cli` installed and authenticated (`kiro-cli login`) | The loops spawn kiro-cli as a subprocess |
-| Node.js 20+ | Required by the scripts and agent-monitor |
+| Node.js 20+ | Required by the scripts and TecFactory |
 | `npm run dev` running in a separate terminal | The QA agent tests the app via Puppeteer at `http://localhost:5173` |
 | Puppeteer MCP server configured in `.kiro/settings/mcp.json` | QA agent uses Puppeteer to interact with the UI |
 
@@ -164,7 +164,7 @@ Run all components in separate terminals (or use TecFactory to manage agents):
 
 ```
 Terminal 1:  npm run dev                              ← Vite dev server (http://localhost:5173)
-Terminal 2:  cd agent-monitor && npm start            ← TecFactory agent monitor (http://localhost:3500)
+Terminal 2:  cd tecfactory && npm start               ← TecFactory agent monitor (http://localhost:3500)
 Terminal 3:  .\scripts\qa-loop.ps1                    ← QA agent (or start from TecFactory)
 Terminal 4:  .\scripts\dev-loop.ps1                   ← Developer agent (or start from TecFactory)
 Terminal 5:  .\scripts\task-order-loop.ps1            ← Task ordering agent (optional)
@@ -193,7 +193,7 @@ src/
 └── index.css
 
 scripts/                # Agent loop scripts (PowerShell + TypeScript ACP)
-agent-monitor/          # TecFactory — agent management web UI
+tecfactory/             # TecFactory — agent management web UI
 tasks/                  # Task queue (JSON files, managed by TecFactory)
 .kiro/agents/           # Kiro agent definitions (QA, developer, task-order)
 .kiro/steering/         # Kiro steering files

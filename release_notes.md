@@ -589,10 +589,10 @@ Connected the existing but unreachable landing page and multi-stream architectur
 - **Styled mode toggle** (segmented control) with hover/active states matching the TecFactory design language.
 
 **Files changed:**
-- `agent-monitor/public/index.html` — Restructured task form with mode toggle, AI assist panel, hidden state/origin groups
-- `agent-monitor/public/app.js` — Updated TaskManager class: `setMode()`, `showCreateForm()` hides state/origin, `submitForm()` auto-sets state+origin on create, new `submitAiAssist()` method
-- `agent-monitor/public/style.css` — New styles for mode toggle, AI assist panel, spinner animation
-- `agent-monitor/server.js` — New `POST /api/tasks/generate` endpoint with kiro-cli integration
+- `tecfactory/public/index.html` — Restructured task form with mode toggle, AI assist panel, hidden state/origin groups
+- `tecfactory/public/app.js` — Updated TaskManager class: `setMode()`, `showCreateForm()` hides state/origin, `submitForm()` auto-sets state+origin on create, new `submitAiAssist()` method
+- `tecfactory/public/style.css` — New styles for mode toggle, AI assist panel, spinner animation
+- `tecfactory/server.js` — New `POST /api/tasks/generate` endpoint with kiro-cli integration
 
 **Impact:**
 - Users can no longer accidentally set incorrect state/origin values when creating tasks
@@ -660,10 +660,10 @@ Connected the existing but unreachable landing page and multi-stream architectur
 3. ✅ AI Assist mode added — user enters a prompt, `POST /api/tasks/generate` calls `kiro-cli` to generate a structured task with `origin: "user-assisted"`
 
 **Files (previously modified):**
-- `agent-monitor/public/index.html` — Mode toggle, AI assist panel, hidden state/origin groups
-- `agent-monitor/public/app.js` — `setMode()`, `showCreateForm()`, `submitForm()`, `submitAiAssist()`
-- `agent-monitor/public/style.css` — Mode toggle and AI assist panel styles
-- `agent-monitor/server.js` — `POST /api/tasks/generate` endpoint
+- `tecfactory/public/index.html` — Mode toggle, AI assist panel, hidden state/origin groups
+- `tecfactory/public/app.js` — `setMode()`, `showCreateForm()`, `submitForm()`, `submitAiAssist()`
+- `tecfactory/public/style.css` — Mode toggle and AI assist panel styles
+- `tecfactory/server.js` — `POST /api/tasks/generate` endpoint
 
 **Build status:** ✅ Passes (`tsc -b && vite build` — 0 errors)
 
@@ -696,7 +696,7 @@ Connected the existing but unreachable landing page and multi-stream architectur
 **Category:** High Priority — Observability & Debugging
 
 **What was implemented:**
-- The **core error logging** was already in place: `scripts/src/error-logger.ts` writes rich `.md` error reports to the `errors/` folder when agents crash, timeout, or hit breaking errors. The `agent-monitor/server.js` also had `logAgentErrorToFile()` that logs when agent processes exit non-zero or fail to spawn.
+- The **core error logging** was already in place: `scripts/src/error-logger.ts` writes rich `.md` error reports to the `errors/` folder when agents crash, timeout, or hit breaking errors. The `tecfactory/server.js` also had `logAgentErrorToFile()` that logs when agent processes exit non-zero or fail to spawn.
 - **Added REST API endpoints** for error management:
   - `GET /api/errors` — lists all error reports with extracted metadata (timestamp, agent, type, error summary)
   - `GET /api/errors/:filename` — retrieves the full markdown content of a specific error report
@@ -720,10 +720,10 @@ Connected the existing but unreachable landing page and multi-stream architectur
 - Step-by-step reproduction instructions with exact CLI commands
 
 **Files changed:**
-- `agent-monitor/server.js` — Added GET/DELETE `/api/errors` endpoints, consolidated ERRORS_DIR
-- `agent-monitor/public/index.html` — Added Errors tab button + tab content section with detail overlay
-- `agent-monitor/public/style.css` — Error card, detail overlay, toolbar, empty state styles
-- `agent-monitor/public/app.js` — Added `ErrorManager` class with load, render, detail view, delete, clear, and markdown-to-HTML rendering
+- `tecfactory/server.js` — Added GET/DELETE `/api/errors` endpoints, consolidated ERRORS_DIR
+- `tecfactory/public/index.html` — Added Errors tab button + tab content section with detail overlay
+- `tecfactory/public/style.css` — Error card, detail overlay, toolbar, empty state styles
+- `tecfactory/public/app.js` — Added `ErrorManager` class with load, render, detail view, delete, clear, and markdown-to-HTML rendering
 
 **Impact:**
 - Users can now see all agent errors at a glance from the TecFactory dashboard without manually browsing the filesystem
@@ -746,10 +746,10 @@ Connected the existing but unreachable landing page and multi-stream architectur
 - When deleting a running agent, rollback is automatically performed.
 
 **Files changed:**
-- `agent-monitor/server.js` — Added `performRollback()` function, updated `stopAgent()` to accept `options.rollback`, updated WebSocket handler and DELETE endpoint
-- `agent-monitor/public/app.js` — Added stop confirmation dialog flow (`showStopDialog`, `confirmStop`, `cancelStop`), `handleRollback` message handler
-- `agent-monitor/public/index.html` — Added stop confirmation overlay dialog with rollback checkbox
-- `agent-monitor/public/style.css` — Styles for the stop dialog and rollback option
+- `tecfactory/server.js` — Added `performRollback()` function, updated `stopAgent()` to accept `options.rollback`, updated WebSocket handler and DELETE endpoint
+- `tecfactory/public/app.js` — Added stop confirmation dialog flow (`showStopDialog`, `confirmStop`, `cancelStop`), `handleRollback` message handler
+- `tecfactory/public/index.html` — Added stop confirmation overlay dialog with rollback checkbox
+- `tecfactory/public/style.css` — Styles for the stop dialog and rollback option
 
 **Impact:**
 - Users can now safely kill runaway or stuck agents without leaving the project in a dirty state
@@ -764,8 +764,8 @@ Connected the existing but unreachable landing page and multi-stream architectur
 **Category:** Branding — User Request
 
 **What was implemented:**
-- Created a new **TecFactory logo** (`agent-monitor/public/tecfactory-logo.svg`) combining the brand orange (#ff8700) with an AI agent factory concept: a central gear/cog with a glowing "eye" center, surrounded by circuit-style connection nodes representing agents spawning from the factory.
-- Created a standalone **favicon** (`agent-monitor/public/favicon.svg`) using the same icon mark for browser tabs.
+- Created a new **TecFactory logo** (`tecfactory/public/tecfactory-logo.svg`) combining the brand orange (#ff8700) with an AI agent factory concept: a central gear/cog with a glowing "eye" center, surrounded by circuit-style connection nodes representing agents spawning from the factory.
+- Created a standalone **favicon** (`tecfactory/public/favicon.svg`) using the same icon mark for browser tabs.
 - Updated `index.html`:
   - Changed page title from "TecFactory — TecAlliance" to "TecFactory — Agent Monitor"
   - Replaced `ta-logo.svg` reference with `tecfactory-logo.svg`
@@ -780,10 +780,10 @@ Connected the existing but unreachable landing page and multi-stream architectur
 **Design concept:** The icon represents an AI factory — a gear (automation/manufacturing) with a central "eye" (AI intelligence) radiating connections to satellite nodes (the spawned agents). The orange color maintains brand continuity without using the name.
 
 **Files changed:**
-- `agent-monitor/public/tecfactory-logo.svg` (new) — Full logo with wordmark
-- `agent-monitor/public/favicon.svg` (new) — Standalone icon mark for browser tab
-- `agent-monitor/public/index.html` — Updated references, title, favicon
-- `agent-monitor/public/style.css` — Updated brand comment, removed logo filter
+- `tecfactory/public/tecfactory-logo.svg` (new) — Full logo with wordmark
+- `tecfactory/public/favicon.svg` (new) — Standalone icon mark for browser tab
+- `tecfactory/public/index.html` — Updated references, title, favicon
+- `tecfactory/public/style.css` — Updated brand comment, removed logo filter
 
 **Build:** ✅ Passes (`tsc -b && vite build` — 0 errors)
 
@@ -842,8 +842,8 @@ Connected the existing but unreachable landing page and multi-stream architectur
 - Clipboard contains formatted lines: `HH:MM:SS  log content`
 
 **Files modified:**
-- `agent-monitor/public/app.js`
-- `agent-monitor/public/style.css`
+- `tecfactory/public/app.js`
+- `tecfactory/public/style.css`
 
 
 
@@ -907,7 +907,7 @@ to:
 ```
 
 **Files changed:**
-- `agent-monitor/server.js` — Fixed `args` array in `/api/tasks/generate` endpoint
+- `tecfactory/server.js` — Fixed `args` array in `/api/tasks/generate` endpoint
 
 **Impact:**
 - AI Assist task creation now works correctly — users can enter a short prompt and have kiro-cli generate a structured task JSON
@@ -926,7 +926,7 @@ to:
 - Added prominent **"CRITICAL: Write Access Restrictions"** sections to both the JSON `prompt` fields AND the `.md` instruction files, explicitly listing:
   - **QA agent allowed writes:** `tasks/*.json` and `IMPROVEMENTS.md` only
   - **Task-order agent allowed writes:** `tasks/*.json` only (priority field + file rename)
-  - **Forbidden paths for both:** `src/`, `public/`, `scripts/`, `agent-monitor/`, `.kiro/`, `package.json`, `tsconfig.json`, all config files
+  - **Forbidden paths for both:** `src/`, `public/`, `scripts/`, `tecfactory/`, `.kiro/`, `package.json`, `tsconfig.json`, all config files
   - **Forbidden operations:** `npm install`, `npm run build`, code implementation, file deletion outside allowed scope
 - Updated the "Tools Available" section in both `.md` files to reflect the new restricted tool set with clear scope annotations.
 
@@ -956,7 +956,7 @@ to:
   - **Developer agents:** Shows the exact task title currently being worked on (detected from tasks/ folder — any task with state "in-progress")
   - **QA agents:** Shows whether the agent is actively testing, researching, writing findings, or waiting for the next cycle (detected by parsing recent output lines)
   - **Task-order agents:** Shows "Re-prioritizing tasks" while running
-- **Server-side (agent-monitor/server.js):**
+- **Server-side (tecfactory/server.js):**
   - Added `currentActivity` field to agent runtime state
   - `getDevAgentActivity()` — scans tasks/ for in-progress tasks to determine dev agent work
   - `parseQaAgentActivity()` — parses recent output for QA-specific state keywords (puppeteer/navigate = testing, web_search = researching, "next iteration in" = waiting)
@@ -964,22 +964,22 @@ to:
   - Activity updates triggered on: task file changes (dev agents), output lines (QA agents)
   - New WebSocket message type: `{ type: 'activity', agentId, activity }` broadcast to all clients
   - REST endpoints updated to include `currentActivity` in responses
-- **Client-side (agent-monitor/public/app.js):**
+- **Client-side (tecfactory/public/app.js):**
   - `updateActivity(agentId, activity)` — renders/hides the activity indicator on agent cards
   - Activity shown with contextual icons (🔧 working, 🔍 testing, 📚 researching, ⏳ waiting, ⚡ active)
   - Working state shows in amber/orange, waiting state shows in teal
   - Activity text includes task title in bold for dev agents
   - Handles `activity` WebSocket messages and renders initial state on page load
-- **Styling (agent-monitor/public/style.css):**
+- **Styling (tecfactory/public/style.css):**
   - `.agent-activity` container with subtle pulsing animation
   - `.activity-working` — amber glow (matches TecFactory ignition brand color)
   - `.activity-waiting` — teal glow for idle/waiting state
   - Truncation with ellipsis for long task titles (max 300px)
 
 **Files changed:**
-- `agent-monitor/server.js` — Activity tracking logic, WebSocket broadcasts, REST API updates
-- `agent-monitor/public/app.js` — UI rendering of activity state on agent cards
-- `agent-monitor/public/style.css` — Activity indicator styling with brand colors and animation
+- `tecfactory/server.js` — Activity tracking logic, WebSocket broadcasts, REST API updates
+- `tecfactory/public/app.js` — UI rendering of activity state on agent cards
+- `tecfactory/public/style.css` — Activity indicator styling with brand colors and animation
 
 **Impact:**
 - Users can see at a glance exactly what each AI agent is doing without reading log output
@@ -988,3 +988,36 @@ to:
 - Activity updates in real-time via WebSocket — no page refresh needed
 
 **Build:** ✅ Passes (`tsc -b && vite build` — 0 errors)
+
+
+
+## [2026-07-15T00:24] chore: Rename AgentMonitor → TecFactory in code
+
+**Category:** Branding — User Request
+
+**What was implemented:**
+- Renamed the `AgentMonitor` class to `TecFactory` in `tecfactory/public/app.js`
+- Updated the section comment from "Agent Monitor (WebSocket)" to "TecFactory (WebSocket)"
+- Updated the class instantiation from `new AgentMonitor()` to `new TecFactory()`
+- Changed the HTML page `<title>` from "TecFactory — Agent Monitor" to just "TecFactory"
+- Verified no remaining "AgentMonitor" or "Agent Monitor" text references exist in the tecfactory/ directory
+
+**Files changed:**
+- `tecfactory/public/app.js` — Class rename + comment update + instantiation
+- `tecfactory/public/index.html` — Page title simplified
+
+**Note:** The physical folder has been renamed from `agent-monitor/` to `tecfactory/` to complete the branding rename.
+
+**Build:** ✅ Passes (`tsc -b && vite build` — 0 errors)
+
+
+## 2026-07-15T00:27 — Git Branch Enforcement & Auto-Commit/Push for Dev Agent
+
+**Category:** Enhancement
+**Task:** `tasks/2_let-kiro-commit.json`
+**Files verified:**
+- `scripts/src/agent-loop.ts` — already contains `ensureDevelopBranch()`, `getCommitMessage()`, and `commitAndPush()` functions
+
+**Summary:** Verified that the dev agent loop already enforces the `develop` branch (refusing to work on `main`), automatically stages all changes, generates a meaningful commit message from the completed task title, and pushes to `origin/develop` after each successful iteration. The implementation includes: branch existence check/creation, automatic checkout, porcelain status check before committing, and push with upstream tracking (`-u`). No code changes needed — feature was already fully implemented in a prior iteration.
+
+---

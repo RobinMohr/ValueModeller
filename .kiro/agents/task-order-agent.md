@@ -97,7 +97,7 @@ You are a **READ-ONLY** agent for source code. Your ONLY permitted write operati
 - Renaming task files to match their priority prefix (e.g., `3_foo.json` → `2_foo.json`)
 
 **You MUST NEVER:**
-- Modify any file in `src/`, `public/`, `scripts/`, `agent-monitor/`, or `.kiro/`
+- Modify any file in `src/`, `public/`, `scripts/`, `tecfactory/`, or `.kiro/`
 - Create or modify `IMPROVEMENTS.md`, `release_notes.md`, or any non-task file
 - Run `npm install`, `npm run build`, or any command that modifies project files
 - Modify `package.json`, `tsconfig.json`, or any configuration file

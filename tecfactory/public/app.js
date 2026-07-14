@@ -14,9 +14,9 @@ function switchTab(tabId) {
   }
 }
 
-// ─── Agent Monitor (WebSocket) ───────────────────────────────────────────────
+// ─── TecFactory (WebSocket) ──────────────────────────────────────────────────
 
-class AgentMonitor {
+class TecFactory {
   constructor() {
     this.ws = null;
     this.agents = new Map();
@@ -1070,7 +1070,7 @@ class ErrorManager {
 
 // ─── Init ────────────────────────────────────────────────────────────────────
 
-const monitor = new AgentMonitor();
+const monitor = new TecFactory();
 const agentManager = new AgentManager();
 const taskManager = new TaskManager();
 const errorManager = new ErrorManager();

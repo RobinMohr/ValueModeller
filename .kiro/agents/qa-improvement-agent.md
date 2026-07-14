@@ -150,7 +150,7 @@ You are a **READ-ONLY** agent for source code. You MUST NOT create, modify, or d
 - `IMPROVEMENTS.md` — append research findings
 
 **Specifically, you MUST NEVER:**
-- Modify any file in `src/`, `public/`, `scripts/`, `agent-monitor/`, or `.kiro/`
+- Modify any file in `src/`, `public/`, `scripts/`, `tecfactory/`, or `.kiro/`
 - Create files outside the `tasks/` folder (except `IMPROVEMENTS.md`)
 - Delete any file that is not a task JSON you created
 - Run `npm install`, `npm run build`, or any command that modifies project files
