@@ -117,6 +117,196 @@ app.delete('/api/tasks/:filename', (req, res) => {
   }
 });
 
+// ─── ACP Helper for AI Task Generation ───────────────────────────────────────
+
+/**
+ * Lightweight ACP client that spawns kiro-cli in ACP mode, sends a single prompt
+ * to the task-creator-agent, collects the streamed text response, and kills the
+ * process. Uses raw NDJSON over stdio — no SDK dependency needed.
+ */
+async function runAcpTaskCreator(userPrompt, cwd, timeoutMs = 90000) {
+  return new Promise((resolve, reject) => {
+    let collectedText = '';
+    let buffer = '';
+    let sessionId = null;
+    let requestIdCounter = 1;
+    let initResolve = null;
+    let sessionResolve = null;
+    let promptResolved = false;
+
+    const proc = spawn('kiro-cli', ['acp', '--agent', 'task-creator-agent'], {
+      stdio: ['pipe', 'pipe', 'pipe'],
+      cwd,
+      env: { ...process.env, NO_COLOR: '1', FORCE_COLOR: '0' }
+    });
+
+    // Timeout safety
+    const timeout = setTimeout(() => {
+      if (proc.exitCode === null) {
+        if (process.platform === 'win32') {
+          spawn('taskkill', ['/PID', String(proc.pid), '/T', '/F'], { stdio: 'ignore' });
+        } else {
+          proc.kill('SIGTERM');
+        }
+      }
+      if (!promptResolved) {
+        promptResolved = true;
+        reject(new Error('AI task generation timed out'));
+      }
+    }, timeoutMs);
+
+    function send(msg) {
+      proc.stdin.write(JSON.stringify(msg) + '\n');
+    }
+
+    const PROMPT_REQUEST_ID = 3;
+
+    function handleMessage(msg) {
+      // Handle _kiro.dev/session/update notifications (streamed text)
+      if (msg.method === '_kiro.dev/session/update' && msg.params?.update) {
+        const update = msg.params.update;
+        if (update.sessionUpdate === 'agent_message_chunk' && update.content?.text) {
+          collectedText += update.content.text;
+        }
+        return;
+      }
+
+      // Handle requestPermission — auto-approve for read-only agent
+      if (msg.method === 'requestPermission' && 'id' in msg) {
+        const options = msg.params?.options || [];
+        const approve = options.find(o => o.kind === 'allow_once') ||
+                        options.find(o => o.kind === 'allow_always') ||
+                        options[0];
+        send({
+          jsonrpc: '2.0',
+          id: msg.id,
+          result: { outcome: { outcome: 'selected', optionId: approve?.optionId || '' } }
+        });
+        return;
+      }
+
+      // Handle JSON-RPC responses (matched by id)
+      if ('id' in msg && 'result' in msg) {
+        // Prompt completion — the main thing we're waiting for
+        if (msg.id === PROMPT_REQUEST_ID) {
+          promptResolved = true;
+          clearTimeout(timeout);
+          cleanup();
+          resolve(collectedText);
+          return;
+        }
+
+        // Handshake responses (initialize, session/new)
+        if (initResolve) {
+          initResolve(msg.result);
+          initResolve = null;
+        } else if (sessionResolve) {
+          sessionResolve(msg.result);
+          sessionResolve = null;
+        }
+      }
+    }
+
+    function cleanup() {
+      if (proc.exitCode === null) {
+        if (process.platform === 'win32') {
+          spawn('taskkill', ['/PID', String(proc.pid), '/T', '/F'], { stdio: 'ignore' });
+        } else {
+          proc.kill('SIGTERM');
+        }
+      }
+    }
+
+    // Parse NDJSON from stdout
+    proc.stdout.on('data', (chunk) => {
+      buffer += chunk.toString();
+      const lines = buffer.split('\n');
+      buffer = lines.pop() || '';
+      for (const line of lines) {
+        const trimmed = line.trim();
+        if (!trimmed) continue;
+        try {
+          handleMessage(JSON.parse(trimmed));
+        } catch { /* skip non-JSON lines */ }
+      }
+    });
+
+    // Drain stderr
+    proc.stderr.on('data', () => { /* ignore */ });
+
+    proc.on('error', (err) => {
+      clearTimeout(timeout);
+      if (!promptResolved) {
+        promptResolved = true;
+        reject(new Error(`Failed to spawn kiro-cli: ${err.message}`));
+      }
+    });
+
+    proc.on('close', (code) => {
+      clearTimeout(timeout);
+      if (!promptResolved) {
+        promptResolved = true;
+        if (collectedText) {
+          resolve(collectedText);
+        } else {
+          reject(new Error(`kiro-cli ACP exited with code ${code} before completing`));
+        }
+      }
+    });
+
+    // --- ACP Handshake sequence ---
+    // Step 1: Initialize
+    const initId = requestIdCounter++;
+    send({
+      jsonrpc: '2.0',
+      id: initId,
+      method: 'initialize',
+      params: {
+        protocolVersion: '0.1',
+        clientCapabilities: {}
+      }
+    });
+
+    // Wait for initialize response, then create session, then send prompt
+    // We use a simple state machine via the resolve callbacks
+    initResolve = () => {
+      // Step 2: Create session
+      const sessionReqId = requestIdCounter++;
+      send({
+        jsonrpc: '2.0',
+        id: sessionReqId,
+        method: 'session/new',
+        params: {
+          cwd,
+          mcpServers: []
+        }
+      });
+
+      sessionResolve = (result) => {
+        sessionId = result?.sessionId;
+        if (!sessionId) {
+          promptResolved = true;
+          clearTimeout(timeout);
+          cleanup();
+          reject(new Error('ACP session creation failed — no sessionId returned'));
+          return;
+        }
+
+        // Step 3: Send the prompt
+        send({
+          jsonrpc: '2.0',
+          id: PROMPT_REQUEST_ID,
+          method: 'session/prompt',
+          params: {
+            sessionId,
+            prompt: [{ type: 'text', text: `Generate a task for: ${userPrompt}` }]
+          }
+        });
+      };
+    };
+  });
+}
+
 // POST /api/tasks/generate — AI-assisted task generation via kiro-cli ACP
 app.post('/api/tasks/generate', async (req, res) => {
   const { prompt } = req.body;
@@ -124,73 +314,15 @@ app.post('/api/tasks/generate', async (req, res) => {
     return res.status(400).json({ error: 'prompt is required' });
   }
 
-  const acpPrompt = `You are a task generator for the Value Modeller project (React + TypeScript + React Flow + Zustand + Tailwind CSS).
-
-Based on the user's request below, generate a single JSON task object with these fields:
-- title: concise task title (string)
-- priority: 1 (critical), 2 (high), 3 (medium), or 4 (low) — choose based on impact
-- type: one of "improvement", "bug", "feature", "idea"
-- description: detailed description of what needs to be done (string)
-- files: array of relevant source file paths if identifiable, otherwise empty array
-
-IMPORTANT: Respond ONLY with a valid JSON object, no markdown fences, no explanation.
-
-User request: ${prompt.trim()}`;
-
   try {
-    const args = [
-      'chat',
-      '--agent', 'kiro_default',
-      '--trust-tools=',
-      '--no-interactive',
-      acpPrompt
-    ];
+    const result = await runAcpTaskCreator(prompt.trim(), PROJECT_ROOT);
 
-    const result = await new Promise((resolve, reject) => {
-      let stdout = '';
-      let stderr = '';
-
-      const proc = spawn('kiro-cli', args, {
-        cwd: PROJECT_ROOT,
-        env: { ...process.env, NO_COLOR: '1', FORCE_COLOR: '0' },
-        timeout: 60000
-      });
-
-      proc.stdout.on('data', (data) => { stdout += data.toString(); });
-      proc.stderr.on('data', (data) => { stderr += data.toString(); });
-
-      proc.on('close', (code) => {
-        if (code === 0) {
-          resolve(stdout.trim());
-        } else {
-          reject(new Error(`kiro-cli exited with code ${code}: ${stderr || stdout}`));
-        }
-      });
-
-      proc.on('error', (err) => {
-        reject(new Error(`Failed to spawn kiro-cli: ${err.message}`));
-      });
-
-      // 60-second timeout safety
-      setTimeout(() => {
-        if (proc.exitCode === null) {
-          if (process.platform === 'win32') {
-            spawn('taskkill', ['/PID', String(proc.pid), '/T', '/F'], { stdio: 'ignore' });
-          } else {
-            proc.kill('SIGTERM');
-          }
-          reject(new Error('AI generation timed out (60s)'));
-        }
-      }, 60000);
-    });
-
-    // Try to extract JSON from the response
+    // Try to extract JSON from the agent's response
     let taskData;
     try {
-      // Try direct parse first
-      taskData = JSON.parse(result);
+      taskData = JSON.parse(result.trim());
     } catch {
-      // Try to find JSON in the response (kiro-cli might add surrounding text)
+      // Agent might have included surrounding text — find the JSON object
       const jsonMatch = result.match(/\{[\s\S]*\}/);
       if (jsonMatch) {
         taskData = JSON.parse(jsonMatch[0]);
@@ -207,7 +339,7 @@ User request: ${prompt.trim()}`;
     const task = {
       title: String(taskData.title).substring(0, 100),
       priority: [1, 2, 3, 4].includes(taskData.priority) ? taskData.priority : 2,
-      type: ['improvement', 'bug', 'feature', 'idea'].includes(taskData.type) ? taskData.type : 'improvement',
+      type: ['improvement', 'problem', 'idea'].includes(taskData.type) ? taskData.type : 'improvement',
       description: String(taskData.description || prompt.trim()),
       state: 'todo',
       origin: 'user-assisted'
