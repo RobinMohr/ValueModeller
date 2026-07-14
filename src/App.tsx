@@ -1,17 +1,13 @@
-import { useEffect } from 'react';
-import { AppShell } from './components/layout/app-shell';
-import { useGraphStore } from './store/graph-store';
-import { demoNodes, demoEdges } from './utils/demo-data';
+import { Routes, Route, Navigate } from 'react-router-dom';
+import { LandingPage } from './components/landing/landing-page';
+import { StreamEditor } from './components/layout/stream-editor';
 
 export function App() {
-  const nodes = useGraphStore((s) => s.nodes);
-
-  // Load demo data if the store is empty (first visit)
-  useEffect(() => {
-    if (nodes.length === 0) {
-      useGraphStore.setState({ nodes: demoNodes, edges: demoEdges });
-    }
-  }, []); // eslint-disable-line react-hooks/exhaustive-deps
-
-  return <AppShell />;
+  return (
+    <Routes>
+      <Route path="/" element={<LandingPage />} />
+      <Route path="/stream/:id" element={<StreamEditor />} />
+      <Route path="*" element={<Navigate to="/" replace />} />
+    </Routes>
+  );
 }
