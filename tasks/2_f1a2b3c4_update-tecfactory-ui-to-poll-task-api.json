@@ -3,8 +3,11 @@
   "title": "Update TecFactory UI to poll Task API",
   "priority": 2,
   "type": "improvement",
-  "state": "todo",
+  "state": "developed",
   "description": "Replace the current file-system-based task reading in TecFactory with API polling. Poll GET /api/tasks every 5 seconds with ETag/If-None-Match support. Only re-render the task list when data actually changes (304 means skip). Show connection status indicator. Gracefully handle API errors with a toast notification.",
-  "files": ["src/components/layout/", "src/store/"],
+  "files": [
+    "src/components/layout/",
+    "src/store/"
+  ],
   "origin": "user-assisted"
 }

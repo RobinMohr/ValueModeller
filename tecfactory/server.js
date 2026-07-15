@@ -5,7 +5,7 @@ import { spawn } from 'child_process';
 import { fileURLToPath } from 'url';
 import { dirname, join, resolve } from 'path';
 import { readFileSync, writeFileSync, existsSync, readdirSync, unlinkSync, watch, mkdirSync, statSync } from 'fs';
-import { randomBytes } from 'crypto';
+import { randomBytes, createHash } from 'crypto';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
@@ -59,7 +59,20 @@ function loadAllTasks() {
 
 app.get('/api/tasks', (req, res) => {
   try {
-    res.json(loadAllTasks());
+    const tasks = loadAllTasks();
+    // Compute ETag from tasks data hash
+    const hash = createHash('md5').update(JSON.stringify(tasks)).digest('hex');
+    const etag = `"${hash}"`;
+    res.set('ETag', etag);
+    res.set('Cache-Control', 'no-cache');
+
+    // Return 304 if client already has current data
+    const ifNoneMatch = req.get('If-None-Match');
+    if (ifNoneMatch && ifNoneMatch === etag) {
+      return res.status(304).end();
+    }
+
+    res.json(tasks);
   } catch (err) {
     res.status(500).json({ error: err.message });
   }

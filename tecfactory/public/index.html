@@ -84,6 +84,10 @@
           <button class="sort-btn active" data-sort="priority" onclick="taskManager.setSort('priority')" title="Sort by priority (lowest number first)">&#9733; Priority</button>
           <button class="sort-btn" data-sort="lastModified" onclick="taskManager.setSort('lastModified')" title="Sort by last edited time (most recent first)">&#128339; Last Edited</button>
         </div>
+        <div class="task-api-status" id="taskApiStatus">
+          <span class="status-dot disconnected" id="taskApiDot"></span>
+          <span class="status-text" id="taskApiText">Connecting...</span>
+        </div>
         <button class="btn btn-start" onclick="taskManager.showCreateForm()">+ New Task</button>
       </div>
 
@@ -314,6 +318,9 @@
       </div>
     </div>
   </div>
+
+  <!-- Toast Notifications -->
+  <div class="toast-container" id="toastContainer" aria-live="polite" role="region" aria-label="Notifications"></div>
 
   <script src="app.js"></script>
 </body>

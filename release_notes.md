@@ -1,5 +1,25 @@
 # Release Notes — Value Modeller
 
+## 2026-07-15T16:09 — feat: TecFactory task API polling with ETag support
+
+**Task:** `tasks/2_f1a2b3c4_update-tecfactory-ui-to-poll-task-api.json` → state set to `developed`
+
+**Changes:**
+- **Server (tecfactory/server.js):** Added ETag support to `GET /api/tasks` — computes MD5 hash of the response JSON, returns it as an ETag header, and returns `304 Not Modified` if the client sends a matching `If-None-Match` header. Sets `Cache-Control: no-cache` to ensure conditional requests still reach the server.
+- **Client (tecfactory/public/app.js):** Refactored `TaskManager` with:
+  - `startPolling()` / `stopPolling()` methods — polls every 5 seconds with automatic start/stop when switching tabs
+  - ETag caching — sends `If-None-Match` header on each poll; skips re-render on 304 responses
+  - `setApiStatus(connected)` — updates the task API connection status indicator
+  - Error handling — tracks consecutive errors; shows a toast notification only on the first failure to avoid spam; resets on recovery
+  - WebSocket `task-changed` events invalidate the cached ETag for immediate refresh
+- **HTML (tecfactory/public/index.html):** Added task API connection status indicator (dot + text) in the tasks toolbar. Added toast notification container.
+- **CSS (tecfactory/public/style.css):** Added styles for `.task-api-status` indicator and full toast notification system (`.toast-container`, `.toast`, type variants, slide-in animation).
+- Added `showToast()` and `removeToast()` utility functions for reusable toast notifications.
+
+**Build:** ✅ Passes (`tsc -b && vite build` — 0 errors, 299 modules)
+
+---
+
 ## 2026-07-15T16:07 — feat: Implement GET /api/tasks endpoint
 
 **Task:** `tasks/2_e4f5a6b7_implement-get-tasks-endpoint.json` → state set to `developed`

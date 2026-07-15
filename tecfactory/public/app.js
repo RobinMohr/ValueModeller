@@ -7,7 +7,9 @@ function switchTab(tabId) {
   document.getElementById(`tab-${tabId}`).classList.add('active');
 
   if (tabId === 'tasks') {
-    taskManager.loadTasks();
+    taskManager.startPolling();
+  } else {
+    taskManager.stopPolling();
   }
   if (tabId === 'errors') {
     errorManager.loadErrors();
@@ -71,6 +73,8 @@ class TecFactory {
       case 'task-deleted':
       case 'tasks-changed':
         if (document.getElementById('tab-tasks').classList.contains('active')) {
+          // Invalidate ETag so next poll (or immediate fetch) gets fresh data
+          taskManager._etag = null;
           taskManager.loadTasks();
         }
         break;
@@ -816,6 +820,88 @@ class TaskManager {
     this.currentSort = 'priority';
     this.editingFilename = null;
     this.currentMode = 'manual';
+    this._etag = null;
+    this._pollInterval = null;
+    this._apiConnected = false;
+    this._consecutiveErrors = 0;
+  }
+
+  /** Start polling GET /api/tasks every 5 seconds with ETag support */
+  startPolling() {
+    // Initial load
+    this.loadTasks();
+    // Poll every 5 seconds
+    this._pollInterval = setInterval(() => this.loadTasks(), 5000);
+  }
+
+  /** Stop polling (e.g., when navigating away from tasks tab) */
+  stopPolling() {
+    if (this._pollInterval) {
+      clearInterval(this._pollInterval);
+      this._pollInterval = null;
+    }
+  }
+
+  /** Update the task API connection status indicator */
+  setApiStatus(connected) {
+    this._apiConnected = connected;
+    const dot = document.getElementById('taskApiDot');
+    const text = document.getElementById('taskApiText');
+    if (!dot || !text) return;
+    dot.className = `status-dot ${connected ? 'connected' : 'disconnected'}`;
+    text.textContent = connected ? 'API Connected' : 'API Disconnected';
+  }
+
+  async loadTasks() {
+    try {
+      const headers = {};
+      if (this._etag) {
+        headers['If-None-Match'] = this._etag;
+      }
+
+      const res = await fetch('/api/tasks', { headers });
+
+      if (res.status === 304) {
+        // Data unchanged — skip re-render
+        this._setConnected();
+        return;
+      }
+
+      if (!res.ok) {
+        throw new Error(`API returned ${res.status}: ${res.statusText}`);
+      }
+
+      // Store new ETag for next request
+      const newEtag = res.headers.get('ETag');
+      if (newEtag) {
+        this._etag = newEtag;
+      }
+
+      this.tasks = await res.json();
+      this.renderTasks();
+      this._setConnected();
+    } catch (err) {
+      this._setDisconnected(err);
+    }
+  }
+
+  /** Mark API as connected and reset error counter */
+  _setConnected() {
+    if (!this._apiConnected) {
+      this.setApiStatus(true);
+    }
+    this._consecutiveErrors = 0;
+  }
+
+  /** Mark API as disconnected and show toast on first error */
+  _setDisconnected(err) {
+    this._consecutiveErrors++;
+    this.setApiStatus(false);
+    // Show toast only on first error occurrence to avoid spamming
+    if (this._consecutiveErrors === 1) {
+      showToast('error', 'Task API Error', `Failed to fetch tasks: ${err.message}`);
+    }
+    console.error('Failed to load tasks:', err);
   }
 
   setSort(sortKey) {
@@ -824,16 +910,6 @@ class TaskManager {
     const activeBtn = document.querySelector(`.sort-btn[data-sort="${sortKey}"]`);
     if (activeBtn) activeBtn.classList.add('active');
     this.renderTasks();
-  }
-
-  async loadTasks() {
-    try {
-      const res = await fetch('/api/tasks');
-      this.tasks = await res.json();
-      this.renderTasks();
-    } catch (err) {
-      console.error('Failed to load tasks:', err);
-    }
   }
 
   renderTasks() {
@@ -1097,6 +1173,44 @@ function esc(text) {
   div.textContent = text || '';
   return div.innerHTML;
 }
+
+// ─── Toast Notifications ─────────────────────────────────────────────────────
+
+function showToast(type, title, message, duration = 6000) {
+  const container = document.getElementById('toastContainer');
+  if (!container) return;
+
+  const icons = { error: '⚠️', warning: '⚡', success: '✓', info: 'ℹ️' };
+  const icon = icons[type] || icons.info;
+
+  const toast = document.createElement('div');
+  toast.className = `toast toast-${type}`;
+  toast.setAttribute('role', 'alert');
+  toast.innerHTML = `
+    <span class="toast-icon">${icon}</span>
+    <div class="toast-body">
+      <div class="toast-title">${esc(title)}</div>
+      <div class="toast-message">${esc(message)}</div>
+    </div>
+    <button class="toast-dismiss" aria-label="Dismiss">&times;</button>
+  `;
+
+  toast.querySelector('.toast-dismiss').addEventListener('click', () => removeToast(toast));
+  container.appendChild(toast);
+
+  // Auto-dismiss after duration
+  if (duration > 0) {
+    setTimeout(() => removeToast(toast), duration);
+  }
+}
+
+function removeToast(toast) {
+  if (!toast || !toast.parentNode) return;
+  toast.classList.add('toast-removing');
+  setTimeout(() => toast.remove(), 300);
+}
+
+// ─── End Toast ───────────────────────────────────────────────────────────────
 
 function ansiToHtml(text) {
   if (!text) return '';
