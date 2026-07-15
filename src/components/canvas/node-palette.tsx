@@ -22,16 +22,16 @@ function PaletteItem({ label, description, nodeType, icon }: PaletteItemProps) {
     <div
       draggable
       onDragStart={handleDragStart}
-      className="flex items-center gap-2 px-3 py-2 rounded-lg border border-gray-200 bg-white shadow-sm cursor-grab active:cursor-grabbing hover:border-primary-300 hover:shadow-md transition-all select-none"
+      className="flex items-center gap-2 px-3 py-2 rounded-lg border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-700 shadow-sm cursor-grab active:cursor-grabbing hover:border-primary-300 dark:hover:border-primary-500 hover:shadow-md transition-all select-none"
       role="button"
       aria-label={`Drag to add ${label}`}
     >
-      <div className="flex-shrink-0 w-7 h-7 rounded bg-primary-50 text-primary-600 flex items-center justify-center">
+      <div className="flex-shrink-0 w-7 h-7 rounded bg-primary-50 dark:bg-primary-900/30 text-primary-600 dark:text-primary-300 flex items-center justify-center">
         {icon}
       </div>
       <div className="min-w-0">
-        <p className="text-xs font-medium text-gray-700 leading-tight">{label}</p>
-        <p className="text-[10px] text-gray-400 leading-tight truncate">{description}</p>
+        <p className="text-xs font-medium text-gray-700 dark:text-gray-200 leading-tight">{label}</p>
+        <p className="text-[10px] text-gray-400 dark:text-gray-500 leading-tight truncate">{description}</p>
       </div>
     </div>
   );

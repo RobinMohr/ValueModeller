@@ -1467,3 +1467,20 @@ This approach is reliable because:
 - `src/components/layout/stream-metadata-form.tsx`
 
 **Build:** ✅ Passes (`tsc -b && vite build` — 0 errors, 298 modules)
+
+
+## 2026-07-15T10:14 — Fix NodePalette draggable items dark mode styles
+
+**What changed:**
+- Added dark mode Tailwind classes to the `PaletteItem` component in `node-palette.tsx`
+- Outer card div: `dark:border-gray-600`, `dark:bg-gray-700`, `dark:hover:border-primary-500`
+- Icon container: `dark:bg-primary-900/30`, `dark:text-primary-300`
+- Label text: `dark:text-gray-200`
+- Description text: `dark:text-gray-500`
+- Follows the same light/dark pattern used in `sipoc-node.tsx` for SIPOC badges
+
+**Impact:**
+- PaletteItem cards now blend seamlessly with the dark-themed palette container instead of appearing as jarring bright white cards
+
+**Files modified:**
+- `src/components/canvas/node-palette.tsx`
