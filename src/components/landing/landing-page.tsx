@@ -4,6 +4,7 @@ import { useValueStreamStore } from '../../store/value-stream-store';
 import { Button } from '../ui/button';
 import { ThemeToggle } from '../ui/theme-toggle';
 import { cn } from '../../utils/cn';
+import { useFocusTrap } from '../../hooks/use-focus-trap';
 import type { ValueStream } from '../../types/value-stream.types';
 
 type ViewMode = 'cards' | 'table';
@@ -441,20 +442,25 @@ interface CreateStreamDialogProps {
 }
 
 function CreateStreamDialog({ newStreamName, onNameChange, onCreate, onClose }: CreateStreamDialogProps) {
+  const dialogRef = useFocusTrap<HTMLDivElement>({ isOpen: true, onClose });
+
   return (
     <div
       className="fixed inset-0 z-50 flex items-center justify-center bg-black/40"
       onClick={onClose}
-      aria-label="Create value stream dialog"
     >
       <div
+        ref={dialogRef}
         className={cn(
           'bg-white dark:bg-gray-800 rounded-xl shadow-xl p-6 w-full max-w-md mx-4',
           'animate-in fade-in zoom-in-95'
         )}
         onClick={(e) => e.stopPropagation()}
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="create-stream-dialog-title"
       >
-        <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100">Create Value Stream</h2>
+        <h2 id="create-stream-dialog-title" className="text-lg font-semibold text-gray-900 dark:text-gray-100">Create Value Stream</h2>
         <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
           Give your value stream a name. You can add details later.
         </p>
@@ -470,7 +476,6 @@ function CreateStreamDialog({ newStreamName, onNameChange, onCreate, onClose }: 
             onKeyDown={(e) => { if (e.key === 'Enter') onCreate(); }}
             placeholder="e.g. Customer Onboarding"
             className="mt-1 block w-full rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 px-3 py-2 text-sm focus:border-primary-500 focus:ring-1 focus:ring-primary-500 placeholder:text-gray-400 dark:placeholder:text-gray-500"
-            autoFocus
           />
         </div>
         <div className="mt-6 flex justify-end gap-3">

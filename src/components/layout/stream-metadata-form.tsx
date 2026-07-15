@@ -1,6 +1,7 @@
 import { useCallback, useState, useEffect } from 'react';
 import { useValueStreamStore } from '../../store/value-stream-store';
 import { Button } from '../ui/button';
+import { useFocusTrap } from '../../hooks/use-focus-trap';
 import type { ValueStream } from '../../types/value-stream.types';
 
 interface StreamMetadataFormProps {
@@ -13,6 +14,7 @@ export function StreamMetadataForm({ streamId, onClose }: StreamMetadataFormProp
   const updateStream = useValueStreamStore((s) => s.updateStream);
 
   const stream = getStreamById(streamId);
+  const dialogRef = useFocusTrap<HTMLDivElement>({ isOpen: true, onClose });
 
   const [formData, setFormData] = useState<Partial<ValueStream>>({
     name: '',
@@ -56,15 +58,18 @@ export function StreamMetadataForm({ streamId, onClose }: StreamMetadataFormProp
     <div
       className="fixed inset-0 z-50 flex items-center justify-center bg-black/40"
       onClick={onClose}
-      aria-label="Stream details dialog"
     >
       <div
+        ref={dialogRef}
         className="bg-white dark:bg-gray-800 rounded-xl shadow-xl w-full max-w-2xl mx-4 max-h-[90vh] flex flex-col"
         onClick={(e) => e.stopPropagation()}
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="stream-metadata-dialog-title"
       >
         {/* Header */}
         <div className="px-6 py-4 border-b border-gray-200 dark:border-gray-700 flex items-center justify-between shrink-0">
-          <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100">Value Stream Details</h2>
+          <h2 id="stream-metadata-dialog-title" className="text-lg font-semibold text-gray-900 dark:text-gray-100">Value Stream Details</h2>
           <button
             onClick={onClose}
             className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 transition-colors"

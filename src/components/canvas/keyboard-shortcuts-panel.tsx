@@ -1,6 +1,7 @@
 import { useState, useCallback } from 'react';
 import { Panel } from '@xyflow/react';
 import { cn } from '../../utils/cn';
+import { useFocusTrap } from '../../hooks/use-focus-trap';
 
 interface ShortcutEntry {
   keys: string[];
@@ -38,15 +39,23 @@ export function KeyboardShortcutsPanel() {
     setIsOpen((prev) => !prev);
   }, []);
 
+  const handleClose = useCallback(() => {
+    setIsOpen(false);
+  }, []);
+
+  const dialogRef = useFocusTrap<HTMLDivElement>({ isOpen, onClose: handleClose });
+
   return (
     <Panel position="bottom-right" className="relative">
       {isOpen && (
         <div
+          ref={dialogRef}
           className="absolute bottom-12 right-0 w-80 rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 p-4 shadow-lg max-h-[60vh] overflow-y-auto"
           role="dialog"
-          aria-label="Keyboard shortcuts"
+          aria-modal="true"
+          aria-labelledby="keyboard-shortcuts-panel-title"
         >
-          <h3 className="mb-3 text-sm font-semibold text-gray-900 dark:text-gray-100">
+          <h3 id="keyboard-shortcuts-panel-title" className="mb-3 text-sm font-semibold text-gray-900 dark:text-gray-100">
             Keyboard Shortcuts
           </h3>
           <ul className="space-y-2" role="list">

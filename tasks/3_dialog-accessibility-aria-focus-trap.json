@@ -2,7 +2,7 @@
   "title": "Add proper ARIA dialog semantics and focus trapping to modals",
   "priority": 3,
   "type": "improvement",
-  "state": "todo",
+  "state": "developed",
   "description": "Multiple modal dialogs in the app are missing proper ARIA semantics required for screen reader accessibility (WCAG 2.1 SC 4.1.2). The CreateStreamDialog in landing-page.tsx, StreamMetadataForm in stream-metadata-form.tsx, and any confirmation dialogs lack:\n\n1. role='dialog' on the modal container\n2. aria-modal='true' to indicate background is inert\n3. aria-labelledby pointing to the dialog title element\n4. Focus trapping — keyboard focus can escape to background elements when a modal is open\n5. Focus restoration — when dialog closes, focus should return to the trigger element\n\nFix: Add role='dialog', aria-modal='true', and aria-labelledby to each modal container div (the white box, not the backdrop). Implement focus trapping either with a lightweight hook (useEffect that intercepts Tab on first/last focusable element) or by adding inert attribute to the rest of the page while modal is open. Restore focus to the trigger button on close.\n\nThe guided-demo-panel.tsx and keyboard-shortcuts-panel.tsx already have role='dialog' but also lack focus trapping and aria-modal.\n\nReference: WAI-ARIA Authoring Practices 1.2, Dialog (Modal) pattern.",
   "files": [
     "src/components/landing/landing-page.tsx",

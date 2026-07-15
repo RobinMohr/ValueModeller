@@ -3,6 +3,7 @@ import { useReactFlow, Panel } from '@xyflow/react';
 import { useGraphStore } from '../../store/graph-store';
 import { useUiStore } from '../../store/ui-store';
 import { Button } from '../ui/button';
+import { useFocusTrap } from '../../hooks/use-focus-trap';
 import type { SipocNode, SipocEdge } from '../../types/sipoc.types';
 
 interface DemoStep {
@@ -111,6 +112,8 @@ export function GuidedDemoPanel() {
   const steps = useMemo(() => buildDemoSteps(nodes, edges), [nodes, edges]);
 
   const currentStep = steps[currentStepIndex] ?? null;
+
+  const dialogRef = useFocusTrap<HTMLDivElement>({ isOpen: isActive });
 
   // Highlight current node and focus on it
   const focusNode = useCallback(
@@ -261,13 +264,16 @@ export function GuidedDemoPanel() {
   return (
     <Panel position="bottom-center" className="mb-4">
       <div
+        ref={dialogRef}
         className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl shadow-xl p-4 max-w-md w-[400px]"
         role="dialog"
-        aria-label="Guided demo walkthrough"
+        aria-modal="true"
+        aria-labelledby="guided-demo-panel-title"
         aria-live="polite"
       >
         {/* Progress bar */}
         <div className="flex items-center gap-2 mb-3">
+          <h3 id="guided-demo-panel-title" className="sr-only">Guided Demo Walkthrough</h3>
           <span className="text-xs text-gray-500 dark:text-gray-400 font-medium">
             Step {currentStepIndex + 1} of {steps.length}
           </span>

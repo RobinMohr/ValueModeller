@@ -1315,3 +1315,26 @@ npm run test:coverage # Coverage report
 
 **Files modified:**
 - `src/components/canvas/smart-edge.tsx`
+
+
+## 2026-07-15T09:50 — ARIA Dialog Semantics & Focus Trapping
+
+**What changed:**
+- Created `src/hooks/use-focus-trap.ts` — a reusable hook implementing WAI-ARIA dialog pattern: focus trapping (Tab/Shift+Tab cycles within modal), focus restoration to trigger element on close, and Escape key dismissal
+- Updated `CreateStreamDialog` in `landing-page.tsx`: added `role="dialog"`, `aria-modal="true"`, `aria-labelledby` pointing to dialog title, integrated focus trap
+- Updated `StreamMetadataForm` in `stream-metadata-form.tsx`: added `role="dialog"`, `aria-modal="true"`, `aria-labelledby` pointing to dialog title, integrated focus trap
+- Updated `guided-demo-panel.tsx`: added `aria-modal="true"`, `aria-labelledby` with sr-only heading, integrated focus trap (active during demo)
+- Updated `keyboard-shortcuts-panel.tsx`: added `aria-modal="true"`, `aria-labelledby` with heading id, integrated focus trap with Escape-to-close
+
+**Impact:**
+- All modal dialogs now conform to WCAG 2.1 SC 4.1.2 and WAI-ARIA Authoring Practices 1.2 Dialog (Modal) pattern
+- Screen reader users get proper dialog semantics (role, modal indication, labeled by title)
+- Keyboard users cannot accidentally Tab into background content while a modal is open
+- Focus returns to the triggering element when a dialog closes
+
+**Files modified:**
+- `src/hooks/use-focus-trap.ts` (new)
+- `src/components/landing/landing-page.tsx`
+- `src/components/layout/stream-metadata-form.tsx`
+- `src/components/canvas/guided-demo-panel.tsx`
+- `src/components/canvas/keyboard-shortcuts-panel.tsx`
