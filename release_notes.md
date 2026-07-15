@@ -1,5 +1,23 @@
 # Release Notes — Value Modeller
 
+## 2026-07-15T15:52 — feat: Implement input validation with Zod schemas
+
+**Task:** `tasks/1_c2d3e4f5_implement-input-validation-zod-schemas.json` → state set to `developed`
+
+**What was implemented:**
+- Created `task-api/src/validation/task-schema.ts` with Zod validation schemas matching the task data model:
+  - **`taskSchema`** — full task object validation: `id` (8-char hex regex), `title` (1-200 chars), `priority` (int 1-4), `type` (improvement|problem|idea), `state` (todo|in-progress|developed), `description` (string), `files` (string array), `origin` (user|ai|user-assisted)
+  - **`createTaskSchema`** — omits `id` (auto-generated server-side); all other fields required
+  - **`updateTaskSchema`** — all fields partial except `id` which is required (for identifying the task to update)
+- Exported TypeScript types inferred from schemas: `Task`, `CreateTaskInput`, `UpdateTaskInput`
+
+**Files created:**
+- `task-api/src/validation/task-schema.ts`
+
+**Build:** ✅ task-api `tsc` passes (0 errors)
+
+---
+
 ## 2026-07-15T15:49 — feat: Implement DB client and SQL connection pool
 
 **Task:** `tasks/1_b1f2c3d4_implement-db-client-and-connection-pool.json` → state set to `developed`
