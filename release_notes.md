@@ -1,5 +1,26 @@
 # Release Notes — Value Modeller
 
+## 2026-07-15T15:54 — feat: Implement API key auth middleware
+
+**Task:** `tasks/1_d3e4f5a6_implement-api-key-auth-middleware.json` → state set to `developed`
+
+**What was implemented:**
+- Created `task-api/src/middleware/auth.ts` with two exported functions:
+  - **`validateApiKey(request)`** — validates the `x-api-key` header against the `API_KEY` environment variable. Returns `null` on success, or an `HttpResponseInit` with 401 status and JSON error body on failure. Fails closed (denies all requests if `API_KEY` env var is not configured).
+  - **`requireAuth(request)`** — convenience alias for `validateApiKey`, designed for use at the top of function handlers with early return pattern.
+- Three failure cases return distinct JSON error messages: key not configured on server, header missing, key invalid.
+- Added `API_KEY` placeholder to `task-api/local.settings.json` for local development.
+
+**Files created:**
+- `task-api/src/middleware/auth.ts`
+
+**Files modified:**
+- `task-api/local.settings.json` — added `API_KEY` environment variable placeholder
+
+**Build:** ✅ task-api `tsc` passes (0 errors)
+
+---
+
 ## 2026-07-15T15:52 — feat: Implement input validation with Zod schemas
 
 **Task:** `tasks/1_c2d3e4f5_implement-input-validation-zod-schemas.json` → state set to `developed`

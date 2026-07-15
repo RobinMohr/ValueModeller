@@ -3,8 +3,10 @@
   "title": "Implement API key auth middleware",
   "priority": 1,
   "type": "improvement",
-  "state": "todo",
+  "state": "developed",
   "description": "Create middleware that validates the x-api-key header against the API_KEY environment variable. Returns 401 Unauthorized with a JSON error body if missing or invalid. Used by all function endpoints.",
-  "files": ["task-api/src/middleware/auth.ts"],
+  "files": [
+    "task-api/src/middleware/auth.ts"
+  ],
   "origin": "user-assisted"
 }
