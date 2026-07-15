@@ -1,6 +1,8 @@
 # Value Modeller
 
-A web application for product owners to visualize and enter SIPOC process chains for value stream modelling. Users model branching and merging processes on an interactive canvas, with structured form-based data entry for each process node.
+A web application for product owners to visualize and manage SIPOC process chains for value stream modelling. Users model branching and merging processes on an interactive canvas, with structured form-based data entry for each process node.
+
+Built during the TecAlliance Hackathon (July 14–15, 2026) by a team of 4.
 
 ## Quick Start
 
@@ -9,168 +11,73 @@ npm install
 npm run dev       # Start the Vite dev server at http://localhost:5173
 npm run build     # Production build (tsc + vite build)
 npm run preview   # Preview the production build
+npm run test      # Run unit tests (vitest)
 ```
 
 ---
 
-## TecFactory — Agent Monitor
+## Features
 
-The project includes **TecFactory**, a WebSocket-based web UI for monitoring and controlling the autonomous agent loops from a single dashboard.
+### Canvas Editor
+- **Interactive node-based canvas** powered by React Flow — drag, pan, zoom
+- **SIPOC nodes** displaying full Supplier/Input/Process/Output/Customer data directly on the canvas
+- **Smart edge routing** — edges automatically route around intermediate nodes to avoid visual overlap
+- **Proximity connect** — drag a node near another to auto-create a connection
+- **Helper lines / snap-to-grid** — alignment guides appear when dragging nodes near other nodes
+- **Auto-layout** — one-click dagre-based hierarchical arrangement (LR or TB direction)
+- **Node grouping / swimlanes** — resizable, color-coded containers for organizing steps by team or department
+- **Guided demo mode** — step-by-step walkthrough following topological order with auto-pan and auto-play
+- **Node search (Ctrl+F)** — full-text search across all SIPOC fields with result navigation
+- **Context menu** — right-click nodes for quick actions (edit, duplicate, delete)
+- **Copy/paste/duplicate** — Ctrl+C/V/D for rapid flow building
+- **Undo/redo** — Ctrl+Z / Ctrl+Shift+Z with debounced history (max 50 snapshots)
+- **Keyboard navigation** — arrow keys navigate along connections; Tab cycles nodes spatially
+- **Animated edges** — dashed flow animation showing data direction (respects prefers-reduced-motion)
 
-### Running TecFactory
+### SIPOC Form Panel
+- **Side panel** opens on single-click of any node
+- **Structured fields:** Suppliers, Inputs, Process Description, Outputs, Customers
+- **Additional fields:** Applications Involved, Involved Teams, Known Issues
+- **Auto-fill on connect** — connecting two nodes auto-populates the target's Inputs from the source's Outputs
 
-```bash
-cd tecfactory
-npm install
-npm start         # Start at http://localhost:3500
-# or with auto-reload:
-npm run dev
-```
+### Multi-Stream Management
+- **Landing page** with table view (default) and cards view toggle
+- **Create / edit / delete** value streams with metadata (teams, apps, customer segments, created values, known issues)
+- **Expandable detail panel** — click a stream row to preview all metadata inline without navigating
+- **Stream statistics panel** — aggregated metrics (steps, connections, completion %, teams, apps, issues)
 
-Open `http://localhost:3500` in a browser. The UI shows all configured agents with start/stop controls, live output streaming, and a task queue view.
+### Persistence & Safety
+- **Auto-save to localStorage** with live "Saving…" / "Saved ✓" indicator
+- **Safe storage adapter** — quota monitoring (warns at 90%), error toasts on write failures
+- **Error boundary** — crash-safe fallback UI with "Clear data & reload" recovery option
 
-### Agent Configuration
+### Theming & Accessibility
+- **Dark mode** — light / dark / system toggle (persisted)
+- **WCAG-compliant dialogs** — focus trapping, aria-modal, aria-labelledby, Escape dismissal
+- **Skip navigation link** — screen reader users can jump to canvas
+- **Keyboard shortcuts panel** — `?` button showing all available interactions
+- **Node completion indicator** — colored left border (gray → blue → green) based on SIPOC fill state
+- **prefers-reduced-motion** support for animated edges
 
-Agents are defined in `tecfactory/agents.json`. Each entry specifies a command to spawn:
-
-```json
-[
-  {
-    "id": "dev-loop",
-    "name": "Dev Loop Agent",
-    "command": "powershell",
-    "args": ["-File", "scripts/dev-loop.ps1"],
-    "cwd": "c:\\Projects\\1_Work\\Hackathon\\Value Modeller\\ValueModeller",
-    "description": "Runs the development loop automation"
-  },
-  {
-    "id": "qa-loop",
-    "name": "QA Loop Agent",
-    "command": "powershell",
-    "args": ["-File", "scripts/qa-loop.ps1"],
-    "cwd": "c:\\Projects\\1_Work\\Hackathon\\Value Modeller\\ValueModeller",
-    "description": "Runs the QA/testing loop automation"
-  }
-]
-```
-
-### Features
-
-- **Real-time output** — WebSocket streams stdout/stderr from each agent to the browser
-- **Start/Stop** — Launch or kill agents from the UI
-- **Task Queue** — REST API at `/api/tasks` manages JSON task files in the `tasks/` folder; changes on disk are auto-detected and broadcast to connected clients
-- **Multi-client** — Multiple browser tabs stay in sync via WebSocket broadcast
-
----
-
-## AI Agent Loops
-
-Three autonomous agent loops use `kiro-cli` to continuously improve the app. They run as PowerShell scripts (can be launched from TecFactory or directly in a terminal).
-
-| Agent | Script | What it does |
-|-------|--------|--------------|
-| **QA Agent** | `scripts/qa-loop.ps1` | Tests the running app with Puppeteer, researches best practices, writes improvement ideas to `IMPROVEMENTS.md` |
-| **Developer Agent** | `scripts/dev-loop.ps1` | Picks the top item from `IMPROVEMENTS.md`, implements it, logs the change to `release_notes.md` |
-| **Task Order Agent** | `scripts/task-order-loop.ps1` | Re-evaluates task priorities in `tasks/` every 15 minutes based on current project state |
-
-### Prerequisites
-
-| Requirement | Why |
-|---|---|
-| `kiro-cli` installed and authenticated (`kiro-cli login`) | The loops spawn kiro-cli as a subprocess |
-| Node.js 20+ | Required by the scripts and TecFactory |
-| `npm run dev` running in a separate terminal | The QA agent tests the app via Puppeteer at `http://localhost:5173` |
-| Puppeteer MCP server configured in `.kiro/settings/mcp.json` | QA agent uses Puppeteer to interact with the UI |
+### Demo Data
+- **Insurance Claims Processing** — 10 nodes, 11 edges, branching/merging topology
+- **Software Development Lifecycle** — 15 nodes, 18 edges, parallel branches and feedback loops
 
 ---
 
-### Running Agents Directly (PowerShell)
+## Tech Stack
 
-#### QA Agent Loop
-
-```powershell
-cd "c:\Projects\1_Work\Hackathon\Value Modeller\ValueModeller"
-
-# Run with defaults (30s interval, 600s timeout)
-.\scripts\qa-loop.ps1
-
-# Custom options
-.\scripts\qa-loop.ps1 -IntervalSeconds 60 -TimeoutSeconds 300 -MaxIterations 5
-```
-
-#### Developer Agent Loop
-
-```powershell
-cd "c:\Projects\1_Work\Hackathon\Value Modeller\ValueModeller"
-
-# Run with defaults (0s interval, 900s timeout)
-.\scripts\dev-loop.ps1
-
-# Custom options
-.\scripts\dev-loop.ps1 -IntervalSeconds 10 -MaxIterations 3 -WaitWhenEmpty 120
-```
-
-#### Task Ordering Agent Loop
-
-```powershell
-cd "c:\Projects\1_Work\Hackathon\Value Modeller\ValueModeller"
-
-# Run with defaults (15 min interval, 300s timeout)
-.\scripts\task-order-loop.ps1
-
-# Custom options
-.\scripts\task-order-loop.ps1 -IntervalSeconds 600 -MaxIterations 5
-```
-
----
-
-### CLI Options (PowerShell Scripts)
-
-| Flag | QA Default | Dev Default | Task Order Default | Description |
-|------|-----------|-------------|-------------------|-------------|
-| `-IntervalSeconds` | 30 | 0 | 900 | Seconds between iterations |
-| `-TimeoutSeconds` | 600 | 900 | 300 | Max seconds per agent invocation |
-| `-MaxIterations` | 0 (infinite) | 0 (infinite) | 0 (infinite) | Stop after N iterations |
-| `-WaitWhenEmpty` | — | 60 | — | Seconds to wait when `IMPROVEMENTS.md` is empty |
-
-### Stopping the Loops
-
-- Press **Ctrl+C** for graceful shutdown (finishes current iteration)
-
----
-
-### Alternative: TypeScript ACP Scripts
-
-The `scripts/` folder also contains TypeScript versions that use the `@agentclientprotocol/sdk` for structured agent communication:
-
-```bash
-cd scripts
-npm install
-npm run build     # Compile TypeScript to scripts/dist/
-
-npm run qa        # QA loop (continuous)
-npm run qa:once   # Single QA iteration
-npm run dev       # Dev loop (continuous)
-npm run dev:once  # Single dev iteration
-```
-
-These provide the same functionality as the PowerShell scripts but with ACP protocol support.
-
----
-
-### Recommended Workflow
-
-Run all components in separate terminals (or use TecFactory to manage agents):
-
-```
-Terminal 1:  npm run dev                              ← Vite dev server (http://localhost:5173)
-Terminal 2:  cd tecfactory && npm start               ← TecFactory agent monitor (http://localhost:3500)
-Terminal 3:  .\scripts\qa-loop.ps1                    ← QA agent (or start from TecFactory)
-Terminal 4:  .\scripts\dev-loop.ps1                   ← Developer agent (or start from TecFactory)
-Terminal 5:  .\scripts\task-order-loop.ps1            ← Task ordering agent (optional)
-```
-
-The QA agent discovers issues and writes them to `IMPROVEMENTS.md`. The developer agent picks them up and implements fixes automatically. The task order agent keeps priorities aligned with the current project state.
+| Concern | Choice |
+|---------|--------|
+| Frontend | React 18 + TypeScript (strict mode) |
+| Canvas | `@xyflow/react` (React Flow v12) |
+| State | Zustand 5 with localStorage persist middleware |
+| Styling | Tailwind CSS 3 (class-based dark mode) |
+| Routing | react-router-dom 7 |
+| Layout | `@dagrejs/dagre` (auto-layout) |
+| Build | Vite 6 |
+| Testing | Vitest + @testing-library/react |
+| Package manager | npm |
 
 ---
 
@@ -179,32 +86,141 @@ The QA agent discovers issues and writes them to `IMPROVEMENTS.md`. The develope
 ```
 src/
 ├── components/
-│   ├── canvas/        # React Flow canvas, custom nodes, custom edges
-│   ├── form/          # SIPOC detail form / side panel
-│   ├── landing/       # Landing page
-│   ├── layout/        # App shell, header, sidebar containers
-│   └── ui/            # Shared UI primitives (buttons, inputs, etc.)
-├── store/             # Zustand stores (graph, UI, history, value-stream)
+│   ├── canvas/        # React Flow canvas, custom nodes/edges, panels
+│   ├── form/          # SIPOC detail form (side panel)
+│   ├── landing/       # Landing page with stream management
+│   ├── layout/        # App shell, stream editor, stats panel
+│   └── ui/            # Shared primitives (button, input, toast, error boundary)
+├── hooks/             # Custom React hooks (clipboard, context menu, focus trap, etc.)
+├── store/             # Zustand stores (graph, ui, history, theme, toast, value-stream)
+├── tests/             # Unit tests (Vitest)
 ├── types/             # TypeScript type definitions
-├── hooks/             # Custom React hooks
-├── utils/             # Helper functions
-├── App.tsx
-├── main.tsx
-└── index.css
+├── utils/             # Helpers (auto-layout, edge routing, cycle detection, demo data, etc.)
+├── App.tsx            # Route definitions
+├── main.tsx           # Entry point with BrowserRouter + ErrorBoundary
+└── index.css          # Tailwind base + custom CSS
 
-scripts/                # Agent loop scripts (PowerShell + TypeScript ACP)
-tecfactory/             # TecFactory — agent management web UI
-tasks/                  # Task queue (JSON files, managed by TecFactory)
-.kiro/agents/           # Kiro agent definitions (QA, developer, task-order)
-.kiro/steering/         # Kiro steering files
+scripts/               # Agent loop scripts (TypeScript ACP)
+tecfactory/            # TecFactory — agent management web UI
+tasks/                 # Task queue (JSON files, managed by TecFactory)
+errors/                # Agent error reports (Markdown)
+.kiro/agents/          # Kiro agent definitions
+.kiro/hooks/           # Kiro automation hooks
+.kiro/steering/        # Kiro steering files
 ```
 
-## Tech Stack
+---
 
-- React 18 + TypeScript
-- React Flow via `@xyflow/react` (node-based canvas)
-- Zustand (state management with localStorage persistence)
-- Tailwind CSS
-- Vite
-- react-router-dom (routing)
-- dagre (auto-layout)
+## TecFactory — Agent Monitor
+
+A WebSocket-based web UI for monitoring and controlling autonomous AI agent loops from a single dashboard.
+
+### Running TecFactory
+
+```bash
+cd tecfactory
+npm install
+npm start         # Start at http://localhost:3500
+npm run dev       # Start with auto-reload
+npm run test      # Run unit tests (58 tests)
+```
+
+### Features
+
+- **Real-time log streaming** — WebSocket pushes stdout/stderr from each agent to the browser
+- **Start / Stop with rollback** — kill agents and optionally revert uncommitted changes + reset task states
+- **Agent activity tracking** — see what each agent is working on (task title, testing status, research)
+- **List and Cards views** — toggle between compact table or detailed card layout
+- **Collapsible log panels** — collapse agents you're not monitoring (session-persistent)
+- **Copyable logs** — click-to-copy or Ctrl+A within a log panel
+- **Task queue management** — create, edit, sort, and filter tasks; AI Assist mode for task generation
+- **Errors tab** — browse, view, and clear agent error reports
+- **Multi-client sync** — multiple browser tabs stay synchronized via WebSocket broadcast
+
+### Agent Types
+
+| Agent | Purpose |
+|-------|---------|
+| **Developer** | Picks top task from queue, implements it, commits to `develop` branch |
+| **QA** | Tests the running app with Puppeteer, creates bug/improvement tasks |
+| **Task Order** | Re-prioritizes task queue based on current project state |
+| **Code Reviewer** | Reviews code changes for quality and standards |
+| **Information Collector** | Researches topics via web search, writes structured findings |
+| **Task Creator** | Generates structured tasks from natural language prompts |
+
+---
+
+## AI Agent Loops
+
+Autonomous agents use the ACP (Agent Client Protocol) to continuously improve the app. They run as TypeScript scripts via `kiro-cli`.
+
+### Prerequisites
+
+| Requirement | Why |
+|---|---|
+| `kiro-cli` installed and authenticated | Agent loops spawn kiro-cli as a subprocess |
+| Node.js 20+ | Required by scripts and TecFactory |
+| `npm run dev` running in a separate terminal | QA agent tests the app at `http://localhost:5173` |
+
+### Running Agents via Scripts
+
+```bash
+cd scripts
+npm install
+npm run build     # Compile TypeScript
+
+npm run qa        # QA loop (continuous)
+npm run qa:once   # Single QA iteration
+npm run dev       # Dev loop (continuous)
+npm run dev:once  # Single dev iteration
+```
+
+### Agent Workflow
+
+1. **QA agent** tests the app with Puppeteer, discovers issues, creates task files in `tasks/`
+2. **Task order agent** re-prioritizes tasks based on severity and project state
+3. **Developer agent** picks the highest-priority `todo` task, implements it, commits, and pushes to `develop`
+4. **Auto-commit hook** (`.kiro/hooks/auto-commit.json`) commits changes after each Kiro session
+
+Tasks follow a priority + origin system: user-created tasks (`origin: "user"`) are prioritized over AI-assisted (`"user-assisted"`) and fully AI-generated (`"ai"`) at the same priority level.
+
+---
+
+## Testing
+
+```bash
+# Value Modeller frontend (61 tests)
+npm run test              # Run all tests
+npm run test:watch        # Watch mode
+npm run test:coverage     # Coverage report
+
+# TecFactory server (58+ tests)
+cd tecfactory
+npm test
+```
+
+Tests cover: graph store operations, UI state, toast notifications, auto-layout, cycle detection, edge routing, class utilities.
+
+---
+
+## Development Commands
+
+```bash
+npm run dev      # Vite dev server (http://localhost:5173)
+npm run build    # Production build (tsc + vite build)
+npm run preview  # Preview production build locally
+npm run test     # Run unit tests
+```
+
+---
+
+## Conventions
+
+- Functional components with TypeScript (strict mode, no `any`)
+- Named exports (`export function ComponentName`)
+- File names: `kebab-case.tsx` / `kebab-case.ts`
+- One component per file, one store per file
+- Tailwind utility classes (no custom CSS except React Flow overrides)
+- `cn()` utility (clsx + tailwind-merge) for conditional classes
+- Zustand stores with persist middleware for localStorage
+- Semantic HTML + ARIA labels on all interactive elements
