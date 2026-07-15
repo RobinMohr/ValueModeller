@@ -1,5 +1,34 @@
 # Release Notes — Value Modeller
 
+## 2026-07-15T11:21 — improvement: Create unit tests for the Value Modeller
+
+**Task:** `tasks/2_create-unit-tests-for-the-value-modeller.json` → state set to `developed`
+
+**What changed:**
+- Set up **Vitest** as the test runner for the Value Modeller frontend app
+- Added devDependencies: `vitest`, `@testing-library/react`, `@testing-library/jest-dom`, `jsdom`
+- Created `vitest.config.ts` with TypeScript support and global test APIs
+- Added `npm run test`, `npm run test:watch`, and `npm run test:coverage` scripts to package.json
+- Created **61 unit tests** across 7 test files:
+  - `src/tests/cycle-detection.test.ts` (8 tests) — DAG cycle detection via BFS
+  - `src/tests/edge-routing.test.ts` (9 tests) — Liang-Barsky obstruction detection + smart path routing
+  - `src/tests/cn.test.ts` (6 tests) — clsx + tailwind-merge class utility
+  - `src/tests/graph-store.test.ts` (20 tests) — Zustand graph store (addNode, deleteNode, duplicateNodes, updateNodeData, onConnect auto-fill, group nodes)
+  - `src/tests/ui-store.test.ts` (5 tests) — UI state (selectNode, openSidePanel, closeSidePanel)
+  - `src/tests/toast-store.test.ts` (7 tests) — Toast notifications (add, remove, auto-dismiss)
+  - `src/tests/auto-layout.test.ts` (6 tests) — Dagre auto-layout (LR/TB direction, branching)
+- All tests follow AAA principle (Arrange → Act → Assert) with clear section comments
+
+**Test commands:**
+```bash
+npm run test          # Run all 61 tests
+npm run test:watch    # Watch mode
+npm run test:coverage # Coverage report
+```
+
+**Build:** ✅ Passes (`tsc -b && vite build` — 0 errors, 297 modules)
+**Tests:** ✅ All 61 tests pass in <1 second
+
 ## 2026-07-15T11:14 — improvement: Fix Demo button hidden behind Search button
 
 **Task:** `tasks/2_e523971e_fix-formatting.json` → state set to `developed`

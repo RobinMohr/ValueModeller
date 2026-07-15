@@ -1,0 +1,8 @@
+{
+  "title": "information collector agent",
+  "type": "feature",
+  "priority": 1,
+  "description": "i want you to create a new agent called information collector\nit should look at all the internet and search for an information, which will be provided when creating said agent in the tecfactory. it should create a file if it doesnt exist or update the file by evaluating which of the information is more relevant to the prompt given. \nthe file name should be given in the tecfactory aswell",
+  "state": "todo",
+  "origin": "user"
+}

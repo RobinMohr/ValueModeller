@@ -3,6 +3,6 @@
   "type": "improvement",
   "priority": 2,
   "description": "create unit tests for the value modeller",
-  "state": "todo",
+  "state": "developed",
   "origin": "user"
 }
