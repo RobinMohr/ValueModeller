@@ -523,7 +523,7 @@ function commitAndPush(cwd: string, taskTitle: string): boolean {
     }
 
     log(`  Git: staging all changes...`, "gray");
-    execFileSync("git", ["add", "."], {
+    execFileSync("git", ["-c", "core.autocrlf=false", "add", "."], {
       cwd,
       timeout: 30_000,
     });

@@ -1,5 +1,30 @@
 # Release Notes — Value Modeller
 
+## 2026-07-15T11:58 — bugfix: Fix ACP agents Git CRLF warning messages
+
+**Task:** `tasks/2_b97409fc_fix-acp-agents-warning-messages.json` → state set to `developed`
+
+**Problem:** When the ACP agent loop ran `git add .` on Windows, it produced CRLF warnings like:
+```
+warning: in the working copy of 'tecfactory/public/app.js', LF will be replaced by CRLF the next time Git touches it
+```
+This cluttered agent output logs and caused noise in TecFactory's output panel.
+
+**Fix applied (dual approach):**
+1. **Created `.gitattributes`** with `* text=auto eol=lf` — normalizes all text files to LF line endings project-wide. This is the permanent fix that prevents CRLF issues for all contributors and CI systems.
+2. **Changed `git add .` to `git -c core.autocrlf=false add .`** in `scripts/src/agent-loop.ts` — suppresses the warning immediately at the command level, even before `.gitattributes` is committed and takes effect in the repo.
+
+**Files created:**
+- `.gitattributes`
+
+**Files modified:**
+- `scripts/src/agent-loop.ts` — git add command now uses `-c core.autocrlf=false` flag
+
+**Build:** ✅ Passes (`tsc -b && vite build` — 0 errors, 297 modules)
+**Scripts:** ✅ Passes (`tsc --noEmit` — 0 errors)
+
+---
+
 ## 2026-07-15T11:54 — bugfix: Fix auto-fill bypass in flow-canvas handleConnect
 
 **Task:** `tasks/1_98830b27_fix-auto-fill-bypass-flow-canvas-handleconnect-doe.json` → state set to `developed`

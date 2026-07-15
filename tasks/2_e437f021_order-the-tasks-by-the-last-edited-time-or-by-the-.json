@@ -2,8 +2,8 @@
   "title": "order the tasks by the last edited time or by the priority",
   "type": "improvement",
   "priority": 2,
-  "description": "i want to be able to order the tasks by the last edited time or by the priority \nadd a mechanism on the tasks page for that",
-  "state": "developed",
+  "description": "i want to be able to order the tasks by the last edited time or by the priority \nadd a mechanism on the tasks page for that\n\nthe tasks and the functions that create and edit funcitons might not have that logic yet\nalso the code, that creates the acp agents",
+  "state": "todo",
   "origin": "user",
   "id": "e437f021"
 }

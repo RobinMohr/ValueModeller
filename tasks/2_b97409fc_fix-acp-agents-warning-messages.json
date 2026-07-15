@@ -1,0 +1,9 @@
+{
+  "title": "fix acp agents warning messages",
+  "type": "bug",
+  "priority": 2,
+  "description": "Now I need to add CSS for the `.tasks-sort` container and `.sort-btn` styles. Let me find a good place to add them after the filter-btn styles:[2026-07-15 09:57:28] Iteration 2 done. (Duration: 89s)\n11:57:28\n  Task state is \"in-progress\" after success — forcing to \"developed\".\n11:57:28\n  Git: staging all changes...\n11:57:28\nwarning: in the working copy of 'tasks/2_e437f021_order-the-tasks-by-the-last-edited-time-or-by-the-.json', LF will be replaced by CRLF the next time Git touches it\n11:57:28\nwarning: in the working copy of 'tecfactory/agents.json', LF will be replaced by CRLF the next time Git touches it\n11:57:28\nwarning: in the working copy of 'tecfactory/public/app.js', LF will be replaced by CRLF the next time Git touches it\n11:57:28\n  Git: committing: \"feat: order the tasks by the last edited time or by the priority\"\n11:57:28\n  Git: pushing to remote...\n11:57:31\nTo https://github.com/RobinMohr/ValueModeller.git\n11:57:31\n   8709f4b..4655cd8  develop -> develop\n11:57:31\n  Git: pushed successfully to origin/develop.>\n\ni want these warnings to be fixed in the acp agents",
+  "state": "developed",
+  "origin": "user",
+  "id": "b97409fc"
+}
