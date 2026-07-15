@@ -69,19 +69,123 @@ Every task MUST include an `"origin"` field. Since you are an AI agent creating 
 2. Read the key project source files listed above.
 3. Understand what has changed since the last run by checking `release_notes.md`.
 
-### Phase 2: Visual Inspection (Puppeteer)
+### Phase 2: Visual Inspection & Critical Bug Detection (Puppeteer)
 
-1. Navigate to `http://localhost:5173`
-2. Take a full-page screenshot to assess the current UI state
-3. Test these interactions:
-   - Double-click a node → verify side panel opens with correct data
-   - Edit a form field → verify it persists when reopening
-   - Click "+ Add Process" → verify a new node appears on the canvas
-   - Connect two nodes by dragging from a handle
-   - Delete a node (select + Backspace/Delete)
-   - Test canvas zoom/pan controls
-4. Note any visual issues: alignment, spacing, color contrast, text truncation, broken layouts
-5. Note any functional bugs: stale data, broken interactions, console errors
+**This phase is the primary bug detection mechanism. Execute ALL steps below every run.**
+
+#### Step 2.1: Setup & Console Error Monitoring
+
+1. Navigate to `http://localhost:5173` (with headless launchOptions on first call).
+2. **Immediately install a console error listener** using `puppeteer_evaluate`:
+   ```javascript
+   window.__qaErrors = [];
+   window.__qaNetworkErrors = [];
+   const origError = console.error;
+   console.error = function(...args) {
+     window.__qaErrors.push({ type: 'console.error', message: args.map(a => String(a)).join(' '), timestamp: Date.now() });
+     origError.apply(console, args);
+   };
+   window.addEventListener('error', (e) => {
+     window.__qaErrors.push({ type: 'uncaught', message: e.message, filename: e.filename, lineno: e.lineno, timestamp: Date.now() });
+   });
+   window.addEventListener('unhandledrejection', (e) => {
+     window.__qaErrors.push({ type: 'unhandledrejection', message: String(e.reason), timestamp: Date.now() });
+   });
+   ```
+3. Take a full-page screenshot to assess the initial UI state.
+
+#### Step 2.2: Critical User Flows (MUST test every run)
+
+Execute these flows in order. After EACH action, verify the expected result within 3 seconds. If the expected DOM change does not occur, classify it as a **priority-1 interaction failure**.
+
+| # | Flow | Action | Expected Result |
+|---|------|--------|-----------------|
+| 1 | App loads | Navigate to `/` | Landing page renders with stream cards or empty state |
+| 2 | Open stream | Click a stream card (or create one) | Canvas renders with nodes visible |
+| 3 | Add node | Click "+ Add Process" or drag from palette | New node appears on canvas (node count increases) |
+| 4 | Select node | Click on a node | Side panel opens with node's SIPOC data |
+| 5 | Edit form | Change a text field in the side panel | Field value updates (verify with screenshot or DOM read) |
+| 6 | Persist edit | Close panel, reopen same node | Edited value is still present |
+| 7 | Connect nodes | Drag from source handle to target handle | New edge appears between the two nodes |
+| 8 | Delete node | Select node + press Delete/Backspace | Node removed from canvas, side panel closes if it was open |
+| 9 | Zoom/Pan | Use scroll wheel or controls | Canvas viewport changes without rendering glitches |
+| 10 | Navigate back | Click "← Streams" button | Returns to landing page without errors |
+
+**Interaction failure detection:** After each action, use `puppeteer_evaluate` to verify the DOM state changed as expected. For example, after "Add node," check that the node count on screen increased. If verification fails after a 3-second wait, log it as a critical bug.
+
+#### Step 2.3: Console & Network Error Collection
+
+After completing the critical flows, collect all captured errors:
+
+```javascript
+JSON.stringify({ consoleErrors: window.__qaErrors, networkErrors: window.__qaNetworkErrors });
+```
+
+**Classification:**
+- Any `uncaught` or `unhandledrejection` error → **priority 1** task (critical bug)
+- Any `console.error` during a user interaction → **priority 1** task
+- `console.error` during idle/background → **priority 2** task
+- Network 4xx/5xx errors on critical paths → **priority 1** task
+- Network errors on non-critical paths → **priority 3** task
+
+#### Step 2.4: Visual Regression Checks
+
+Take screenshots at these key states and inspect for issues:
+1. **Empty canvas** — after creating a new empty stream
+2. **Canvas with nodes** — the demo stream with multiple nodes
+3. **Form open** — side panel visible with a node selected
+4. **Dark mode** — toggle dark mode and verify no invisible/low-contrast elements
+
+**Check for these visual defects:**
+- Elements overlapping or clipping outside containers
+- Text truncated without ellipsis or overflowing containers
+- Elements positioned off-screen (x/y < 0 or beyond viewport)
+- Buttons or inputs without visible borders/backgrounds in either theme
+- Broken layouts (flex/grid items collapsed to 0 width/height)
+- Missing icons or broken image references
+
+Any visual breakage that affects demo readability → **priority 2** task.
+Any visual breakage that makes the app unusable → **priority 1** task.
+
+#### Step 2.5: Network Error Detection
+
+Use `puppeteer_evaluate` to check for failed network requests:
+
+```javascript
+// Install before testing (add to Step 2.1 setup):
+const origFetch = window.fetch;
+window.fetch = async function(...args) {
+  try {
+    const res = await origFetch.apply(this, args);
+    if (!res.ok) {
+      window.__qaNetworkErrors.push({ url: args[0], status: res.status, timestamp: Date.now() });
+    }
+    return res;
+  } catch(err) {
+    window.__qaNetworkErrors.push({ url: args[0], error: err.message, timestamp: Date.now() });
+    throw err;
+  }
+};
+```
+
+#### Step 2.6: Severity Classification & Task Creation
+
+After all testing, create tasks based on severity:
+
+| Severity | Criteria | Task Priority |
+|----------|----------|---------------|
+| **Critical** | Core flow broken (can't add/edit/delete nodes), unhandled JS exception, app crash | **1** (must fix for demo) |
+| **Major** | Feature partially broken, console errors during interaction, visual breakage affecting usability | **1** or **2** |
+| **Moderate** | Minor visual glitch, non-blocking UX issue, edge case failure | **2** or **3** |
+| **Minor** | Cosmetic issue, improvement suggestion, polish item | **3** or **4** |
+
+**When creating tasks for bugs found during Puppeteer testing:**
+- Set `"type": "problem"` for bugs
+- Include exact reproduction steps in the description
+- Include which critical flow step failed (e.g., "Step 3: Add node — node does not appear")
+- Include the console error message if applicable
+- Reference the specific file(s) likely responsible
+- Set `"origin": "ai"`
 
 ### Phase 3: Web Research
 
