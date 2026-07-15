@@ -1,26 +1,23 @@
 {
-  "name": "value-modeller-task-api",
+  "name": "task-api",
   "version": "1.0.0",
-  "description": "Azure Functions Task API for Value Modeller — CRUD operations for value stream tasks",
-  "main": "dist/src/functions/*.js",
+  "description": "Azure Functions Task API for TecFactory",
   "scripts": {
     "build": "tsc",
     "watch": "tsc -w",
-    "clean": "rimraf dist",
-    "prestart": "npm run build",
-    "start": "func start"
+    "start": "func start",
+    "migrate": "npx ts-node scripts/migrate-from-files.ts"
   },
   "dependencies": {
-    "@azure/functions": "^4.5.1",
+    "@azure/functions": "^4.6.0",
     "mssql": "^11.0.1",
     "zod": "^3.23.8"
   },
   "devDependencies": {
     "@types/mssql": "^12.3.0",
     "@types/node": "^20.14.0",
-    "azure-functions-core-tools": "^4.0.6280",
-    "rimraf": "^6.0.1",
-    "typescript": "^5.5.4"
+    "ts-node": "^10.9.2",
+    "typescript": "^5.5.0"
   },
   "engines": {
     "node": ">=20.0.0"

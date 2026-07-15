@@ -1,5 +1,30 @@
 # Release Notes — Value Modeller
 
+## 2026-07-15T16:14 — feat: Update AI agents to use Task API instead of local files
+
+**Category:** Enhancement
+**Task:** `tasks/3_a2b3c4d5_update-ai-agents-to-use-task-api.json` → state set to `developed`
+
+**Changes:**
+- **scripts/src/agent-loop.ts:** Replaced all file-based task management with Task API HTTP calls:
+  - Added `TaskApiClient` functions: `taskApiFetch()`, `fetchNextTask()`, `updateTaskState()`, `createTaskViaApi()`, `hasWorkViaApi()`
+  - `hasWork()` → now calls `GET /api/tasks/next` (200 = work available, 204 = none)
+  - `claimTask()` → calls `GET /api/tasks/next` then `PUT /api/tasks/:id` to set state to "in-progress"
+  - `releaseTaskLock()` → no-op (API handles atomic state transitions, no lock files needed)
+  - `resetTaskToTodo()` → calls `PUT /api/tasks/:id` with `{ state: "todo" }`
+  - `ensureTaskDeveloped()` → calls `PUT /api/tasks/:id` with `{ state: "developed" }`
+  - `cleanupStaleLocks()` → no-op (no local lock files with API approach)
+  - Removed unused `node:fs` imports; removed `ORIGIN_RANK` (server handles sort order)
+  - Updated built-in `PROMPTS` for QA and task-order agents to reference API endpoints
+  - Environment variables: `TASK_API_URL` (default: `http://localhost:7071/api`), `TASK_API_KEY`
+- **.kiro/agents/developer-agent.json:** Updated description and prompt to reference Task API
+- **.kiro/agents/qa-improvement-agent.json:** Updated description to reference Task API
+- **.kiro/agents/task-order-agent.json:** Updated description and prompt to use `GET /api/tasks` and `PUT /api/tasks/:id`
+
+**Build:** ✅ Passes (`scripts tsc` — 0 errors; `tsc -b && vite build` — 0 errors, 299 modules)
+
+---
+
 ## 2026-07-15T16:09 — feat: TecFactory task API polling with ETag support
 
 **Task:** `tasks/2_f1a2b3c4_update-tecfactory-ui-to-poll-task-api.json` → state set to `developed`

@@ -1,54 +1,17 @@
-/**
- * GET /api/tasks/next — Returns the single most important task with state='todo'.
- *
- * Sort order:
- *   1. priority ASC (1=critical first)
- *   2. origin weight ASC (user=1, user-assisted=2, ai=3)
- *   3. created_at ASC (oldest first as tiebreaker)
- *
- * Returns 204 No Content if no todo tasks exist.
- * Requires x-api-key authentication.
- */
-
 import { app, HttpRequest, HttpResponseInit, InvocationContext } from '@azure/functions';
-import { queryOne } from '../db/client.js';
-import { requireAuth } from '../middleware/auth.js';
-import { Task } from '../validation/task-schema.js';
+import { getPool } from '../db/client.js';
+import { validateApiKey } from '../middleware/auth.js';
+import { Task } from '../types/task.js';
 
-/** Database row shape returned by the SQL query. */
-type TaskRow = {
-  id: string;
-  title: string;
-  priority: number;
-  type: string;
-  state: string;
-  description: string;
-  files: string;
-  origin: string;
-  created_at: string;
-};
-
-export async function getNextTask(
-  request: HttpRequest,
-  context: InvocationContext
-): Promise<HttpResponseInit> {
-  const authResponse = requireAuth(request);
-  if (authResponse) return authResponse;
-
-  context.log('GET /api/tasks/next — fetching highest-priority todo task');
+async function getNextTask(request: HttpRequest, context: InvocationContext): Promise<HttpResponseInit> {
+  const authError = validateApiKey(request);
+  if (authError) return authError;
 
   try {
-    const row = await queryOne<TaskRow>(
-      `SELECT TOP 1
-        id,
-        title,
-        priority,
-        type,
-        state,
-        description,
-        files,
-        origin,
-        created_at
+    const pool = await getPool();
+
+    const result = await pool.request().query(`
+      SELECT TOP 1 *
       FROM tasks
       WHERE state = 'todo'
       ORDER BY
@@ -57,39 +20,37 @@ export async function getNextTask(
           WHEN 'user' THEN 1
           WHEN 'user-assisted' THEN 2
           WHEN 'ai' THEN 3
-          ELSE 4
         END ASC,
-        created_at ASC`,
-    );
+        created_at ASC
+    `);
 
-    if (!row) {
+    if (result.recordset.length === 0) {
       return { status: 204 };
     }
 
+    const row = result.recordset[0];
     const task: Task = {
       id: row.id,
       title: row.title,
-      priority: row.priority as 1 | 2 | 3 | 4,
-      type: row.type as Task['type'],
-      state: row.state as Task['state'],
+      priority: row.priority,
+      type: row.type,
+      state: row.state,
       description: row.description,
-      files: JSON.parse(row.files || '[]') as string[],
-      origin: row.origin as Task['origin'],
+      files: JSON.parse(row.files || '[]'),
+      origin: row.origin,
+      created_at: row.created_at.toISOString(),
+      updated_at: row.updated_at.toISOString(),
     };
 
     return {
       status: 200,
-      headers: { 'Content-Type': 'application/json' },
       jsonBody: task,
     };
-  } catch (error: unknown) {
-    const message = error instanceof Error ? error.message : 'Unknown error';
-    context.error('Failed to fetch next task:', message);
-
+  } catch (error) {
+    context.error('Error fetching next task:', error);
     return {
       status: 500,
-      headers: { 'Content-Type': 'application/json' },
-      jsonBody: { error: 'Internal Server Error', message: 'Failed to retrieve next task.' },
+      jsonBody: { error: 'Internal server error' },
     };
   }
 }

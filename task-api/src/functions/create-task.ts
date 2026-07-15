@@ -1,108 +1,73 @@
-/**
- * POST /api/tasks — Creates a new task.
- *
- * Auto-generates an 8-char hex ID via crypto.randomBytes(4).
- * Validates input with Zod createTaskSchema.
- * Sets created_at and updated_at to current UTC time.
- * Returns 201 with the created task object.
- *
- * Requires x-api-key authentication.
- */
-
-import { randomBytes } from 'crypto';
 import { app, HttpRequest, HttpResponseInit, InvocationContext } from '@azure/functions';
-import { execute } from '../db/client.js';
-import { requireAuth } from '../middleware/auth.js';
-import { createTaskSchema, Task } from '../validation/task-schema.js';
+import { getPool, sql } from '../db/client.js';
+import { validateApiKey } from '../middleware/auth.js';
+import { createTaskSchema } from '../validation/task-schema.js';
+import { Task } from '../types/task.js';
 
-export async function createTask(
-  request: HttpRequest,
-  context: InvocationContext
-): Promise<HttpResponseInit> {
-  const authResponse = requireAuth(request);
-  if (authResponse) return authResponse;
+async function createTask(request: HttpRequest, context: InvocationContext): Promise<HttpResponseInit> {
+  const authError = validateApiKey(request);
+  if (authError) return authError;
 
-  context.log('POST /api/tasks — creating new task');
-
-  // Parse request body
   let body: unknown;
   try {
     body = await request.json();
   } catch {
     return {
       status: 400,
-      headers: { 'Content-Type': 'application/json' },
-      jsonBody: { error: 'Bad Request', message: 'Request body must be valid JSON.' },
+      jsonBody: { error: 'Invalid JSON body' },
     };
   }
 
-  // Validate input against createTaskSchema
-  const parseResult = createTaskSchema.safeParse(body);
-  if (!parseResult.success) {
-    const issues = parseResult.error.issues.map((issue) => ({
-      path: issue.path.join('.'),
-      message: issue.message,
-    }));
-
+  const parsed = createTaskSchema.safeParse(body);
+  if (!parsed.success) {
     return {
       status: 400,
-      headers: { 'Content-Type': 'application/json' },
-      jsonBody: { error: 'Validation Error', message: 'Invalid task data.', issues },
+      jsonBody: { error: 'Validation failed', details: parsed.error.flatten() },
     };
   }
 
-  const input = parseResult.data;
-
-  // Generate 8-char hex ID
-  const id = randomBytes(4).toString('hex');
-
-  // Current UTC timestamp
-  const now = new Date().toISOString();
+  const input = parsed.data;
 
   try {
-    await execute(
-      `INSERT INTO tasks (id, title, priority, type, state, description, files, origin, created_at, updated_at)
-       VALUES (@id, @title, @priority, @type, @state, @description, @files, @origin, @created_at, @updated_at)`,
-      {
-        id,
-        title: input.title,
-        priority: input.priority,
-        type: input.type,
-        state: input.state,
-        description: input.description,
-        files: JSON.stringify(input.files),
-        origin: input.origin,
-        created_at: now,
-        updated_at: now,
-      }
-    );
+    const pool = await getPool();
 
-    const task: Task & { created_at: string; updated_at: string } = {
-      id,
-      title: input.title,
-      priority: input.priority,
-      type: input.type,
-      state: input.state,
-      description: input.description,
-      files: input.files,
-      origin: input.origin,
-      created_at: now,
-      updated_at: now,
+    const result = await pool.request()
+      .input('title', sql.NVarChar(200), input.title)
+      .input('priority', sql.TinyInt, input.priority)
+      .input('type', sql.VarChar(20), input.type)
+      .input('state', sql.VarChar(20), input.state)
+      .input('description', sql.NVarChar(sql.MAX), input.description)
+      .input('files', sql.NVarChar(sql.MAX), JSON.stringify(input.files))
+      .input('origin', sql.VarChar(20), input.origin)
+      .query(`
+        INSERT INTO tasks (title, priority, type, state, description, files, origin)
+        OUTPUT INSERTED.*
+        VALUES (@title, @priority, @type, @state, @description, @files, @origin)
+      `);
+
+    const row = result.recordset[0];
+    const task: Task = {
+      id: row.id,
+      title: row.title,
+      priority: row.priority,
+      type: row.type,
+      state: row.state,
+      description: row.description,
+      files: JSON.parse(row.files || '[]'),
+      origin: row.origin,
+      created_at: row.created_at.toISOString(),
+      updated_at: row.updated_at.toISOString(),
     };
 
     return {
       status: 201,
-      headers: { 'Content-Type': 'application/json' },
       jsonBody: task,
     };
-  } catch (error: unknown) {
-    const message = error instanceof Error ? error.message : 'Unknown error';
-    context.error('Failed to create task:', message);
-
+  } catch (error) {
+    context.error('Error creating task:', error);
     return {
       status: 500,
-      headers: { 'Content-Type': 'application/json' },
-      jsonBody: { error: 'Internal Server Error', message: 'Failed to create task.' },
+      jsonBody: { error: 'Internal server error' },
     };
   }
 }

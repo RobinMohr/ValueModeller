@@ -11,12 +11,127 @@
  *   node dist/agent-loop.js --agent task-order-agent --type task-order --max-iterations 1
  *   node dist/agent-loop.js --agent my-custom-agent --type custom --prompt "Do something"
  */
-import { resolve, join } from "node:path";
-import { readFile, readdir, writeFile, unlink, open } from "node:fs/promises";
-import { readdirSync, readFileSync, writeFileSync, unlinkSync, existsSync } from "node:fs";
+import { resolve } from "node:path";
 import { execFileSync } from "node:child_process";
 import { KiroRunner } from "./kiro-runner.js";
 import { logAgentError } from "./error-logger.js";
+
+// ---------------------------------------------------------------------------
+// Task API Client
+// ---------------------------------------------------------------------------
+
+const TASK_API_BASE_URL = process.env.TASK_API_URL || "http://localhost:7071/api";
+const TASK_API_KEY = process.env.TASK_API_KEY || "";
+
+interface TaskApiResponse {
+  id: string;
+  title: string;
+  priority: number;
+  type: string;
+  state: string;
+  description: string;
+  files: string[];
+  origin: string;
+}
+
+/** Make an authenticated request to the Task API. */
+async function taskApiFetch(
+  path: string,
+  options: RequestInit = {}
+): Promise<Response> {
+  const url = `${TASK_API_BASE_URL}${path}`;
+  const headers: Record<string, string> = {
+    "Content-Type": "application/json",
+    ...(TASK_API_KEY ? { "x-api-key": TASK_API_KEY } : {}),
+    ...(options.headers as Record<string, string> || {}),
+  };
+  return fetch(url, { ...options, headers });
+}
+
+/**
+ * Fetch the next available todo task from the Task API.
+ * Uses GET /api/tasks/next which returns the highest-priority todo task.
+ * Returns null if no task available (204) or on error.
+ */
+async function fetchNextTask(): Promise<TaskApiResponse | null> {
+  try {
+    const response = await taskApiFetch("/tasks/next");
+    if (response.status === 204) return null;
+    if (!response.ok) {
+      log(`  Task API error (GET /tasks/next): ${response.status} ${response.statusText}`, "red");
+      return null;
+    }
+    return await response.json() as TaskApiResponse;
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err);
+    log(`  Task API connection failed: ${msg}`, "red");
+    return null;
+  }
+}
+
+/**
+ * Update a task's state via the Task API.
+ * Uses PUT /api/tasks/:id with the new state.
+ */
+async function updateTaskState(taskId: string, state: string): Promise<boolean> {
+  try {
+    const response = await taskApiFetch(`/tasks/${taskId}`, {
+      method: "PUT",
+      body: JSON.stringify({ state }),
+    });
+    if (!response.ok) {
+      log(`  Task API error (PUT /tasks/${taskId}): ${response.status} ${response.statusText}`, "red");
+      return false;
+    }
+    return true;
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err);
+    log(`  Task API update failed: ${msg}`, "red");
+    return false;
+  }
+}
+
+/**
+ * Create a new task via the Task API.
+ * Uses POST /api/tasks.
+ */
+async function createTaskViaApi(task: {
+  title: string;
+  priority: number;
+  type: string;
+  description: string;
+  files?: string[];
+  origin: string;
+}): Promise<TaskApiResponse | null> {
+  try {
+    const response = await taskApiFetch("/tasks", {
+      method: "POST",
+      body: JSON.stringify({ ...task, state: "todo" }),
+    });
+    if (!response.ok) {
+      log(`  Task API error (POST /tasks): ${response.status} ${response.statusText}`, "red");
+      return null;
+    }
+    return await response.json() as TaskApiResponse;
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err);
+    log(`  Task API create failed: ${msg}`, "red");
+    return null;
+  }
+}
+
+/**
+ * Check if there are any todo tasks via the Task API.
+ * Uses GET /api/tasks/next — 200 means work is available, 204 means none.
+ */
+async function hasWorkViaApi(): Promise<boolean> {
+  try {
+    const response = await taskApiFetch("/tasks/next");
+    return response.status === 200;
+  } catch {
+    return false;
+  }
+}
 
 // ---------------------------------------------------------------------------
 // Types
@@ -78,28 +193,35 @@ function parseArgs(): AgentLoopConfig {
 
 const PROMPTS: Record<AgentType, string> = {
   dev: `You are the Developer Implementation Agent. Do exactly ONE task and then stop.
-1) Read all task JSON files in tasks/. If no tasks have state 'todo', say 'No actionable tasks' and exit.
-2) Pick the SINGLE highest-priority task (lowest priority number) with state 'todo'.
-3) Set its state to 'in-progress' immediately.
-4) Read relevant source files, implement the change.
-5) Run 'npm run build' to verify.
-6) Set the task's state to 'developed'.
-7) Append a timestamped entry to release_notes.md.
-8) STOP. Do not pick another task. Exit immediately after completing one item.`,
+The agent loop uses the Task API (GET /api/tasks/next, PUT /api/tasks/:id) to claim and update tasks.
+If no task is assigned in the prompt, the loop will claim one automatically.
+1) Implement the assigned task.
+2) Run 'npm run build' to verify.
+3) Set the task's state to 'developed' in the local file.
+4) Append a timestamped entry to release_notes.md.
+5) STOP. Do not pick another task. Exit immediately after completing one item.`,
 
   qa: `Run the QA and Improvement Research Agent. Follow all steps in your agent instructions:
-1. Read project files for context (speciifcations.md, tasks/, source files, IMPROVEMENTS.md)
-2. Test the app with Puppeteer at http://localhost:5173 (use headless mode)
-3. Research improvements via web search
-4. Create NEW task JSON files in tasks/ for findings (no duplicates)
-5. Update IMPROVEMENTS.md with research insights
+1. Read project files for context (speciifcations.md, source files, IMPROVEMENTS.md)
+2. Check existing tasks via the Task API: curl GET ${TASK_API_BASE_URL}/tasks with header x-api-key to avoid duplicates
+3. Test the app with Puppeteer at http://localhost:5173 (use headless mode)
+4. Research improvements via web search
+5. Create NEW tasks via the Task API: POST ${TASK_API_BASE_URL}/tasks with header x-api-key and JSON body { title, priority, type, state: "todo", description, files, origin: "ai" }
+6. Update IMPROVEMENTS.md with research insights
 
 CRITICAL: When calling puppeteer_navigate for the FIRST time, you MUST pass launchOptions: { "headless": true, "args": ["--no-sandbox", "--disable-gpu"] }.
-Read existing tasks first to avoid duplicates.`,
+Check existing tasks via API first to avoid duplicates.
 
-  "task-order": `You are the task prioritization agent. Your ONLY job is to read all tasks in tasks/, evaluate their priority, re-order them, and exit.
+Task API environment:
+- Base URL: ${TASK_API_BASE_URL}
+- API Key header: x-api-key (value from TASK_API_KEY env var)`,
 
-Read ALL JSON files in tasks/. Read release_notes.md to understand what has already been done. Read speciifcations.md for project context.
+  "task-order": `You are the task prioritization agent. Your ONLY job is to read all tasks, evaluate their priority, re-order them, and exit.
+
+Fetch all tasks from the Task API: GET ${TASK_API_BASE_URL}/tasks (with x-api-key header).
+Read release_notes.md to understand what has already been done. Read speciifcations.md for project context.
+
+To update a task's priority, use: PUT ${TASK_API_BASE_URL}/tasks/:id with JSON body { "priority": <new_number> } and x-api-key header.
 
 Rules:
 1. Problems (bugs) that break core functionality → priority 1
@@ -108,10 +230,13 @@ Rules:
 4. Features that enhance demo impression → priority 2-3
 5. Nice-to-have ideas → priority 4
 6. Tasks with state 'developed' or 'in-progress' should NOT be re-prioritized.
-7. If a task file's priority number doesn't match its filename prefix, RENAME the file.
 
 Output a brief summary of changes made (or 'No changes needed').
-Do NOT create new tasks. Do NOT implement anything. Only re-prioritize existing todo tasks.`,
+Do NOT create new tasks. Do NOT implement anything. Only re-prioritize existing todo tasks.
+
+Task API environment:
+- Base URL: ${TASK_API_BASE_URL}
+- API Key header: x-api-key (value from TASK_API_KEY env var)`,
 
   custom: "", // Will use customPrompt from config
 
@@ -208,19 +333,9 @@ async function cleanupOrphanedProcesses(): Promise<void> {
   }
 }
 
-/** Check if there are actionable tasks for the dev agent. */
-async function hasWork(cwd: string): Promise<boolean> {
-  try {
-    const tasksDir = join(cwd, "tasks");
-    const files = readdirSync(tasksDir).filter((f) => f.endsWith(".json") && !f.startsWith("0_"));
-    for (const file of files) {
-      const content = JSON.parse(readFileSync(join(tasksDir, file), "utf-8"));
-      if (content.state === "todo") return true;
-    }
-    return false;
-  } catch {
-    return false;
-  }
+/** Check if there are actionable tasks for the dev agent (uses Task API). */
+async function hasWork(_cwd: string): Promise<boolean> {
+  return hasWorkViaApi();
 }
 
 // ---------------------------------------------------------------------------
@@ -229,6 +344,7 @@ async function hasWork(cwd: string): Promise<boolean> {
 
 interface TaskFile {
   filename: string;
+  id: string;
   title: string;
   priority: number;
   type: string;
@@ -238,197 +354,101 @@ interface TaskFile {
   origin: string;
 }
 
-/** Origin priority: user > user-assisted > ai. Lower = higher priority. */
-const ORIGIN_RANK: Record<string, number> = {
-  user: 0,
-  "user-assisted": 1,
-  ai: 2,
-};
-
-function getOriginRank(origin: string): number {
-  return ORIGIN_RANK[origin] ?? 99;
-}
+// Origin priority is now handled server-side by the Task API's GET /tasks/next endpoint.
 
 /**
- * Atomically claim the highest-priority todo task.
+ * Claim the highest-priority todo task via the Task API.
  *
  * Strategy:
- * 1. Read all task files, filter to state=todo, sort by priority then origin
- * 2. For the best candidate, attempt to create a <task>.lock file using
- *    exclusive mode (wx flag). This is atomic — if another process already
- *    created it, the open() call fails.
- * 3. If lock acquired, set the task state to "in-progress" and return it.
- * 4. If lock fails (another agent claimed it), try the next candidate.
+ * 1. Call GET /api/tasks/next to get the top-priority todo task.
+ * 2. Call PUT /api/tasks/:id to set state to "in-progress" (atomic claim).
+ * 3. Return the task if successfully claimed, null otherwise.
  *
  * Returns null if no claimable task exists.
  */
-async function claimTask(cwd: string): Promise<TaskFile | null> {
-  const tasksDir = join(cwd, "tasks");
+async function claimTask(_cwd: string): Promise<TaskFile | null> {
+  const apiTask = await fetchNextTask();
+  if (!apiTask) return null;
 
-  let files: string[];
-  try {
-    files = readdirSync(tasksDir).filter(
-      (f) => f.endsWith(".json") && !f.startsWith("0_")
-    );
-  } catch {
+  // Set state to in-progress via API (acts as our claim mechanism)
+  const claimed = await updateTaskState(apiTask.id, "in-progress");
+  if (!claimed) {
+    log(`  Failed to claim task "${apiTask.title}" via API.`, "red");
     return null;
   }
 
-  // Parse all todo tasks
-  const todoTasks: TaskFile[] = [];
-  for (const file of files) {
-    try {
-      const content = JSON.parse(readFileSync(join(tasksDir, file), "utf-8"));
-      if (content.state === "todo") {
-        todoTasks.push({ filename: file, ...content });
-      }
-    } catch {
-      /* skip unreadable files */
-    }
-  }
+  // Build a TaskFile-compatible filename for backward compatibility with commit messages etc.
+  const kebabTitle = apiTask.title
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-|-$/g, "")
+    .slice(0, 50);
+  const filename = `${apiTask.priority}_${apiTask.id}_${kebabTitle}.json`;
 
-  if (todoTasks.length === 0) return null;
+  log(`  Claimed task: [P${apiTask.priority}] "${apiTask.title}" (${apiTask.id})`, "green");
 
-  // Sort: lowest priority number first, then origin rank (user > user-assisted > ai)
-  todoTasks.sort((a, b) => {
-    if (a.priority !== b.priority) return a.priority - b.priority;
-    return getOriginRank(a.origin) - getOriginRank(b.origin);
-  });
-
-  // Try to claim tasks in priority order
-  for (const task of todoTasks) {
-    const lockPath = join(tasksDir, `${task.filename}.lock`);
-
-    try {
-      // Atomic exclusive create — fails if file already exists
-      const handle = await open(lockPath, "wx");
-      await handle.write(
-        JSON.stringify({
-          claimedAt: new Date().toISOString(),
-          pid: process.pid,
-        })
-      );
-      await handle.close();
-
-      // Lock acquired! Now set state to in-progress
-      const taskPath = join(tasksDir, task.filename);
-      const taskContent = JSON.parse(readFileSync(taskPath, "utf-8"));
-      taskContent.state = "in-progress";
-      writeFileSync(taskPath, JSON.stringify(taskContent, null, 2) + "\n");
-
-      log(`  Claimed task: [P${task.priority}] "${task.title}" (${task.filename})`, "green");
-      return { ...task, state: "in-progress" };
-    } catch (err: unknown) {
-      // EEXIST means another process already has the lock — try next task
-      if ((err as NodeJS.ErrnoException).code === "EEXIST") {
-        log(`  Task "${task.title}" already claimed (lock exists). Skipping.`, "gray");
-        continue;
-      }
-      // Other error — skip this task
-      log(`  Failed to claim "${task.title}": ${(err as Error).message}`, "red");
-      continue;
-    }
-  }
-
-  return null; // All todo tasks are already claimed by other agents
+  return {
+    filename,
+    id: apiTask.id,
+    title: apiTask.title,
+    priority: apiTask.priority,
+    type: apiTask.type,
+    state: "in-progress",
+    description: apiTask.description,
+    files: apiTask.files,
+    origin: apiTask.origin,
+  };
 }
 
 /**
  * Release the lock for a completed/failed task.
- * Call this after the agent finishes (success or failure).
+ * With Task API, state transitions are atomic — no lock files needed.
+ * This is a no-op kept for interface compatibility.
  */
-function releaseTaskLock(cwd: string, taskFilename: string): void {
-  const lockPath = join(cwd, "tasks", `${taskFilename}.lock`);
-  try {
-    unlinkSync(lockPath);
-    log(`  Released lock for: ${taskFilename}`, "gray");
-  } catch {
-    /* lock already gone — fine */
-  }
+function releaseTaskLock(_cwd: string, _taskFilename: string): void {
+  // No-op: Task API handles state atomically, no lock files used.
 }
 
 /**
- * Reset a task's state back to "todo" after a failed agent run.
+ * Reset a task's state back to "todo" after a failed agent run via Task API.
  * This ensures the task goes back into the pool for the next iteration.
  */
-function resetTaskToTodo(cwd: string, taskFilename: string): void {
-  const taskPath = join(cwd, "tasks", taskFilename);
-  try {
-    const content = JSON.parse(readFileSync(taskPath, "utf-8"));
-    content.state = "todo";
-    writeFileSync(taskPath, JSON.stringify(content, null, 2) + "\n");
-    log(`  Task reset to "todo": ${taskFilename}`, "yellow");
-  } catch (err) {
-    const msg = err instanceof Error ? err.message : String(err);
-    log(`  Failed to reset task state: ${msg}`, "red");
+async function resetTaskToTodo(_cwd: string, task: TaskFile): Promise<void> {
+  if (!task.id) {
+    log(`  Cannot reset task — no ID available.`, "red");
+    return;
+  }
+  const success = await updateTaskState(task.id, "todo");
+  if (success) {
+    log(`  Task reset to "todo" via API: ${task.title}`, "yellow");
+  } else {
+    log(`  Failed to reset task state via API: ${task.title}`, "red");
   }
 }
 
 /**
  * Verify (and enforce) that a task's state is "developed" after a successful run.
- * If the agent didn't set it, we force it here as the loop's guarantee.
+ * Uses the Task API to set the state.
  */
-function ensureTaskDeveloped(cwd: string, taskFilename: string): void {
-  const taskPath = join(cwd, "tasks", taskFilename);
-  try {
-    const content = JSON.parse(readFileSync(taskPath, "utf-8"));
-    if (content.state !== "developed") {
-      log(`  Task state is "${content.state}" after success — forcing to "developed".`, "yellow");
-      content.state = "developed";
-      writeFileSync(taskPath, JSON.stringify(content, null, 2) + "\n");
-    } else {
-      log(`  Task state verified: "developed" ✓`, "green");
-    }
-  } catch (err) {
-    const msg = err instanceof Error ? err.message : String(err);
-    log(`  Failed to verify task state: ${msg}`, "red");
+async function ensureTaskDeveloped(_cwd: string, task: TaskFile): Promise<void> {
+  if (!task.id) {
+    log(`  Cannot verify task state — no ID available.`, "red");
+    return;
+  }
+  const success = await updateTaskState(task.id, "developed");
+  if (success) {
+    log(`  Task state set to "developed" via API ✓`, "green");
+  } else {
+    log(`  Failed to set task state to "developed" via API.`, "red");
   }
 }
 
 /**
- * Clean up any stale lock files from crashed previous runs.
- * A lock is considered stale if the task state is not "in-progress"
- * (meaning the agent finished but the lock wasn't cleaned up).
+ * Clean up stale state — no longer needed with Task API.
+ * The API handles atomic state transitions; no local lock files exist.
  */
-function cleanupStaleLocks(cwd: string): void {
-  const tasksDir = join(cwd, "tasks");
-  try {
-    const files = readdirSync(tasksDir).filter((f) => f.endsWith(".lock"));
-    for (const lockFile of files) {
-      const taskFile = lockFile.replace(".lock", "");
-      const taskPath = join(tasksDir, taskFile);
-
-      try {
-        const content = JSON.parse(readFileSync(taskPath, "utf-8"));
-        // If the task isn't in-progress, the lock is stale
-        if (content.state !== "in-progress") {
-          unlinkSync(join(tasksDir, lockFile));
-          log(`  Cleaned stale lock: ${lockFile}`, "yellow");
-        } else {
-          // Check if the lock is older than the timeout (e.g., 20 minutes)
-          const lockContent = JSON.parse(
-            readFileSync(join(tasksDir, lockFile), "utf-8")
-          );
-          const claimedAt = new Date(lockContent.claimedAt).getTime();
-          const staleThresholdMs = 20 * 60 * 1000; // 20 minutes
-          if (Date.now() - claimedAt > staleThresholdMs) {
-            unlinkSync(join(tasksDir, lockFile));
-            // Also reset the task back to todo since the agent likely crashed
-            content.state = "todo";
-            writeFileSync(taskPath, JSON.stringify(content, null, 2) + "\n");
-            log(`  Cleaned expired lock (>20min): ${lockFile} — task reset to todo`, "yellow");
-          }
-        }
-      } catch {
-        // Task file doesn't exist or can't be read — remove orphaned lock
-        try {
-          unlinkSync(join(tasksDir, lockFile));
-        } catch { /* best effort */ }
-      }
-    }
-  } catch {
-    /* tasks dir doesn't exist or can't be read */
-  }
+function cleanupStaleLocks(_cwd: string): void {
+  // No-op: Task API handles state atomically, no local lock files to clean up.
 }
 
 // ---------------------------------------------------------------------------
@@ -561,6 +581,8 @@ function commitAndPush(cwd: string, taskTitle: string): boolean {
 /**
  * Build a focused prompt that tells the dev agent exactly which task to implement.
  * The loop has already claimed the task and set its state to "in-progress".
+ * The loop will also handle setting state to "developed" after success — the agent
+ * should still update the local task file for backward compatibility.
  */
 function buildDevPromptForTask(task: TaskFile): string {
   const files = task.files ?? [];
@@ -572,6 +594,7 @@ function buildDevPromptForTask(task: TaskFile): string {
 
 ## YOUR ASSIGNED TASK
 
+**Task ID:** ${task.id}
 **File:** tasks/${task.filename}
 **Title:** ${task.title}
 **Priority:** ${task.priority}
@@ -583,12 +606,12 @@ ${filesList}
 
 ## INSTRUCTIONS
 
-The task state is already set to "in-progress". Do the following:
+The task state is already set to "in-progress" via the Task API. Do the following:
 
 1. Read the relevant source files to understand the current state.
 2. Implement the change described above. Follow coding standards (TypeScript strict, functional components, named exports, Tailwind CSS, Zustand).
 3. Run \`npm run build\` to verify no TypeScript or build errors.
-4. Set the task state to "developed" in tasks/${task.filename}.
+4. Set the task state to "developed" in the local task file tasks/${task.filename} (for backward compatibility).
 5. Append a timestamped entry to release_notes.md describing what you did. IMPORTANT: Insert the new entry AFTER the \`# Release Notes\` header line (line 1), not before it. The header must always remain the first line of the file.
 6. STOP. Do not pick another task. Exit immediately.
 
@@ -846,7 +869,7 @@ async function main(): Promise<void> {
 
       // For dev agents: verify task is "developed", then commit and push
       if (config.type === "dev" && claimedTask) {
-        ensureTaskDeveloped(cwd, claimedTask.filename);
+        await ensureTaskDeveloped(cwd, claimedTask);
         commitAndPush(cwd, claimedTask.title);
       }
     } else {
@@ -857,7 +880,7 @@ async function main(): Promise<void> {
 
       // For dev agents: reset task back to "todo" so it can be retried
       if (config.type === "dev" && claimedTask) {
-        resetTaskToTodo(cwd, claimedTask.filename);
+        await resetTaskToTodo(cwd, claimedTask);
       }
     }
 

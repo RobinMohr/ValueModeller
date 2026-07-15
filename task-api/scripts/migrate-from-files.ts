@@ -1,211 +1,99 @@
-/**
- * Migration Script: JSON Files → Azure SQL
- *
- * Reads all tasks/*.json files (skipping 0_task_template.json and README.md),
- * validates them against the task schema, and bulk-inserts into the Azure SQL
- * tasks table. Handles duplicates via upsert (MERGE statement).
- *
- * Usage:
- *   npx ts-node task-api/scripts/migrate-from-files.ts
- *
- * Environment:
- *   Requires SQL_CONNECTION_STRING (or SQL_SERVER, SQL_DATABASE, SQL_USER, SQL_PASSWORD)
- *   to be set in environment or in task-api/local.settings.json.
- */
-
 import * as fs from 'fs';
 import * as path from 'path';
-import { getPool, closePool } from '../src/db/client.js';
-import { taskSchema } from '../src/validation/task-schema.js';
+import sql from 'mssql';
 
-interface MigrationResult {
-  inserted: number;
-  updated: number;
-  skipped: number;
-  failed: number;
-  errors: Array<{ file: string; reason: string }>;
+const TASKS_DIR = path.resolve(__dirname, '../../tasks');
+
+interface FileTask {
+  id: string;
+  title: string;
+  priority: number;
+  type: string;
+  state: string;
+  description: string;
+  files: string[];
+  origin: string;
 }
 
-/**
- * Load environment from local.settings.json if env vars are not set.
- */
-function loadLocalSettings(): void {
-  const settingsPath = path.resolve(__dirname, '..', 'local.settings.json');
-  if (!process.env['SQL_CONNECTION_STRING'] && !process.env['SQL_SERVER']) {
-    try {
-      const raw = fs.readFileSync(settingsPath, 'utf-8');
-      const settings = JSON.parse(raw) as { Values?: Record<string, string> };
-      if (settings.Values) {
-        for (const [key, value] of Object.entries(settings.Values)) {
-          if (!process.env[key]) {
-            process.env[key] = value;
-          }
-        }
-      }
-      console.log('[migrate] Loaded environment from local.settings.json');
-    } catch {
-      // No local.settings.json or cannot parse — rely on env vars
-    }
+async function migrate() {
+  const connectionString = process.env.SQL_CONNECTION_STRING;
+  if (!connectionString) {
+    console.error('ERROR: Set SQL_CONNECTION_STRING environment variable');
+    process.exit(1);
   }
-}
 
-/**
- * Reads and parses a single task JSON file, returning the validated task data.
- */
-function readTaskFile(filePath: string): { id: string; title: string; priority: number; type: string; state: string; description: string; files: string[]; origin: string } | null {
-  const raw = fs.readFileSync(filePath, 'utf-8');
-  const parsed: unknown = JSON.parse(raw);
-  const result = taskSchema.safeParse(parsed);
-  if (!result.success) {
-    return null;
-  }
-  return result.data;
-}
+  const pool = await sql.connect(connectionString);
+  console.log('Connected to Azure SQL');
 
-/**
- * Performs the migration: reads task files, validates, upserts into Azure SQL.
- */
-async function migrate(): Promise<MigrationResult> {
-  const tasksDir = path.resolve(__dirname, '..', '..', 'tasks');
-  const result: MigrationResult = { inserted: 0, updated: 0, skipped: 0, failed: 0, errors: [] };
-
-  // Discover task files
-  const files = fs.readdirSync(tasksDir).filter((f) => {
-    if (!f.endsWith('.json')) return false;
-    if (f === '0_task_template.json') return false;
-    if (f.endsWith('.lock')) return false;
-    return true;
+  const files = fs.readdirSync(TASKS_DIR).filter((f) => {
+    return f.endsWith('.json') && !f.startsWith('0_') && f !== 'README.md';
   });
 
-  console.log(`[migrate] Found ${files.length} task file(s) in ${tasksDir}`);
+  console.log(`Found ${files.length} task files to migrate`);
 
-  if (files.length === 0) {
-    console.log('[migrate] No files to migrate.');
-    return result;
-  }
-
-  // Connect to database
-  const pool = await getPool();
-  console.log('[migrate] Connected to Azure SQL.');
-
-  const now = new Date().toISOString();
+  let success = 0;
+  let skipped = 0;
+  let failed = 0;
 
   for (const file of files) {
-    const filePath = path.join(tasksDir, file);
-
+    const filePath = path.join(TASKS_DIR, file);
     try {
-      const task = readTaskFile(filePath);
-      if (!task) {
-        result.failed++;
-        result.errors.push({ file, reason: 'Validation failed — does not match task schema' });
+      const content = fs.readFileSync(filePath, 'utf-8');
+      const task: FileTask = JSON.parse(content);
+
+      // Validate required fields
+      if (!task.title || !task.priority || !task.type || !task.state || !task.origin) {
+        console.warn(`  SKIP ${file}: missing required fields`);
+        skipped++;
         continue;
       }
 
-      if (!task.id || task.id.trim() === '') {
-        result.skipped++;
-        result.errors.push({ file, reason: 'Missing or empty id field' });
+      // Validate enum values
+      if (![1, 2, 3, 4].includes(task.priority)) {
+        console.warn(`  SKIP ${file}: invalid priority ${task.priority}`);
+        skipped++;
+        continue;
+      }
+      if (!['improvement', 'problem', 'idea'].includes(task.type)) {
+        console.warn(`  SKIP ${file}: invalid type ${task.type}`);
+        skipped++;
+        continue;
+      }
+      if (!['todo', 'in-progress', 'developed'].includes(task.state)) {
+        console.warn(`  SKIP ${file}: invalid state ${task.state}`);
+        skipped++;
+        continue;
+      }
+      if (!['user', 'ai', 'user-assisted'].includes(task.origin)) {
+        console.warn(`  SKIP ${file}: invalid origin ${task.origin}`);
+        skipped++;
         continue;
       }
 
-      // Upsert via MERGE statement (handles duplicates gracefully)
-      const request = pool.request();
-      request.input('id', task.id);
-      request.input('title', task.title);
-      request.input('priority', task.priority);
-      request.input('type', task.type);
-      request.input('state', task.state);
-      request.input('description', task.description);
-      request.input('files', JSON.stringify(task.files));
-      request.input('origin', task.origin);
-      request.input('now', now);
+      await pool.request()
+        .input('title', sql.NVarChar(200), task.title.slice(0, 200))
+        .input('priority', sql.TinyInt, task.priority)
+        .input('type', sql.VarChar(20), task.type)
+        .input('state', sql.VarChar(20), task.state)
+        .input('description', sql.NVarChar(sql.MAX), task.description || '')
+        .input('files', sql.NVarChar(sql.MAX), JSON.stringify(task.files || []))
+        .input('origin', sql.VarChar(20), task.origin)
+        .query(`
+          INSERT INTO tasks (title, priority, type, state, description, files, origin)
+          VALUES (@title, @priority, @type, @state, @description, @files, @origin)
+        `);
 
-      const mergeResult = await request.query(`
-        MERGE tasks AS target
-        USING (SELECT @id AS id) AS source
-        ON target.id = source.id
-        WHEN MATCHED THEN
-          UPDATE SET
-            title = @title,
-            priority = @priority,
-            type = @type,
-            state = @state,
-            description = @description,
-            files = @files,
-            origin = @origin,
-            updated_at = @now
-        WHEN NOT MATCHED THEN
-          INSERT (id, title, priority, type, state, description, files, origin, created_at, updated_at)
-          VALUES (@id, @title, @priority, @type, @state, @description, @files, @origin, @now, @now);
-      `);
-
-      // MERGE always affects 1 row. We check $action to determine insert vs update.
-      // Since standard MERGE doesn't easily expose $action in rowsAffected,
-      // we count based on rowsAffected > 0
-      if (mergeResult.rowsAffected[0] > 0) {
-        // Try to detect if it was an insert or update by checking if the task existed before
-        // For simplicity, we just count it as a success
-        result.inserted++;
-      }
-
-      console.log(`  ✓ ${file} (id: ${task.id})`);
-    } catch (error: unknown) {
-      const message = error instanceof Error ? error.message : String(error);
-      result.failed++;
-      result.errors.push({ file, reason: message });
-      console.error(`  ✗ ${file}: ${message}`);
+      console.log(`  OK   ${file}`);
+      success++;
+    } catch (error: any) {
+      console.error(`  FAIL ${file}: ${error.message}`);
+      failed++;
     }
   }
 
-  return result;
+  console.log(`\nMigration complete: ${success} inserted, ${skipped} skipped, ${failed} failed`);
+  await pool.close();
+  process.exit(failed > 0 ? 1 : 0);
 }
 
-/**
- * Main entry point — runs migration and reports results.
- */
-async function main(): Promise<void> {
-  console.log('╔══════════════════════════════════════════════════╗');
-  console.log('║  Migration: JSON Task Files → Azure SQL         ║');
-  console.log('╚══════════════════════════════════════════════════╝');
-  console.log('');
-
-  loadLocalSettings();
-
-  try {
-    const result = await migrate();
-
-    console.log('');
-    console.log('────────────────────────────────────────');
-    console.log('  Migration Results');
-    console.log('────────────────────────────────────────');
-    console.log(`  Upserted:  ${result.inserted}`);
-    console.log(`  Skipped:   ${result.skipped}`);
-    console.log(`  Failed:    ${result.failed}`);
-    console.log(`  Total:     ${result.inserted + result.skipped + result.failed}`);
-    console.log('────────────────────────────────────────');
-
-    if (result.errors.length > 0) {
-      console.log('');
-      console.log('  Errors:');
-      for (const err of result.errors) {
-        console.log(`    • ${err.file}: ${err.reason}`);
-      }
-    }
-
-    if (result.failed === 0) {
-      console.log('');
-      console.log('  ✅ Migration completed successfully!');
-    } else {
-      console.log('');
-      console.log(`  ⚠️  Migration completed with ${result.failed} error(s).`);
-    }
-  } catch (error: unknown) {
-    const message = error instanceof Error ? error.message : String(error);
-    console.error('');
-    console.error(`  ❌ Migration failed: ${message}`);
-    process.exitCode = 1;
-  } finally {
-    await closePool();
-  }
-}
-
-main();
+migrate();

@@ -1,102 +1,57 @@
-/**
- * GET /api/tasks/{id} — Returns a single task by its 8-char hex ID.
- *
- * Returns 400 if the ID format is invalid.
- * Returns 404 with JSON error body if the task is not found.
- * Requires x-api-key authentication.
- */
-
 import { app, HttpRequest, HttpResponseInit, InvocationContext } from '@azure/functions';
-import { queryOne } from '../db/client.js';
-import { requireAuth } from '../middleware/auth.js';
-import { Task } from '../validation/task-schema.js';
+import { getPool, sql } from '../db/client.js';
+import { validateApiKey } from '../middleware/auth.js';
+import { Task } from '../types/task.js';
 
-/** Database row shape returned by the SQL query. */
-type TaskRow = {
-  id: string;
-  title: string;
-  priority: number;
-  type: string;
-  state: string;
-  description: string;
-  files: string;
-  origin: string;
-  created_at: string;
-};
-
-/** Validates that a string is an 8-char lowercase hex ID. */
-function isValidTaskId(id: string): boolean {
-  return /^[0-9a-f]{8}$/.test(id);
-}
-
-export async function getTask(
-  request: HttpRequest,
-  context: InvocationContext
-): Promise<HttpResponseInit> {
-  const authResponse = requireAuth(request);
-  if (authResponse) return authResponse;
+async function getTask(request: HttpRequest, context: InvocationContext): Promise<HttpResponseInit> {
+  const authError = validateApiKey(request);
+  if (authError) return authError;
 
   const id = request.params.id;
-
-  if (!id || !isValidTaskId(id)) {
+  if (!id || isNaN(Number(id))) {
     return {
       status: 400,
-      headers: { 'Content-Type': 'application/json' },
-      jsonBody: { error: 'Bad Request', message: 'Task ID must be an 8-character hexadecimal string.' },
+      jsonBody: { error: 'Invalid task ID: must be a number' },
     };
   }
 
-  context.log(`GET /api/tasks/${id} — fetching task by ID`);
-
   try {
-    const row = await queryOne<TaskRow>(
-      `SELECT
-        id,
-        title,
-        priority,
-        type,
-        state,
-        description,
-        files,
-        origin,
-        created_at
-      FROM tasks
-      WHERE id = @id`,
-      { id },
-    );
+    const pool = await getPool();
 
-    if (!row) {
+    const result = await pool.request()
+      .input('id', sql.Int, parseInt(id, 10))
+      .query('SELECT * FROM tasks WHERE id = @id');
+
+    if (result.recordset.length === 0) {
       return {
         status: 404,
-        headers: { 'Content-Type': 'application/json' },
-        jsonBody: { error: 'Not Found', message: `Task with ID '${id}' not found.` },
+        jsonBody: { error: `Task with id ${id} not found` },
       };
     }
 
+    const row = result.recordset[0];
     const task: Task = {
       id: row.id,
       title: row.title,
-      priority: row.priority as 1 | 2 | 3 | 4,
-      type: row.type as Task['type'],
-      state: row.state as Task['state'],
+      priority: row.priority,
+      type: row.type,
+      state: row.state,
       description: row.description,
-      files: JSON.parse(row.files || '[]') as string[],
-      origin: row.origin as Task['origin'],
+      files: JSON.parse(row.files || '[]'),
+      origin: row.origin,
+      created_at: row.created_at.toISOString(),
+      updated_at: row.updated_at.toISOString(),
     };
 
     return {
       status: 200,
-      headers: { 'Content-Type': 'application/json' },
       jsonBody: task,
     };
-  } catch (error: unknown) {
-    const message = error instanceof Error ? error.message : 'Unknown error';
-    context.error('Failed to fetch task:', message);
-
+  } catch (error) {
+    context.error('Error fetching task:', error);
     return {
       status: 500,
-      headers: { 'Content-Type': 'application/json' },
-      jsonBody: { error: 'Internal Server Error', message: 'Failed to retrieve task.' },
+      jsonBody: { error: 'Internal server error' },
     };
   }
 }
