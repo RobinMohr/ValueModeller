@@ -3,7 +3,7 @@
   "title": "Fix AppShell Stats button active state missing dark mode variants",
   "priority": 4,
   "type": "problem",
-  "state": "todo",
+  "state": "developed",
   "description": "In app-shell.tsx line 121, the Stats button active state uses light-only classes:\n\n`className={cn(showStats && 'bg-primary-50 text-primary-700')}`\n\nIn dark mode, bg-primary-50 creates a pale light-colored badge against the dark toolbar header. Compare with keyboard-shortcuts-panel.tsx line 94 which correctly uses: 'bg-primary-50 text-primary-700 dark:bg-primary-900/30 dark:text-primary-300'.\n\nFix: Change to:\n`className={cn(showStats && 'bg-primary-50 dark:bg-primary-900/30 text-primary-700 dark:text-primary-300')}`\n\nThis is a 1-line fix.",
   "files": [
     "src/components/layout/app-shell.tsx"

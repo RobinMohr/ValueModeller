@@ -1,5 +1,13 @@
 # Release Notes — Value Modeller
 
+## 2026-07-15T13:57 — fix: Stats button dark mode active state
+
+**Task:** `tasks/4_stats-button-dark-mode-active-state.json` → state set to `developed`
+
+**Change:** Added `dark:bg-primary-900/30` and `dark:text-primary-300` to the Stats button active state className in `app-shell.tsx`. Previously, the active state only had light-mode classes (`bg-primary-50 text-primary-700`), causing a pale badge against the dark toolbar in dark mode.
+
+---
+
 ## 2026-07-15T13:56 — fix: Header toolbar horizontal overflow at tablet/mobile widths
 
 **Task:** `tasks/3_d4a19c3f_fix-header-toolbar-horizontal-overflow-tablet.json` → state set to `developed`
