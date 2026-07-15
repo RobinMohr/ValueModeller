@@ -1,12 +1,12 @@
 # Research: Coding Guidelines & Standard Practices for Value Modeller
 
-**Last Updated:** 2026-07-15T12:07:32+02:00
+**Last Updated:** 2026-07-15T12:34:35+02:00
 
 ---
 
 ## Summary
 
-This document collects coding guidelines, best practices, and standard patterns relevant to the Value Modeller repository. Research is organized by the key technologies in the stack: React Flow, Zustand, Vitest/React Testing Library, Tailwind CSS dark mode, TypeScript, React Router v7, and accessibility (WCAG). Findings are prioritized by relevance to current and future tasks in the project.
+This document collects coding guidelines, best practices, and standard patterns relevant to the Value Modeller repository. Research is organized by the key technologies in the stack: React Flow, Zustand, Vitest/React Testing Library, Tailwind CSS dark mode, TypeScript, React Router v7, accessibility (WCAG), Vite build optimization, dagre auto-layout, custom hooks patterns, and component composition. Findings are prioritized by relevance to current and future tasks in the project.
 
 ---
 
@@ -14,22 +14,50 @@ This document collects coding guidelines, best practices, and standard patterns 
 
 **Relevance: HIGH** — Core rendering library; multiple tasks involve edge memoization, smart routing, node grouping
 
-### Key Guidelines (from official docs)
+### Key Guidelines (from official docs — updated July 6, 2026)
 
 | Practice | Why |
 |----------|-----|
 | **Memoize all custom node and edge components** with `React.memo` | Prevents re-renders during drag/pan/zoom |
 | **Memoize all handler functions** with `useCallback` | Avoids new function references on every render |
 | **Memoize arrays/objects** (`defaultEdgeOptions`, `snapGrid`) with `useMemo` | Prevents unnecessary re-renders from reference changes |
-| **Avoid accessing the full `nodes` array** inside custom node components | The `nodes` array changes on every drag; accessing it causes all nodes to re-render |
+| **Avoid accessing the full `nodes` array** inside custom node/edge components | The `nodes` array changes on every drag; accessing it causes all nodes/edges to re-render |
 | **Use `useNodesData` hook** for targeted data access | Only triggers re-render when specific node data changes |
+| **Use `useStoreApi()` for imperative access** | Access nodes without subscribing — no re-renders |
 | **Collapse hidden nodes** for large trees | Use `hidden` property to toggle visibility dynamically |
 | **Simplify CSS on nodes** — avoid animations, shadows, gradients at scale | Complex CSS can bottleneck rendering with many nodes |
+
+### Avoiding Node Subscription in Custom Edges (Critical for SmartEdge)
+
+The official performance guide states: "One of the most common performance pitfalls in React Flow is directly accessing the nodes or edges in the components."
+
+**Anti-pattern:**
+```typescript
+// ❌ Subscribes to ALL node changes — re-renders on every drag
+const nodes = useGraphStore((s) => s.nodes);
+```
+
+**Correct pattern — use `useReactFlow()` for imperative access:**
+```typescript
+// ✅ No subscription — access nodes only at render time
+const { getNodes } = useReactFlow();
+const nodes = getNodes(); // Reads current value without subscribing
+```
+
+**Alternative — use `useStoreApi()` for callback-only access:**
+```typescript
+// ✅ No subscription — access nodes only when needed (e.g., in callbacks)
+const store = useStoreApi();
+
+const computePath = useCallback(() => {
+  const { nodes } = store.getState();
+  // ... compute path using nodes
+}, [store]);
+```
 
 ### State Management Pattern with Zustand (React Flow recommended)
 
 ```typescript
-// Official pattern: Zustand store holds nodes, edges, and handlers
 interface FlowStore {
   nodes: Node[];
   edges: Edge[];
@@ -44,6 +72,16 @@ Important: When updating node data, always create a new object reference:
 ```typescript
 return { ...node, data: { ...node.data, ...newData } };
 ```
+
+### React Flow colorMode Prop (v12+)
+
+React Flow v12 provides a built-in `colorMode` prop that handles dark mode for all internal elements automatically via CSS variables:
+
+```tsx
+<ReactFlow colorMode={isDark ? 'dark' : 'light'} ... />
+```
+
+This automatically themes: edges, controls, minimap, background, selection box, connection lines. The implementation adds a "dark" class to the wrapper and switches CSS variables.
 
 ### Context Menu Pattern (from official example)
 
@@ -63,19 +101,10 @@ const onNodeContextMenu = useCallback(
   [setMenu],
 );
 
-// Close on pane click
 const onPaneClick = useCallback(() => setMenu(null), [setMenu]);
 ```
 
-Key points:
-- Use `onNodeContextMenu` prop on `<ReactFlow>`
-- Prevent native context menu with `event.preventDefault()`
-- Calculate position relative to pane bounds to avoid off-screen menus
-- Close menu on `onPaneClick`
-
 ### Drag and Drop from Sidebar (Official Pattern)
-
-The project has a task for a node palette sidebar. The official React Flow pattern uses native HTML Drag and Drop API:
 
 ```tsx
 // In the sidebar — set drag data
@@ -85,59 +114,41 @@ const onDragStart = (event, nodeType) => {
 };
 
 // In the ReactFlow wrapper — handle drops
-const onDragOver = useCallback((event) => {
-  event.preventDefault();
-  event.dataTransfer.dropEffect = 'move';
-}, []);
-
 const onDrop = useCallback((event) => {
   event.preventDefault();
   const type = event.dataTransfer.getData('text/plain');
   if (!type) return;
 
-  // screenToFlowPosition converts screen coords to flow coords
   const position = screenToFlowPosition({
     x: event.clientX,
     y: event.clientY,
   });
 
-  const newNode = {
-    id: generateId(),
-    type,
-    position,
-    data: { label: `${type} node` },
-  };
-
+  const newNode = { id: generateId(), type, position, data: { label: `${type} node` } };
   setNodes((nds) => nds.concat(newNode));
 }, [screenToFlowPosition]);
 ```
 
 Key notes:
 - Use `screenToFlowPosition()` (replaces old `project()` method in v12)
-- Wrap in `<ReactFlowProvider>` for `useReactFlow()` access
-- HTML Drag and Drop API does NOT work well on touch devices — use Pointer Events or neodrag for touch support
-- Consider a DnD context provider to share the dragged type between sidebar and canvas
+- HTML Drag and Drop API does NOT work well on touch devices
 
 ### Sub-Flows & Node Grouping Pattern
 
-For the node grouping/swimlanes task:
-
 ```typescript
-// Parent node (group)
 const groupNode = {
   id: 'group-1',
-  type: 'group', // Built-in type with no handles
+  type: 'group',
   position: { x: 0, y: 0 },
   style: { width: 400, height: 300 },
   data: { label: 'Department A' },
 };
 
-// Child node — positioned RELATIVE to parent
 const childNode = {
   id: 'child-1',
   type: 'sipocNode',
-  parentId: 'group-1',       // Links child to parent
-  extent: 'parent',          // Can't drag outside parent bounds
+  parentId: 'group-1',
+  extent: 'parent',
   position: { x: 20, y: 40 }, // Relative to parent top-left
   data: { ... },
 };
@@ -146,100 +157,123 @@ const childNode = {
 **Critical rules:**
 1. Parent nodes MUST appear before their children in the `nodes` array
 2. Child `position` is relative to parent's top-left corner
-3. `extent: 'parent'` prevents dragging child outside parent (optional)
+3. `extent: 'parent'` prevents dragging child outside parent
 4. Moving the parent moves all children automatically
-5. Edges connected to child nodes render ABOVE nodes (different z-index behavior)
-6. Use `zIndex` option on edges if you need to customize stacking order
-
-### Copy/Paste Pattern
-
-- React Flow has an official "Copy and Paste" example
-- Key implementation steps:
-  1. Listen for Ctrl+C/V keyboard events (use `useKeyPress` hook or global listener)
-  2. On copy: store selected nodes + internal edges in a clipboard buffer (React state or ref)
-  3. On paste: deep-clone nodes with new IDs, offset positions by ~50px, remap edge source/target to new IDs
-  4. Use `crypto.randomUUID()` for new IDs (project already uses `generateId()`)
-  5. Add cloned nodes/edges to the store
 
 ### Testing React Flow Components
 
-React Flow needs DOM measurement to render edges. The official testing guide provides a `mockReactFlow()` helper:
-
 ```typescript
-// test-setup.ts — call in beforeEach or setupTests
+// Mock ResizeObserver and DOMMatrixReadOnly for jsdom
 class ResizeObserver {
   callback: globalThis.ResizeObserverCallback;
-  constructor(callback: globalThis.ResizeObserverCallback) {
-    this.callback = callback;
-  }
+  constructor(callback: globalThis.ResizeObserverCallback) { this.callback = callback; }
   observe(target: Element) {
-    setTimeout(() => {
-      this.callback([{ target } as globalThis.ResizeObserverEntry], this);
-    }, 0);
+    setTimeout(() => { this.callback([{ target } as any], this); }, 0);
   }
   unobserve() {}
   disconnect() {}
 }
 
-class DOMMatrixReadOnly {
-  m22: number;
-  constructor(transform: string) {
-    const scale = transform?.match(/scale\(([1-9.])\)/)?.[1];
-    this.m22 = scale !== undefined ? +scale : 1;
-  }
-}
-
 export const mockReactFlow = () => {
   global.ResizeObserver = ResizeObserver;
-  global.DOMMatrixReadOnly = DOMMatrixReadOnly;
-
   Object.defineProperties(global.HTMLElement.prototype, {
     offsetHeight: { get() { return parseFloat(this.style.height) || 1; } },
     offsetWidth: { get() { return parseFloat(this.style.width) || 1; } },
   });
-
-  (global.SVGElement as any).prototype.getBBox = () => ({
-    x: 0, y: 0, width: 0, height: 0,
-  });
 };
 ```
 
-**Testing edges:** Use `waitFor` from RTL because edges render asynchronously after nodes are measured:
-```typescript
-await waitFor(() => {
-  const edgeCount = container.querySelectorAll('.react-flow__edge').length;
-  expect(edgeCount).toBeGreaterThan(0);
-});
-```
-
-**Testing mouse events in custom nodes:** Disable `d3-drag` for test environment:
-```tsx
-<ReactFlow nodesDraggable={false} panOnDrag={false} {...rest} />
-```
+Use `waitFor` for edges (render asynchronously after node measurement).
 
 ### Accessibility in React Flow (v12+)
 
-- Built-in keyboard controls: Enter/Space to select a node, arrow keys to move, Delete to remove, Escape to cancel
-- React Flow supports `aria-label` configuration via `AriaLabelConfig` type
-- For screen readers: nodes are rendered as focusable elements with ARIA descriptions
-- Custom nodes should include proper ARIA attributes for interactive elements within them
-- The `colorMode` prop handles internal dark/light styling automatically
+- Built-in keyboard controls: Enter/Space to select, arrow keys to move, Delete to remove
+- `colorMode` prop handles internal dark/light styling automatically
+- Custom nodes should include proper ARIA attributes for interactive elements
 
 **Sources:**
 - https://reactflow.dev/learn/advanced-use/performance (Relevance: HIGH)
 - https://reactflow.dev/learn/advanced-use/state-management (Relevance: HIGH)
+- https://reactflow.dev/api-reference/hooks/use-store-api (Relevance: HIGH)
 - https://reactflow.dev/examples/interaction/context-menu (Relevance: HIGH)
 - https://reactflow.dev/examples/interaction/drag-and-drop (Relevance: HIGH)
 - https://reactflow.dev/examples/interaction/copy-paste (Relevance: HIGH)
-- https://reactflow.dev/examples/interaction/undo-redo (Relevance: HIGH)
 - https://reactflow.dev/learn/layouting/sub-flows (Relevance: HIGH)
 - https://reactflow.dev/learn/advanced-use/testing (Relevance: HIGH)
-- https://www.synergycodes.com/webbook/guide-to-optimize-react-flow-project-performance (Relevance: HIGH)
-- https://www.synergycodes.com/blog/building-usable-and-accessible-diagrams-with-react-flow (Relevance: MEDIUM)
+- https://reactflow.dev/examples/styling/dark-mode (Relevance: HIGH)
 
 ---
 
-## 2. Zustand State Management — Best Practices
+## 2. Dagre Auto-Layout — Best Practices
+
+**Relevance: HIGH** — Project uses `@dagrejs/dagre` for auto-layout; relevant for value stream visualization
+
+### Dagre Integration Pattern (Official React Flow)
+
+```typescript
+import dagre from '@dagrejs/dagre';
+
+const dagreGraph = new dagre.graphlib.Graph().setDefaultEdgeLabel(() => ({}));
+
+const getLayoutedElements = (nodes, edges, direction = 'TB') => {
+  const isHorizontal = direction === 'LR';
+  dagreGraph.setGraph({ rankdir: direction });
+
+  nodes.forEach((node) => {
+    dagreGraph.setNode(node.id, { width: nodeWidth, height: nodeHeight });
+  });
+
+  edges.forEach((edge) => {
+    dagreGraph.setEdge(edge.source, edge.target);
+  });
+
+  dagre.layout(dagreGraph);
+
+  const newNodes = nodes.map((node) => {
+    const nodeWithPosition = dagreGraph.node(node.id);
+    return {
+      ...node,
+      targetPosition: isHorizontal ? 'left' : 'top',
+      sourcePosition: isHorizontal ? 'right' : 'bottom',
+      position: {
+        x: nodeWithPosition.x - nodeWidth / 2,
+        y: nodeWithPosition.y - nodeHeight / 2,
+      },
+    };
+  });
+
+  return { nodes: newNodes, edges };
+};
+```
+
+### Key Configuration Options
+
+| Option | Description | Default |
+|--------|-------------|---------|
+| `rankdir` | Layout direction: `TB`, `BT`, `LR`, `RL` | `TB` |
+| `nodesep` | Horizontal separation between nodes | 50 |
+| `ranksep` | Vertical separation between ranks | 50 |
+| `edgesep` | Separation between edges | 10 |
+| `align` | Node alignment: `UL`, `UR`, `DL`, `DR` | undefined |
+
+### Best Practices for This Project
+
+1. **Use actual node dimensions** — don't hardcode width/height; measure rendered nodes for accurate layout
+2. **Reset the graph** before each layout computation (dagre is stateful)
+3. **Handle sub-flows separately** — dagre has an open issue with nodes connected across sub-flow boundaries
+4. **Pause undo history** during auto-layout — it's a single user action, not individual node moves
+5. **Use `fitView()` after layout** — ensures all repositioned nodes are visible
+6. **Consider ELK.js for complex cases** — if you need edge routing + layout together, ELK handles both
+
+**Sources:**
+- https://reactflow.dev/learn/layouting/layouting (Relevance: HIGH)
+- https://reactflow.dev/examples/layout/dagre (Relevance: HIGH)
+- https://github.com/dagrejs/dagre/wiki#configuring-the-layout (Relevance: HIGH)
+
+---
+
+
+## 3. Zustand State Management — Best Practices
 
 **Relevance: HIGH** — Primary state management; persist middleware, store testing, and performance are all active concerns
 
@@ -248,600 +282,422 @@ await waitFor(() => {
 | Pattern | Description |
 |---------|-------------|
 | **One store per domain** | Separate graph state from UI state from value-stream state (already followed) |
-| **`subscribeWithSelector` middleware** | Prevents full-store re-renders; enables granular subscriptions (already used) |
+| **`subscribeWithSelector` middleware** | Prevents full-store re-renders; enables granular subscriptions |
 | **`partialize` in persist** | Only persist what's necessary — skip derived state, UI state |
 | **Custom storage adapters** | For robust error handling around localStorage limitations |
 | **Debounced auto-save** | The 500ms debounce pattern used in graph-store is appropriate |
 
-### Zustand v5 Specifics
-
-- No more curried `create` — use `create<Type>()((set, get) => ({...}))` (already followed)
-- Selectors should be as granular as possible to avoid unnecessary re-renders
-- For derived state, use selectors over computed values in the store
-- `subscribeWithSelector` enables external subscriptions with equality functions
-
 ### Persist Middleware — Robust Error Handling
 
-The project uses `zustand/persist` with `localStorage`. Key guidelines:
-
 ```typescript
-// Safe custom storage adapter pattern
 const safeStorage: StateStorage = {
   getItem: (name) => {
-    try {
-      return localStorage.getItem(name);
-    } catch (e) {
-      console.error('Storage read error:', e);
-      return null;
-    }
+    try { return localStorage.getItem(name); }
+    catch (e) { console.error('Storage read error:', e); return null; }
   },
   setItem: (name, value) => {
-    try {
-      localStorage.setItem(name, value);
-    } catch (e) {
+    try { localStorage.setItem(name, value); }
+    catch (e) {
       if (e instanceof DOMException && e.name === 'QuotaExceededError') {
         console.warn('localStorage quota exceeded');
+        // Show user-facing notification
       }
     }
   },
   removeItem: (name) => {
-    try {
-      localStorage.removeItem(name);
-    } catch (e) {
-      console.error('Storage remove error:', e);
-    }
+    try { localStorage.removeItem(name); }
+    catch (e) { console.error('Storage remove error:', e); }
   },
 };
 ```
 
 **localStorage limits:**
 - 5 MiB per origin (most browsers)
-- `QuotaExceededError` (DOM Exception 22) is thrown on overflow
 - Always wrap `setItem()` in try/catch
-- Implement LRU cleanup or size monitoring for growing data
-- Consider showing user-facing notifications when storage fails
+- Show user-facing notifications when storage fails
+- Consider IndexedDB if data grows beyond localStorage limits
+
+### Testing Zustand Stores (Official Guide)
+
+The official Zustand docs recommend resetting stores between tests to prevent state leaking:
+
+```typescript
+// src/test/zustand-setup.ts — for Vitest
+import { act } from '@testing-library/react';
+
+const storeResetFns = new Set<() => void>();
+
+// When creating stores, register their reset function
+export const registerStoreReset = (resetFn: () => void) => {
+  storeResetFns.add(resetFn);
+};
+
+// Reset all stores between tests
+beforeEach(async () => {
+  await act(() => {
+    storeResetFns.forEach((resetFn) => resetFn());
+  });
+});
+```
+
+**Key patterns for testing stores:**
+- Test store actions by calling them directly via `store.getState().actionName()`
+- Verify state changes with `store.getState()` after action calls
+- For components consuming stores, render the component and test behavior (not store internals)
+- Use `renderHook` to test custom hooks that wrap store selectors
+- Mock the store module for component tests where you need controlled state
 
 **Sources:**
 - https://zustand.docs.pmnd.rs/learn/guides/testing (Relevance: HIGH)
-- https://docs.bswen.com/blog/2026-04-07-fix-quotaexceedederror-localstorage/ (Relevance: HIGH)
-- https://beyondthecode.medium.com/zustand-middleware-the-architectural-core-of-scalable-state-management-d8d1053489ac (Relevance: MEDIUM)
+- https://github.com/pmndrs/zustand/discussions/1961 (Relevance: MEDIUM)
 
 ---
 
-## 3. Undo/Redo with Zundo Middleware
+## 4. Zundo — Undo/Redo Middleware for Zustand
 
-**Relevance: HIGH** — Active task for undo/redo support; project already has a history-store.ts
+**Relevance: HIGH** — Project has undo/redo task; `zundo` is the standard solution for Zustand stores (<700 bytes)
 
-### Zundo Library (< 700 bytes)
-
-The recommended approach for Zustand undo/redo. Package: `zundo` (v2.3.0+, supports Zustand v5).
+### Basic Setup
 
 ```typescript
 import { create } from 'zustand';
 import { temporal } from 'zundo';
 
-interface GraphState {
-  nodes: SipocNode[];
-  edges: SipocEdge[];
-  // ... actions
+interface StoreState {
+  nodes: Node[];
+  edges: Edge[];
+  addNode: (node: Node) => void;
+  removeNode: (id: string) => void;
 }
 
-const useGraphStore = create<GraphState>()(
+const useGraphStore = create<StoreState>()(
   temporal(
     (set) => ({
       nodes: [],
       edges: [],
-      // ... actions
+      addNode: (node) => set((s) => ({ nodes: [...s.nodes, node] })),
+      removeNode: (id) => set((s) => ({ nodes: s.nodes.filter(n => n.id !== id) })),
     }),
     {
-      // Only track node/edge data changes, not UI state
-      partialize: (state) => ({
-        nodes: state.nodes,
-        edges: state.edges,
-      }),
+      // Only track nodes and edges, not UI state or actions
+      partialize: (state) => ({ nodes: state.nodes, edges: state.edges }),
       // Limit history to prevent memory bloat
       limit: 50,
-      // Debounce rapid changes (e.g., during drag)
+      // Debounce rapid changes (e.g., dragging)
       handleSet: (handleSet) =>
-        throttle(handleSet, 500),
-      // Only store when something actually changed
-      equality: (pastState, currentState) =>
-        shallow(pastState, currentState),
-    }
+        throttle<typeof handleSet>((state) => {
+          handleSet(state);
+        }, 1000),
+    },
   ),
 );
-
-// Access undo/redo
-const { undo, redo, clear } = useGraphStore.temporal.getState();
 ```
 
-### Key API
+### Accessing Undo/Redo
 
-| Function | Description |
-|----------|-------------|
-| `undo(steps?)` | Go back N states (default 1) |
-| `redo(steps?)` | Go forward N states (default 1) |
-| `clear()` | Remove all history |
-| `pause()` / `resume()` | Temporarily stop/start tracking |
-| `isTracking` | Boolean flag for tracking state |
-
-### Integration with Persist
-
-When using both `persist` and `temporal`, wrap them correctly:
 ```typescript
-const useStore = create<State>()(
+// Non-reactive access (for buttons)
+const { undo, redo, clear } = useGraphStore.temporal.getState();
+
+// Reactive access (for disabling buttons when no history)
+import { useStoreWithEqualityFn } from 'zustand/traditional';
+
+function useTemporalStore<T>(selector: (state: TemporalState) => T) {
+  return useStoreWithEqualityFn(useGraphStore.temporal, selector);
+}
+
+// In component:
+const canUndo = useTemporalStore((s) => s.pastStates.length > 0);
+const canRedo = useTemporalStore((s) => s.futureStates.length > 0);
+```
+
+### Key Configuration Options
+
+| Option | Description |
+|--------|-------------|
+| `partialize` | Only track specific fields (exclude actions, UI state) |
+| `limit` | Max number of history states (prevents memory issues) |
+| `equality` | Custom function to prevent storing unchanged states |
+| `handleSet` | Wrap with throttle/debounce for rapid changes |
+| `diff` | Store only deltas instead of full state snapshots |
+| `onSave` | Callback when temporal store is updated |
+
+### Pause/Resume Tracking
+
+```typescript
+const { pause, resume, isTracking } = useGraphStore.temporal.getState();
+
+// Pause during auto-layout (single action, not individual moves)
+pause();
+performAutoLayout();
+resume();
+```
+
+### Integration with Persist Middleware
+
+```typescript
+import { persist } from 'zustand/middleware';
+
+const useStore = create<StoreState>()(
   persist(
     temporal(
-      (set) => ({ /* store */ }),
-      { /* temporal options */ }
+      (set) => ({ /* store fields */ }),
+      { partialize: (state) => ({ nodes: state.nodes, edges: state.edges }) },
     ),
-    { name: 'storage-key' }
-  )
+    { name: 'graph-store' },
+  ),
 );
 ```
-
-### Best Practices for This Project
-
-1. **Partialize** — Only track `nodes` and `edges`, not UI state (selectedNodeId, isPanelOpen)
-2. **Throttle** — Use `handleSet` with 500ms throttle to avoid storing every pixel of a drag
-3. **Limit** — Set `limit: 50` to cap memory usage
-4. **Pause during bulk operations** — Call `pause()` before auto-layout, `resume()` after
-5. **Keyboard shortcuts** — Ctrl+Z for undo, Ctrl+Shift+Z (or Ctrl+Y) for redo
 
 **Sources:**
 - https://github.com/charkour/zundo (Relevance: HIGH)
 - https://www.npmjs.com/package/zundo (Relevance: HIGH)
-- https://reactflow.dev/examples/interaction/undo-redo (Relevance: HIGH)
-
-
 
 ---
 
-## 4. Testing with Vitest 4 + React Testing Library
 
-**Relevance: HIGH** — Multiple tasks for unit tests; existing tests use Vitest with jsdom
+## 5. Vitest + React Testing Library — Best Practices
 
-### Vitest 4 Key Features (project uses v4.1.10)
+**Relevance: HIGH** — Multiple tasks require unit tests for both the value modeller frontend and TecFactory backend
 
-| Feature | Description |
-|---------|-------------|
-| **Browser Mode (stable)** | Run tests in real Chromium instead of jsdom — more accurate DOM |
-| **Visual Regression Testing** | `toMatchScreenshot()` for UI snapshot comparison |
-| **Playwright Traces** | Generate trace files for debugging failing browser tests |
-| **`expect.schemaMatching`** | Validate values against Standard Schema v1 (Zod, Valibot, ArkType) |
-| **`expect.assert`** | Type-narrowing assertion on `expect` object |
-| **Type-Aware Hooks** | `test.beforeEach` / `test.afterEach` on extended test contexts |
-| **`basic` reporter removed** | Use `default` reporter with `summary: false` instead |
+### Project Setup (Already Configured)
 
-### Project Testing Setup Checklist
+The project already has Vitest configured via `package.json` scripts:
+- `npm test` — run all tests once
+- `npm run test:watch` — watch mode
+- `npm run test:coverage` — coverage report
 
-| Item | Status in Project |
-|------|-------------------|
-| `vitest` configured with `globals: true` | ✅ Yes |
-| `jsdom` environment | ⚠️ Not explicitly set — should add `environment: 'jsdom'` to vitest.config.ts |
-| `@testing-library/react` installed | ✅ Yes |
-| `@testing-library/jest-dom` installed | ✅ Yes |
-| Setup file with jest-dom matchers | ⚠️ Should add `import '@testing-library/jest-dom/vitest'` |
-| `window.matchMedia` mock | ⚠️ Needed for dark mode tests |
-| `ResizeObserver` mock | ⚠️ Needed for React Flow component tests (see Section 1) |
+Test files live in `src/tests/` with `.test.ts` extension.
 
-### Testing Zustand Stores (Recommended Pattern)
+### Vitest Configuration for React
 
 ```typescript
-import { describe, it, expect, beforeEach } from 'vitest';
-import { useGraphStore } from '../store/graph-store';
+// vite.config.ts — add test configuration
+/// <reference types="vitest/config" />
+import { defineConfig } from 'vite';
+import react from '@vitejs/plugin-react';
 
-describe('GraphStore', () => {
-  beforeEach(() => {
-    // Reset store to initial state between tests
-    const { setState } = useGraphStore;
-    setState({ nodes: [], edges: [], activeStreamId: null });
-  });
+export default defineConfig({
+  plugins: [react()],
+  test: {
+    globals: true,
+    environment: 'jsdom',
+    setupFiles: ['./src/tests/setup.ts'],
+    include: ['**/*.{test,spec}.{ts,tsx}'],
+    coverage: {
+      provider: 'v8',
+      reporter: ['text', 'json', 'html'],
+      exclude: ['node_modules/', 'src/tests/', '**/*.d.ts'],
+    },
+  },
+});
+```
 
-  it('should add a node at the specified position', () => {
-    // Arrange
-    const position = { x: 100, y: 200 };
+### Test Setup File
 
-    // Act
-    const id = useGraphStore.getState().addNode(position);
+```typescript
+// src/tests/setup.ts
+import '@testing-library/jest-dom/vitest';
+import { vi } from 'vitest';
 
-    // Assert
-    const nodes = useGraphStore.getState().nodes;
-    expect(nodes).toHaveLength(1);
-    expect(nodes[0].position).toEqual(position);
-    expect(nodes[0].id).toBe(id);
+// Mock window.matchMedia (needed for dark mode / responsive components)
+Object.defineProperty(window, 'matchMedia', {
+  writable: true,
+  value: vi.fn().mockImplementation((query: string) => ({
+    matches: false,
+    media: query,
+    onchange: null,
+    addListener: vi.fn(),
+    removeListener: vi.fn(),
+    addEventListener: vi.fn(),
+    removeEventListener: vi.fn(),
+    dispatchEvent: vi.fn(),
+  })),
+});
+
+// Mock ResizeObserver (needed for React Flow)
+class MockResizeObserver {
+  observe = vi.fn();
+  disconnect = vi.fn();
+  unobserve = vi.fn();
+}
+Object.defineProperty(window, 'ResizeObserver', {
+  writable: true,
+  value: MockResizeObserver,
+});
+```
+
+### Query Priority (Accessibility-First)
+
+Use queries in this order — prefer accessible queries that match how users find elements:
+
+1. **`getByRole`** — Best for accessibility (buttons, headings, dialogs)
+2. **`getByLabelText`** — Great for form elements
+3. **`getByPlaceholderText`** — For inputs with placeholders
+4. **`getByText`** — For non-interactive display elements
+5. **`getByDisplayValue`** — For filled-in form elements
+6. **`getByTestId`** — Last resort when other queries don't work
+
+### User Event over fireEvent
+
+```typescript
+// ✅ Prefer userEvent — simulates real user interactions
+import userEvent from '@testing-library/user-event';
+
+it('handles click', async () => {
+  const user = userEvent.setup();
+  render(<Button onClick={handleClick} />);
+  await user.click(screen.getByRole('button'));
+  expect(handleClick).toHaveBeenCalledTimes(1);
+});
+
+// ❌ Avoid fireEvent — low-level, doesn't simulate full interaction
+fireEvent.click(button); // Misses focus, pointer events, etc.
+```
+
+### Testing Custom Hooks
+
+```typescript
+import { renderHook, act } from '@testing-library/react';
+
+describe('useCounter', () => {
+  it('increments the counter', () => {
+    const { result } = renderHook(() => useCounter());
+    
+    act(() => { result.current.increment(); });
+    
+    expect(result.current.count).toBe(1);
   });
 });
 ```
 
-**Key principle:** Zustand stores can be tested directly via `getState()` and `setState()` without rendering React components — this is faster and more focused than using `renderHook`.
+### Testing Components with Router
 
-### Testing TecFactory (Express + Supertest + Vitest ESM)
-
-```javascript
-// TecFactory uses ESM (.mjs test files)
-import { describe, it, expect, beforeAll, afterAll } from 'vitest';
-
-describe('Tasks REST API', () => {
-  let request, app;
-
-  beforeAll(async () => {
-    const supertest = await import('supertest');
-    const mod = await import('../server.js');
-    request = supertest.default;
-    app = mod.app;
-  });
-
-  it('should return tasks list', async () => {
-    // Arrange — nothing needed for GET
-
-    // Act
-    const response = await request(app).get('/api/tasks');
-
-    // Assert
-    expect(response.status).toBe(200);
-    expect(Array.isArray(response.body)).toBe(true);
-  });
-});
-```
-
-Key patterns for Express + ESM testing:
-- Export `app` separately from `server.listen()` so Supertest can use it without starting HTTP
-- Use dynamic `import()` in `beforeAll` for ESM compatibility
-- Use `.mjs` extension for test files in ESM projects
-- Clean up temp files in `afterAll` for tests that create data
-
-### React Testing Library Query Priority
-
-1. `getByRole` — Best for accessibility (buttons, inputs, headings)
-2. `getByLabelText` — For form fields with labels
-3. `getByPlaceholderText` — Inputs with placeholder text
-4. `getByText` — Non-interactive text content
-5. `getByDisplayValue` — Filled form fields
-6. `getByTestId` — Last resort
-
-### Best Practices
-
-- **Use `userEvent.setup()`** over `fireEvent` for realistic user interaction simulation
-- **Use `waitFor` or `findBy*`** for async operations — never rely on synchronous queries for async state
-- **Mock sparingly** — only mock external dependencies (APIs, timers), not internal modules
-- **One logical assertion per test** — multiple `expect()` calls verifying one concept is fine
-- **Clean up** — Vitest with globals handles React Testing Library cleanup automatically
-- **Avoid snapshot abuse** — prefer explicit assertions over brittle snapshots
-- **AAA principle** — Always structure tests as Arrange → Act → Assert with comments
-
-**Sources:**
-- https://main.vitest.dev/blog/vitest-4 (Relevance: HIGH)
-- https://main.vitest.dev/blog/vitest-4-1 (Relevance: HIGH)
-- https://reactflow.dev/learn/advanced-use/testing (Relevance: HIGH)
-- https://zustand.docs.pmnd.rs/learn/guides/testing (Relevance: HIGH)
-- https://www.testsprite.com/blog/how-to-test-a-react-application-tools-and-best-practices-for-2026 (Relevance: HIGH)
-- https://jangwook.net/en/blog/en/vitest-4-jest-migration-guide-2026/ (Relevance: MEDIUM)
-- https://www.nucamp.co/blog/testing-in-2026-jest-react-testing-library-and-full-stack-testing-strategies (Relevance: MEDIUM)
-
----
-
-## 5. React Router v7 — Patterns for This Project
-
-**Relevance: HIGH** — Project uses react-router-dom v7.18.1; routing is simple but patterns matter for future features
-
-### Current Project Routing (Simple SPA Pattern)
-
-The project uses the declarative `<Routes>` API (not the data router):
-```tsx
-<Routes>
-  <Route path="/" element={<LandingPage />} />
-  <Route path="/stream/:id" element={<StreamEditor />} />
-  <Route path="*" element={<Navigate to="/" replace />} />
-</Routes>
-```
-
-This is fine for the current scope. The data router (`createBrowserRouter`) is more appropriate when you need loaders/actions.
-
-### Key Patterns for This Project
-
-**URL as state — what belongs in the URL vs component state:**
-- ✅ In URL: stream ID (`/stream/:id`), view mode (table/canvas), active tab
-- ❌ Not in URL: panel open/closed, selected node, form draft values, toast visibility
-
-**Relative links for navigation:**
-```tsx
-// Inside StreamEditor, link back without hardcoding
-<Link to="/">Back to streams</Link>
-
-// NavLink for active state styling
-<NavLink to="/stream/abc" className={({ isActive }) => isActive ? 'active' : ''}>
-```
-
-**useParams typing pattern:**
 ```typescript
-// Validate params at the route boundary
-const { id } = useParams<{ id: string }>();
-if (!id) return <Navigate to="/" replace />;
-```
-
-**MemoryRouter for testing:**
-```tsx
 import { MemoryRouter } from 'react-router-dom';
 
-render(
-  <MemoryRouter initialEntries={['/stream/test-id']}>
-    <App />
-  </MemoryRouter>
-);
-```
-
-### Best Practices from 2026 Community
-
-| Practice | Why |
-|----------|-----|
-| Always include a catch-all `path="*"` route | Prevents blank screens on typo URLs |
-| Use `<Outlet>` in layout routes | Nested layouts share chrome without re-mounting |
-| Prefer `<Link>` over `useNavigate()` for normal nav | Better a11y (right-click, open in new tab) |
-| Use `useNavigate()` only for programmatic nav | After form submit, wizard steps, auth redirects |
-| Keep route paths stable (they're public API) | Users bookmark and share URLs |
-| Don't nest more than 2-3 levels deep | Keeps mental model manageable |
-
-### Error Boundaries at Route Level
-
-Wrap route content in error boundaries to keep navigation functional when a page crashes:
-```tsx
-<Routes>
-  <Route path="/" element={<Layout />}>
-    <Route index element={
-      <ErrorBoundary FallbackComponent={PageError}>
-        <LandingPage />
-      </ErrorBoundary>
-    } />
-    <Route path="stream/:id" element={
-      <ErrorBoundary FallbackComponent={PageError}>
-        <StreamEditor />
-      </ErrorBoundary>
-    } />
-  </Route>
-</Routes>
-```
-
-**Sources:**
-- https://thelinuxcode.com/react-router-in-2026-practical-patterns-for-predictable-navigation/ (Relevance: HIGH)
-- https://micropyramid.com/blog/react-router-for-navigation/ (Relevance: MEDIUM)
-- https://blog.logrocket.com/react-router-v6-guide/ (Relevance: MEDIUM)
-
----
-
-## 6. Error Boundaries — Production Patterns
-
-**Relevance: HIGH** — Resilient UI is important for demo; no existing error boundaries observed
-
-### Recommended Library: `react-error-boundary`
-
-```bash
-npm install react-error-boundary
-```
-
-### Three Placement Strategies
-
-1. **Route-level** — Keep navigation working when a page crashes
-2. **Feature-level** — Isolate independent widgets (e.g., canvas vs form panel)
-3. **Critical component** — Wrap complex third-party components (React Flow canvas)
-
-### Implementation Pattern
-
-```tsx
-import { ErrorBoundary } from 'react-error-boundary';
-
-// Reusable fallback component
-function ErrorFallback({ error, resetErrorBoundary }) {
-  return (
-    <div role="alert" className="p-4 text-center">
-      <h2 className="text-lg font-semibold text-red-600">Something went wrong</h2>
-      <pre className="mt-2 text-sm text-gray-600">{error.message}</pre>
-      <button onClick={resetErrorBoundary} className="mt-4 px-4 py-2 bg-blue-500 text-white rounded">
-        Try again
-      </button>
-    </div>
+const renderWithRouter = (ui: React.ReactElement, { route = '/' } = {}) => {
+  return render(
+    <MemoryRouter initialEntries={[route]}>
+      {ui}
+    </MemoryRouter>
   );
-}
-
-// Usage at route level
-<ErrorBoundary FallbackComponent={ErrorFallback} onError={logError}>
-  <StreamEditor />
-</ErrorBoundary>
-```
-
-### Handling Async Errors (Event Handlers)
-
-Error boundaries only catch render-time errors. For async/event handler errors, use `useErrorBoundary`:
-
-```tsx
-import { useErrorBoundary } from 'react-error-boundary';
-
-function ImportButton() {
-  const { showBoundary } = useErrorBoundary();
-
-  const handleImport = async (file) => {
-    try {
-      const data = JSON.parse(await file.text());
-      // ... validate and import
-    } catch (error) {
-      showBoundary(error); // Propagates to nearest ErrorBoundary
-    }
-  };
-}
-```
-
-### Recommended Placement for This Project
-
-```
-App
-├── ErrorBoundary (route-level, wraps <Routes>)
-│   ├── LandingPage
-│   │   └── ErrorBoundary (feature: value stream list)
-│   └── StreamEditor
-│       ├── ErrorBoundary (feature: React Flow canvas)
-│       └── ErrorBoundary (feature: SIPOC form panel)
-```
-
-### Error Logging
-
-```tsx
-const logError = (error: Error, info: { componentStack: string }) => {
-  console.error('UI Error:', error);
-  console.error('Component Stack:', info.componentStack);
-  // In production: send to monitoring service
 };
 
-<ErrorBoundary FallbackComponent={ErrorFallback} onError={logError}>
+it('renders dashboard at /streams/:id', () => {
+  renderWithRouter(<App />, { route: '/streams/abc123' });
+  expect(screen.getByText(/canvas/i)).toBeInTheDocument();
+});
 ```
 
+### Testing Async Operations
+
+```typescript
+it('displays data after loading', async () => {
+  render(<AsyncComponent />);
+  
+  // Use findBy* (combines getBy + waitFor)
+  expect(await screen.findByText('Data loaded')).toBeInTheDocument();
+});
+
+// Or explicit waitFor
+await waitFor(() => {
+  expect(screen.getByText('Data loaded')).toBeInTheDocument();
+});
+```
+
+### Mocking Patterns
+
+```typescript
+// Mock a module
+vi.mock('../utils/export-import', () => ({
+  exportModel: vi.fn(),
+  importModel: vi.fn().mockResolvedValue({ nodes: [], edges: [] }),
+}));
+
+// Mock timers
+beforeEach(() => { vi.useFakeTimers(); });
+afterEach(() => { vi.useRealTimers(); });
+
+// Spy on console
+vi.spyOn(console, 'error').mockImplementation(() => {});
+```
+
+### Common Pitfalls
+
+| Pitfall | Fix |
+|---------|-----|
+| Testing implementation details | Test behavior (what user sees), not internal state |
+| Not waiting for async | Use `findBy*` or `waitFor` for async content |
+| Over-mocking | Only mock external services/APIs, not internal logic |
+| Snapshot abuse | Use sparingly; prefer explicit assertions |
+| Not cleaning up | Vitest + RTL auto-cleanup; but reset mocks with `afterEach` |
+
 **Sources:**
-- https://certificates.dev/blog/error-handling-in-react-with-react-error-boundary (Relevance: HIGH)
-- https://oneuptime.com/blog/post/2026-02-20-react-error-boundaries/view (Relevance: HIGH)
-- https://blog.logrocket.com/react-error-handling-react-error-boundary/ (Relevance: MEDIUM)
-
-
+- https://oneuptime.com/blog/post/2026-01-15-unit-test-react-vitest-testing-library/view (Relevance: HIGH)
+- https://vitest.dev/guide/browser/component-testing (Relevance: MEDIUM)
+- https://testing-library.com/docs/react-testing-library/cheatsheet/ (Relevance: HIGH)
+- https://kentcdodds.com/blog/common-mistakes-with-react-testing-library (Relevance: HIGH)
 
 ---
 
-## 7. Accessibility (WCAG 2.1 AA)
 
-**Relevance: HIGH** — Multiple accessibility tasks in queue; project steering mandates a11y compliance
+## 6. Tailwind CSS Dark Mode — Architecture & Patterns
 
-### Modal/Dialog Pattern
+**Relevance: HIGH** — Multiple tasks fix dark mode inconsistencies; project uses class-based dark mode toggle with localStorage persistence
 
-All modal dialogs must implement:
+### Architecture (Three Pieces)
 
-1. `role="dialog"` on the modal container
-2. `aria-modal="true"` to indicate background is inert
-3. `aria-labelledby` pointing to the dialog title
-4. **Focus trapping** — Tab cycles within the modal only
-5. **Focus restoration** — On close, focus returns to the trigger element
-6. **Escape key** closes the dialog
-7. Prefer native `<dialog>` element when possible (widely supported since 2022)
+1. **CSS Variables** — Define a palette in `:root` and override in `.dark`. Every color should be a variable, not a hardcoded hex.
+2. **Class Toggle** — Add/remove `dark` class on `<html>`. Tailwind detects this automatically.
+3. **Init Script** — Read stored preference (or system preference) and set class BEFORE paint to avoid flash.
 
-```tsx
-// Focus trap hook pattern (project has use-focus-trap.ts)
-function useFocusTrap(containerRef: RefObject<HTMLElement>, isOpen: boolean) {
-  useEffect(() => {
-    if (!isOpen || !containerRef.current) return;
+### Current Project Pattern
 
-    const focusable = containerRef.current.querySelectorAll(
-      'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])'
-    );
-    const first = focusable[0] as HTMLElement;
-    const last = focusable[focusable.length - 1] as HTMLElement;
+The project uses `darkMode: 'class'` strategy in `tailwind.config.js` with a `theme-store.ts` that persists the user's choice to localStorage and applies/removes the `dark` class on `document.documentElement`.
 
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === 'Tab') {
-        if (e.shiftKey && document.activeElement === first) {
-          e.preventDefault();
-          last.focus();
-        } else if (!e.shiftKey && document.activeElement === last) {
-          e.preventDefault();
-          first.focus();
-        }
-      }
-    };
+### The Four Common Mistakes
 
-    first?.focus();
-    containerRef.current.addEventListener('keydown', handleKeyDown);
-    return () => containerRef.current?.removeEventListener('keydown', handleKeyDown);
-  }, [isOpen]);
-}
-```
+| Mistake | Cause | Fix |
+|---------|-------|-----|
+| **Hardcoded colors** | `bg-white`, `text-gray-900` without `dark:` variant | Always pair with `dark:bg-gray-800 dark:text-gray-100` |
+| **Theme flash** | JS sets class after paint | Run detection script synchronously in `<head>` |
+| **Broken images/icons** | Logos with white backgrounds | Provide dark variants or use `dark:invert` |
+| **Toggle without persistence** | Resets on reload | Store in localStorage, read in init script |
 
-### Motion Sensitivity (prefers-reduced-motion)
+### Checklist for Every Component
 
-```css
-@media (prefers-reduced-motion: reduce) {
-  .react-flow__edge.animated path {
-    animation: none !important;
-    stroke-dasharray: none !important;
-  }
-  .transition-transform {
-    transition: none !important;
-  }
-}
-```
+1. All `bg-*` classes need a `dark:bg-*` counterpart
+2. All `text-*` classes need `dark:text-*`
+3. All `border-*` classes need `dark:border-*`
+4. Focus rings: `focus:ring-blue-500 dark:focus:ring-blue-400`
+5. Form inputs: `dark:bg-gray-700 dark:text-gray-100 dark:border-gray-600`
+6. Headings and labels: `dark:text-gray-200` or `dark:text-gray-300`
+7. Disabled states: `dark:text-gray-500 dark:bg-gray-800`
+8. Shadows: `shadow-lg dark:shadow-gray-900/50`
 
-### Keyboard Navigation for Canvas
+### Testing Dark Mode (6-Step Protocol)
 
-- React Flow v12 has built-in keyboard controls (arrow keys for node movement, Enter/Space to select)
-- Custom additions should supplement, not override, built-in behavior
-- `Tab` should cycle through interactive elements within a selected node
-- Custom graph keyboard nav (as in `use-graph-keyboard-nav.ts`) should be documented with visible hints
+1. Toggle twice — check no flash
+2. Reload on dark — confirm persistence
+3. Open every modal/dropdown/overlay — check colors apply inside
+4. Check all form states (focus, disabled) — verify visibility
+5. Inspect charts, images, icons — check they don't invert poorly
+6. Run contrast tool (axe DevTools) — verify WCAG AA on every text
 
-### WCAG 2.1 AA Key Requirements for SPAs
+### React Flow + Dark Mode
 
-| Criterion | Requirement | Implementation |
-|-----------|-------------|----------------|
-| 2.1.1 Keyboard | All functionality available via keyboard | Tab navigation, Enter/Space activation |
-| 2.4.3 Focus Order | Focus order preserves meaning | Logical tab order in forms and panels |
-| 2.4.7 Focus Visible | Focus indicator always visible | Tailwind `focus:ring-*` classes |
-| 4.1.2 Name, Role, Value | Custom controls have ARIA labels | `aria-label`, `role` attributes |
-| 1.4.3 Contrast | 4.5:1 ratio for text | Verified in both light/dark modes |
-| 2.5.1 Pointer Gestures | No multipoint gestures required | Single-click alternatives for all actions |
+React Flow v12 provides a built-in `colorMode` prop:
 
-**Sources:**
-- https://www.uxpin.com/studio/blog/wcag-211-keyboard-accessibility-explained/ (Relevance: HIGH)
-- https://www.synergycodes.com/blog/building-usable-and-accessible-diagrams-with-react-flow (Relevance: HIGH)
-- https://www.allaccessible.org/blog/react-accessibility-best-practices-guide (Relevance: MEDIUM)
-- https://www.w3.org/TR/WCAG21/ (Relevance: MEDIUM)
-
----
-
-## 8. Tailwind CSS — Dark Mode & Styling Patterns
-
-**Relevance: HIGH** — Many tasks involve fixing missing dark mode styles
-
-### Dark Mode Strategy (class-based, already used)
-
-```javascript
-// tailwind.config.js
-module.exports = {
-  darkMode: 'class', // Toggle via class on <html> or root element
-}
-```
-
-### React Flow v12 colorMode Integration
-
-React Flow v12 has a built-in `colorMode` prop that handles internal styling:
 ```tsx
 <ReactFlow colorMode={isDark ? 'dark' : 'light'} ... />
 ```
 
-This is cleaner than manually overriding `.react-flow` CSS classes with Tailwind. The `colorMode` prop handles:
-- Background color
-- Edge colors
-- Handle colors
-- MiniMap colors
-- Controls styling
-
-**Note:** There's a task to migrate to this approach (`3_a292c7bc_use-react-flow-built-in-colormode-prop`).
-
-### Checklist for Dark Mode Consistency
-
-Every component with visible styling must have both light and dark variants:
-
-| Element | Light | Dark |
-|---------|-------|------|
-| Background | `bg-white` | `dark:bg-gray-800` or `dark:bg-gray-900` |
-| Text | `text-gray-900` | `dark:text-gray-100` |
-| Secondary text | `text-gray-600` | `dark:text-gray-400` |
-| Borders | `border-gray-200` | `dark:border-gray-600` or `dark:border-gray-700` |
-| Inputs | `bg-white border-gray-300` | `dark:bg-gray-700 dark:border-gray-600` |
-| Hover states | `hover:bg-gray-100` | `dark:hover:bg-gray-700` |
-| Focus rings | `focus:ring-blue-500` | `dark:focus:ring-blue-400` |
-
-### Common Mistakes (found in this project)
-
-1. Adding light mode classes but forgetting `dark:` counterparts on the same element
-2. Hardcoding colors like `text-gray-700` without dark variant — invisible on dark backgrounds
-3. Missing dark mode on headings/labels in form sections
-4. Not applying `dark:` to dynamically generated elements (e.g., React Flow MiniMap)
-5. Using Tailwind `!important` modifiers that override React Flow's internal dark mode
+This automatically themes edges, controls, minimap, background, selection box, and connection lines via CSS variables. Do NOT manually override these with Tailwind `!important` — it breaks the minimap (see task `2_33d0241e`).
 
 **Sources:**
+- https://blog.vibecoder.me/dark-mode-implementation-web-app (Relevance: HIGH)
+- https://tailwindcss.com/docs/dark-mode (Relevance: HIGH)
 - https://reactflow.dev/examples/styling/dark-mode (Relevance: HIGH)
-- https://magicui.design/blog/tailwind-dark-mode (Relevance: HIGH)
-- https://github.com/xyflow/xyflow/discussions/3764 (Relevance: MEDIUM)
+
+---

@@ -1,5 +1,33 @@
 # Release Notes — Value Modeller
 
+## 2026-07-15T12:34 — improvement: Add larger, realistic SDLC demo value stream
+
+**Task:** `tasks/2_564052fd_create-mock-data.json` → state set to `developed`
+
+**What was implemented:**
+- Added a second demo value stream: **Software Development Lifecycle (SDLC)** with **15 nodes** and **18 edges** — significantly larger and more complex than the existing 10-node Insurance Claims stream.
+- The SDLC stream models a realistic enterprise software delivery pipeline:
+  - **Full lifecycle:** Feature Ideation → UX Design → Sprint Planning → Development → Code Review → Testing → QA Gate → Canary Deployment → Full Rollout → Monitoring → Retrospective → Customer Feedback
+  - **Parallel branches:** Sprint Planning splits into Frontend Development + Backend Development running in parallel, merging at Code Review
+  - **Decision points:** Full Rollout branches into Hotfix/Incident Response (when issues detected) and Feature Flag Management (gradual feature enablement)
+  - **Feedback loops:** Customer Feedback feeds back into Feature Ideation; Hotfix feeds back into Monitoring; Retrospective learns from all downstream stages
+- All 15 nodes have complete, realistic SIPOC data:
+  - Named enterprise applications (Jira, GitHub, Figma, ArgoCD, Datadog, PagerDuty, LaunchDarkly, etc.)
+  - 11 distinct teams across the pipeline
+  - Realistic known issues with specific metrics (e.g., "PR review time averages 18 hours — goal is 4 hours", "E2E test suite takes 45 minutes with 8% flaky test rate")
+  - Meaningful cycle time/lead time/value-add metrics showing bottlenecks
+- App now starts with 2 demo streams on the landing page (Insurance + SDLC), showcasing the multi-stream management capability
+
+**Files created:**
+- `src/utils/demo-data-sdlc.ts` — 15 nodes and 18 edges defining the SDLC value stream
+
+**Files modified:**
+- `src/store/value-stream-store.ts` — Added `createSdlcDemoStream()` factory function, imported SDLC demo data, initialized store with both demo streams
+
+**Build:** ✅ Passes (`tsc -b && vite build` — 0 errors, 298 modules)
+
+---
+
 ## 2026-07-15T12:12 — bugfix: Auto-layout now respects actual node sizes
 
 **Task:** `tasks/1_54657ca3_update-formatting-in-the-canvas.json` → state set to `developed`

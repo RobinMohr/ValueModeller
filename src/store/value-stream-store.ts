@@ -4,6 +4,7 @@ import type { ValueStream } from '../types/value-stream.types';
 import type { SipocNode, SipocEdge } from '../types/sipoc.types';
 import { generateId } from '../utils/id';
 import { demoNodes, demoEdges } from '../utils/demo-data';
+import { sdlcDemoNodes, sdlcDemoEdges } from '../utils/demo-data-sdlc';
 import { safeLocalStorage } from '../utils/safe-storage';
 
 interface ValueStreamStore {
@@ -51,10 +52,28 @@ function createDemoStream(): ValueStream {
   };
 }
 
+function createSdlcDemoStream(): ValueStream {
+  const now = new Date().toISOString();
+  return {
+    id: 'demo-sdlc-stream',
+    name: 'Software Development Lifecycle (SDLC)',
+    description: 'End-to-end enterprise software delivery pipeline from feature ideation through UX design, parallel frontend/backend development, code review, automated testing, canary deployment, production monitoring, and continuous improvement feedback loops.',
+    applications: 'Jira\nGitHub\nFigma\nArgoCD\nDatadog\nPagerDuty\nLaunchDarkly\nAmplitude\nPlaywright\nSonarQube\nAWS EKS\nSlack\nConfluence\nStorybook',
+    involvedTeams: 'Product Management\nUX Design\nFrontend Development\nBackend Development\nQA Engineering\nDevOps Engineering\nSite Reliability Engineering\nSecurity Engineering\nData Analytics\nCustomer Success\nAgile Coaches',
+    knownIssues: 'PR review time averages 18 hours (target: 4 hours)\nE2E test suite takes 45 minutes with 8% flaky test rate\nCanary analysis misses slow-burn memory leaks\nFeature flag cleanup debt: 45 stale flags in production\nAlert fatigue: 40% of PagerDuty alerts non-actionable\nDORA metrics not yet automated\nCross-team dependencies cause 40% of sprint misses',
+    createdValues: 'Rapid feature delivery (2-week sprint cadence)\nProduction stability (99.9% uptime SLA)\nData-driven product decisions\nDeveloper experience & velocity\nSecurity & compliance (SOC 2 Type II)',
+    customerSegments: 'SaaS End Users\nEnterprise Customers (self-hosted)\nInternal Engineering Teams\nPartner Integrators (API consumers)',
+    nodes: sdlcDemoNodes,
+    edges: sdlcDemoEdges,
+    createdAt: now,
+    updatedAt: now,
+  };
+}
+
 export const useValueStreamStore = create<ValueStreamStore>()(
   persist(
     (set, get) => ({
-      streams: [createDemoStream()],
+      streams: [createDemoStream(), createSdlcDemoStream()],
 
       createStream: (name) => {
         const stream = createDefaultStream(name);
