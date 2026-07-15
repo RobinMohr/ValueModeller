@@ -38,5 +38,15 @@
     "intervalSeconds": 0,
     "timeoutSeconds": 900,
     "maxIterations": 0
+  },
+  {
+    "id": "code-reviewer",
+    "name": "Code Reviewer Agent",
+    "type": "qa",
+    "agent": "code-reviewer-agent",
+    "description": "Reviews code for SOLID principle violations and code reuse opportunities. Creates task files for findings.",
+    "intervalSeconds": 0,
+    "timeoutSeconds": 600,
+    "maxIterations": 1
   }
 ]
