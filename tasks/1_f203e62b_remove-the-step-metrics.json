@@ -1,0 +1,9 @@
+{
+  "title": "remove the step metrics",
+  "type": "improvement",
+  "priority": 1,
+  "description": "in the steps, i want to completely remove the step metrics, since they are not used anymore. this should be updated in the view as well as it should be where the data is persisted",
+  "state": "todo",
+  "origin": "user",
+  "id": "f203e62b"
+}

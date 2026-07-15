@@ -1,5 +1,18 @@
 # Release Notes — Value Modeller
 
+## 2026-07-15T13:47 — improvement: Process description visible on canvas board nodes
+
+**Task:** `tasks/1_80f6d140_process-description-should-be-visible-on-the-canva.json` → state set to `developed`
+
+**What was done:**
+- Verified that the process description is already displayed on canvas nodes in `sipoc-node.tsx` (lines 113-118), rendered as a paragraph below the node title.
+- The `SipocNodeData` type already includes the `processDescription` field.
+- No code changes were needed — feature was already fully implemented in a prior iteration.
+
+**Files modified:** None (already implemented)
+
+---
+
 ## 2026-07-15T12:40 — bugfix: Fix ACP agents Git CRLF warning messages
 
 **Task:** `tasks/2_b97409fc_fix-acp-agents-warning-messages.json` → state set to `developed`

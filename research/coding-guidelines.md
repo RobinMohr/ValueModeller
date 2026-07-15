@@ -1,6 +1,6 @@
 # Research: Coding Guidelines & Standard Practices for Value Modeller
 
-**Last Updated:** 2026-07-15T12:34:35+02:00
+**Last Updated:** 2026-07-15T12:52:10+02:00
 
 ---
 
@@ -160,10 +160,39 @@ const childNode = {
 3. `extent: 'parent'` prevents dragging child outside parent
 4. Moving the parent moves all children automatically
 
+### Cycle Detection / DAG Validation (Official Pattern)
+
+```typescript
+import { getOutgoers, useReactFlow } from '@xyflow/react';
+
+const { getNodes, getEdges } = useReactFlow();
+
+const isValidConnection = useCallback(
+  (connection) => {
+    const nodes = getNodes();
+    const edges = getEdges();
+    const target = nodes.find((node) => node.id === connection.target);
+
+    const hasCycle = (node, visited = new Set()) => {
+      if (visited.has(node.id)) return false;
+      visited.add(node.id);
+
+      for (const outgoer of getOutgoers(node, nodes, edges)) {
+        if (outgoer.id === connection.source) return true;
+        if (hasCycle(outgoer, visited)) return true;
+      }
+    };
+
+    if (target.id === connection.source) return false;
+    return !hasCycle(target);
+  },
+  [getNodes, getEdges],
+);
+```
+
 ### Testing React Flow Components
 
 ```typescript
-// Mock ResizeObserver and DOMMatrixReadOnly for jsdom
 class ResizeObserver {
   callback: globalThis.ResizeObserverCallback;
   constructor(callback: globalThis.ResizeObserverCallback) { this.callback = callback; }
@@ -185,19 +214,14 @@ export const mockReactFlow = () => {
 
 Use `waitFor` for edges (render asynchronously after node measurement).
 
-### Accessibility in React Flow (v12+)
-
-- Built-in keyboard controls: Enter/Space to select, arrow keys to move, Delete to remove
-- `colorMode` prop handles internal dark/light styling automatically
-- Custom nodes should include proper ARIA attributes for interactive elements
-
 **Sources:**
 - https://reactflow.dev/learn/advanced-use/performance (Relevance: HIGH)
 - https://reactflow.dev/learn/advanced-use/state-management (Relevance: HIGH)
 - https://reactflow.dev/api-reference/hooks/use-store-api (Relevance: HIGH)
 - https://reactflow.dev/examples/interaction/context-menu (Relevance: HIGH)
 - https://reactflow.dev/examples/interaction/drag-and-drop (Relevance: HIGH)
-- https://reactflow.dev/examples/interaction/copy-paste (Relevance: HIGH)
+- https://reactflow.dev/examples/interaction/prevent-cycles (Relevance: HIGH)
+- https://reactflow.dev/examples/grouping/selection-grouping (Relevance: HIGH)
 - https://reactflow.dev/learn/layouting/sub-flows (Relevance: HIGH)
 - https://reactflow.dev/learn/advanced-use/testing (Relevance: HIGH)
 - https://reactflow.dev/examples/styling/dark-mode (Relevance: HIGH)
@@ -287,6 +311,88 @@ const getLayoutedElements = (nodes, edges, direction = 'TB') => {
 | **Custom storage adapters** | For robust error handling around localStorage limitations |
 | **Debounced auto-save** | The 500ms debounce pattern used in graph-store is appropriate |
 
+### Zustand v5 Selector Best Practices
+
+From the official Zustand v5 migration discussion, selectors in v5 fall into three categories:
+
+**1. Simple selectors (no `useShallow` needed):**
+```typescript
+// Returns primitive or stable reference — no extra wrapping needed
+const prop = useStore(state => state.prop);
+const nodes = useStore(state => state.nodes); // stable if not transformed
+```
+
+**2. Selectors that transform state (use `useShallow`):**
+```typescript
+import { useShallow } from 'zustand/react/shallow';
+
+// Returns new array each time — useShallow prevents re-renders when values haven't changed
+const nodeNames = useStore(useShallow(state => state.nodes.map(n => n.data.processName)));
+```
+
+**3. Selectors with nested objects (`useShallow` insufficient):**
+```typescript
+// When selector produces nested objects with new references, useShallow causes max-depth errors
+// Solution: keep selectors simple, derive data outside the selector
+const nodes = useStore(state => state.nodes);
+const nodesWithExtra = nodes.map(n => ({ ...n, computed: derive(n) })); // derive outside
+```
+
+**Key v5 insight from maintainers:** Keep selectors as simple as possible. Perform transformations outside the selector (e.g., in a custom hook). This ensures stable selector output.
+
+### Persist Middleware — Complete Configuration (Zustand v5)
+
+```typescript
+import { create } from 'zustand';
+import { persist, createJSONStorage } from 'zustand/middleware';
+
+export const useStore = create<MyState>()(
+  persist(
+    (set, get) => ({ /* ... */ }),
+    {
+      name: 'value-modeller-graph',
+      storage: createJSONStorage(() => localStorage),
+      partialize: (state) => ({
+        nodes: state.nodes,
+        edges: state.edges,
+        modelName: state.modelName,
+      }),
+      version: 1,
+      migrate: (persistedState, version) => {
+        if (version === 0) {
+          // Handle migration from version 0 to 1
+        }
+        return persistedState as MyState;
+      },
+    },
+  ),
+);
+```
+
+### Version Migration Pattern
+
+When your store schema evolves:
+
+1. **Increment the `version` number** in persist options
+2. **Implement `migrate` function** to transform old state to new shape
+3. Zustand detects version mismatch and runs migration automatically
+
+```typescript
+{
+  version: 2,
+  migrate: (persistedState: any, version: number) => {
+    if (version === 0) {
+      persistedState.nodes = persistedState.fishes;
+      delete persistedState.fishes;
+    }
+    if (version <= 1) {
+      persistedState.metadata = persistedState.metadata || { createdAt: new Date().toISOString() };
+    }
+    return persistedState;
+  },
+}
+```
+
 ### Persist Middleware — Robust Error Handling
 
 ```typescript
@@ -300,7 +406,6 @@ const safeStorage: StateStorage = {
     catch (e) {
       if (e instanceof DOMException && e.name === 'QuotaExceededError') {
         console.warn('localStorage quota exceeded');
-        // Show user-facing notification
       }
     }
   },
@@ -315,24 +420,39 @@ const safeStorage: StateStorage = {
 - 5 MiB per origin (most browsers)
 - Always wrap `setItem()` in try/catch
 - Show user-facing notifications when storage fails
-- Consider IndexedDB if data grows beyond localStorage limits
+- Consider IndexedDB (via `idb-keyval`) if data grows beyond localStorage limits
+
+### IndexedDB as Alternative Storage (for larger data)
+
+If the project outgrows localStorage (5MB limit), Zustand's persist middleware supports custom async storage via `createJSONStorage`:
+
+```typescript
+import { get, set, del } from 'idb-keyval';
+
+const indexedDbStorage = {
+  getItem: async (name: string) => (await get(name)) || null,
+  setItem: async (name: string, value: string) => { await set(name, value); },
+  removeItem: async (name: string) => { await del(name); },
+};
+
+// Usage:
+persist(storeCreator, {
+  name: 'value-modeller-graph',
+  storage: createJSONStorage(() => indexedDbStorage),
+});
+```
 
 ### Testing Zustand Stores (Official Guide)
 
-The official Zustand docs recommend resetting stores between tests to prevent state leaking:
-
 ```typescript
-// src/test/zustand-setup.ts — for Vitest
 import { act } from '@testing-library/react';
 
 const storeResetFns = new Set<() => void>();
 
-// When creating stores, register their reset function
 export const registerStoreReset = (resetFn: () => void) => {
   storeResetFns.add(resetFn);
 };
 
-// Reset all stores between tests
 beforeEach(async () => {
   await act(() => {
     storeResetFns.forEach((resetFn) => resetFn());
@@ -340,16 +460,30 @@ beforeEach(async () => {
 });
 ```
 
-**Key patterns for testing stores:**
+**Key patterns:**
 - Test store actions by calling them directly via `store.getState().actionName()`
 - Verify state changes with `store.getState()` after action calls
-- For components consuming stores, render the component and test behavior (not store internals)
 - Use `renderHook` to test custom hooks that wrap store selectors
 - Mock the store module for component tests where you need controlled state
 
+### Hydration Check Pattern
+
+```typescript
+const useHydration = () => {
+  const [hydrated, setHydrated] = useState(false);
+  useEffect(() => {
+    const unsubFinish = useStore.persist.onFinishHydration(() => setHydrated(true));
+    setHydrated(useStore.persist.hasHydrated());
+    return () => { unsubFinish(); };
+  }, []);
+  return hydrated;
+};
+```
+
 **Sources:**
+- https://zustand.docs.pmnd.rs/reference/middlewares/persist (Relevance: HIGH)
+- https://github.com/pmndrs/zustand/discussions/2867 (Relevance: HIGH)
 - https://zustand.docs.pmnd.rs/learn/guides/testing (Relevance: HIGH)
-- https://github.com/pmndrs/zustand/discussions/1961 (Relevance: MEDIUM)
 
 ---
 
@@ -363,13 +497,6 @@ beforeEach(async () => {
 import { create } from 'zustand';
 import { temporal } from 'zundo';
 
-interface StoreState {
-  nodes: Node[];
-  edges: Edge[];
-  addNode: (node: Node) => void;
-  removeNode: (id: string) => void;
-}
-
 const useGraphStore = create<StoreState>()(
   temporal(
     (set) => ({
@@ -379,11 +506,8 @@ const useGraphStore = create<StoreState>()(
       removeNode: (id) => set((s) => ({ nodes: s.nodes.filter(n => n.id !== id) })),
     }),
     {
-      // Only track nodes and edges, not UI state or actions
       partialize: (state) => ({ nodes: state.nodes, edges: state.edges }),
-      // Limit history to prevent memory bloat
       limit: 50,
-      // Debounce rapid changes (e.g., dragging)
       handleSet: (handleSet) =>
         throttle<typeof handleSet>((state) => {
           handleSet(state);
@@ -396,57 +520,27 @@ const useGraphStore = create<StoreState>()(
 ### Accessing Undo/Redo
 
 ```typescript
-// Non-reactive access (for buttons)
 const { undo, redo, clear } = useGraphStore.temporal.getState();
 
-// Reactive access (for disabling buttons when no history)
 import { useStoreWithEqualityFn } from 'zustand/traditional';
 
 function useTemporalStore<T>(selector: (state: TemporalState) => T) {
   return useStoreWithEqualityFn(useGraphStore.temporal, selector);
 }
 
-// In component:
 const canUndo = useTemporalStore((s) => s.pastStates.length > 0);
 const canRedo = useTemporalStore((s) => s.futureStates.length > 0);
 ```
 
-### Key Configuration Options
-
-| Option | Description |
-|--------|-------------|
-| `partialize` | Only track specific fields (exclude actions, UI state) |
-| `limit` | Max number of history states (prevents memory issues) |
-| `equality` | Custom function to prevent storing unchanged states |
-| `handleSet` | Wrap with throttle/debounce for rapid changes |
-| `diff` | Store only deltas instead of full state snapshots |
-| `onSave` | Callback when temporal store is updated |
-
 ### Pause/Resume Tracking
 
 ```typescript
-const { pause, resume, isTracking } = useGraphStore.temporal.getState();
+const { pause, resume } = useGraphStore.temporal.getState();
 
 // Pause during auto-layout (single action, not individual moves)
 pause();
 performAutoLayout();
 resume();
-```
-
-### Integration with Persist Middleware
-
-```typescript
-import { persist } from 'zustand/middleware';
-
-const useStore = create<StoreState>()(
-  persist(
-    temporal(
-      (set) => ({ /* store fields */ }),
-      { partialize: (state) => ({ nodes: state.nodes, edges: state.edges }) },
-    ),
-    { name: 'graph-store' },
-  ),
-);
 ```
 
 **Sources:**
@@ -459,15 +553,6 @@ const useStore = create<StoreState>()(
 ## 5. Vitest + React Testing Library — Best Practices
 
 **Relevance: HIGH** — Multiple tasks require unit tests for both the value modeller frontend and TecFactory backend
-
-### Project Setup (Already Configured)
-
-The project already has Vitest configured via `package.json` scripts:
-- `npm test` — run all tests once
-- `npm run test:watch` — watch mode
-- `npm run test:coverage` — coverage report
-
-Test files live in `src/tests/` with `.test.ts` extension.
 
 ### Vitest Configuration for React
 
@@ -500,7 +585,6 @@ export default defineConfig({
 import '@testing-library/jest-dom/vitest';
 import { vi } from 'vitest';
 
-// Mock window.matchMedia (needed for dark mode / responsive components)
 Object.defineProperty(window, 'matchMedia', {
   writable: true,
   value: vi.fn().mockImplementation((query: string) => ({
@@ -515,7 +599,6 @@ Object.defineProperty(window, 'matchMedia', {
   })),
 });
 
-// Mock ResizeObserver (needed for React Flow)
 class MockResizeObserver {
   observe = vi.fn();
   disconnect = vi.fn();
@@ -529,8 +612,6 @@ Object.defineProperty(window, 'ResizeObserver', {
 
 ### Query Priority (Accessibility-First)
 
-Use queries in this order — prefer accessible queries that match how users find elements:
-
 1. **`getByRole`** — Best for accessibility (buttons, headings, dialogs)
 2. **`getByLabelText`** — Great for form elements
 3. **`getByPlaceholderText`** — For inputs with placeholders
@@ -541,7 +622,6 @@ Use queries in this order — prefer accessible queries that match how users fin
 ### User Event over fireEvent
 
 ```typescript
-// ✅ Prefer userEvent — simulates real user interactions
 import userEvent from '@testing-library/user-event';
 
 it('handles click', async () => {
@@ -550,9 +630,6 @@ it('handles click', async () => {
   await user.click(screen.getByRole('button'));
   expect(handleClick).toHaveBeenCalledTimes(1);
 });
-
-// ❌ Avoid fireEvent — low-level, doesn't simulate full interaction
-fireEvent.click(button); // Misses focus, pointer events, etc.
 ```
 
 ### Testing Custom Hooks
@@ -563,9 +640,7 @@ import { renderHook, act } from '@testing-library/react';
 describe('useCounter', () => {
   it('increments the counter', () => {
     const { result } = renderHook(() => useCounter());
-    
     act(() => { result.current.increment(); });
-    
     expect(result.current.count).toBe(1);
   });
 });
@@ -583,44 +658,6 @@ const renderWithRouter = (ui: React.ReactElement, { route = '/' } = {}) => {
     </MemoryRouter>
   );
 };
-
-it('renders dashboard at /streams/:id', () => {
-  renderWithRouter(<App />, { route: '/streams/abc123' });
-  expect(screen.getByText(/canvas/i)).toBeInTheDocument();
-});
-```
-
-### Testing Async Operations
-
-```typescript
-it('displays data after loading', async () => {
-  render(<AsyncComponent />);
-  
-  // Use findBy* (combines getBy + waitFor)
-  expect(await screen.findByText('Data loaded')).toBeInTheDocument();
-});
-
-// Or explicit waitFor
-await waitFor(() => {
-  expect(screen.getByText('Data loaded')).toBeInTheDocument();
-});
-```
-
-### Mocking Patterns
-
-```typescript
-// Mock a module
-vi.mock('../utils/export-import', () => ({
-  exportModel: vi.fn(),
-  importModel: vi.fn().mockResolvedValue({ nodes: [], edges: [] }),
-}));
-
-// Mock timers
-beforeEach(() => { vi.useFakeTimers(); });
-afterEach(() => { vi.useRealTimers(); });
-
-// Spy on console
-vi.spyOn(console, 'error').mockImplementation(() => {});
 ```
 
 ### Common Pitfalls
@@ -634,36 +671,122 @@ vi.spyOn(console, 'error').mockImplementation(() => {});
 | Not cleaning up | Vitest + RTL auto-cleanup; but reset mocks with `afterEach` |
 
 **Sources:**
-- https://oneuptime.com/blog/post/2026-01-15-unit-test-react-vitest-testing-library/view (Relevance: HIGH)
-- https://vitest.dev/guide/browser/component-testing (Relevance: MEDIUM)
+- https://vitest.dev/guide/ (Relevance: HIGH)
 - https://testing-library.com/docs/react-testing-library/cheatsheet/ (Relevance: HIGH)
 - https://kentcdodds.com/blog/common-mistakes-with-react-testing-library (Relevance: HIGH)
+
+---
+
+## 5b. TecFactory Backend Testing — Express + Vitest + Supertest
+
+**Relevance: HIGH** — TecFactory uses Express.js with ESM; tasks require REST API testing
+
+### Critical Architecture Pattern: Separate App from Server
+
+```javascript
+// server.js — exports app for testing
+import express from 'express';
+const app = express();
+app.use(express.json());
+// ... routes ...
+
+if (process.argv[1] === fileURLToPath(import.meta.url)) {
+  app.listen(3500, () => console.log('Running on :3500'));
+}
+
+export { app };
+```
+
+```javascript
+// tests/tasks.test.mjs — import app without starting server
+import { describe, it, expect, beforeAll } from 'vitest';
+import supertest from 'supertest';
+import { app } from '../server.js';
+
+const request = supertest(app);
+
+describe('Tasks REST API', () => {
+  it('should return tasks list', async () => {
+    const response = await request.get('/api/tasks');
+    expect(response.status).toBe(200);
+    expect(Array.isArray(response.body)).toBe(true);
+  });
+});
+```
+
+### Key Patterns for Express + Vitest
+
+| Pattern | Description |
+|---------|-------------|
+| **Export app, don't listen** | Supertest creates its own ephemeral server |
+| **AAA structure** | Arrange → Act → Assert with clear comments |
+| **Test error paths** | 400 for validation, 404 for missing resources, 500 for server errors |
+| **Test response shape** | Verify status, content-type, and body structure |
+| **Clean state between tests** | Use `beforeEach` to reset; don't depend on test order |
+| **Run sequentially** | Use `--sequence` if tests share file system state |
+
+### Testing Patterns by HTTP Method
+
+```javascript
+// GET — happy path + not found
+it('should return 200 with task list', async () => {
+  const res = await request.get('/api/tasks');
+  expect(res.status).toBe(200);
+  expect(res.headers['content-type']).toMatch(/json/);
+});
+
+// POST — happy path + validation
+it('should create task with valid data', async () => {
+  const task = { title: 'Test', priority: 2, type: 'bug' };
+  const res = await request.post('/api/tasks').send(task);
+  expect(res.status).toBe(201);
+  expect(res.body.title).toBe('Test');
+});
+
+// Security — path traversal
+it('should reject path traversal in task ID', async () => {
+  const res = await request.get('/api/tasks/../../../etc/passwd');
+  expect(res.status).toBe(400);
+});
+```
+
+### Best Practices
+
+1. **Clean state before each test, not after** — if a test fails and skips `afterEach`, the next test inherits dirty state
+2. **Use `forceExit`/`detectOpenHandles`** in config — Express apps frequently leave connections open
+3. **One test file per resource** — keep files under 300 lines
+4. **Test error paths as thoroughly as success paths** — error responses are part of your API contract
+5. **Extract helpers** — token generation, fixtures, cleanup functions go in `tests/helpers/`
+
+**Sources:**
+- https://grizzlypeaksoftware.com/library/integration-testing-patterns-with-expressjs-7mfqbms5 (Relevance: HIGH)
+- https://www.nucamp.co/blog/testing-in-2026-jest-react-testing-library-and-full-stack-testing-strategies (Relevance: HIGH)
+- https://www.npmjs.com/package/supertest (Relevance: HIGH)
 
 ---
 
 
 ## 6. Tailwind CSS Dark Mode — Architecture & Patterns
 
-**Relevance: HIGH** — Multiple tasks fix dark mode inconsistencies; project uses class-based dark mode toggle with localStorage persistence
+**Relevance: HIGH** — Multiple tasks fix dark mode inconsistencies
 
 ### Architecture (Three Pieces)
 
-1. **CSS Variables** — Define a palette in `:root` and override in `.dark`. Every color should be a variable, not a hardcoded hex.
-2. **Class Toggle** — Add/remove `dark` class on `<html>`. Tailwind detects this automatically.
-3. **Init Script** — Read stored preference (or system preference) and set class BEFORE paint to avoid flash.
+1. **CSS Variables** — Define a palette in `:root` and override in `.dark`
+2. **Class Toggle** — Add/remove `dark` class on `<html>`
+3. **Init Script** — Read stored preference BEFORE paint to avoid flash
 
-### Current Project Pattern
+### The `cn()` Utility Pattern
 
-The project uses `darkMode: 'class'` strategy in `tailwind.config.js` with a `theme-store.ts` that persists the user's choice to localStorage and applies/removes the `dark` class on `document.documentElement`.
+```typescript
+// src/utils/cn.ts
+import { clsx, type ClassValue } from 'clsx';
+import { twMerge } from 'tailwind-merge';
 
-### The Four Common Mistakes
-
-| Mistake | Cause | Fix |
-|---------|-------|-----|
-| **Hardcoded colors** | `bg-white`, `text-gray-900` without `dark:` variant | Always pair with `dark:bg-gray-800 dark:text-gray-100` |
-| **Theme flash** | JS sets class after paint | Run detection script synchronously in `<head>` |
-| **Broken images/icons** | Logos with white backgrounds | Provide dark variants or use `dark:invert` |
-| **Toggle without persistence** | Resets on reload | Store in localStorage, read in init script |
+export function cn(...inputs: ClassValue[]) {
+  return twMerge(clsx(inputs));
+}
+```
 
 ### Checklist for Every Component
 
@@ -672,49 +795,22 @@ The project uses `darkMode: 'class'` strategy in `tailwind.config.js` with a `th
 3. All `border-*` classes need `dark:border-*`
 4. Focus rings: `focus:ring-blue-500 dark:focus:ring-blue-400`
 5. Form inputs: `dark:bg-gray-700 dark:text-gray-100 dark:border-gray-600`
-6. Headings and labels: `dark:text-gray-200` or `dark:text-gray-300`
-7. Disabled states: `dark:text-gray-500 dark:bg-gray-800`
-8. Shadows: `shadow-lg dark:shadow-gray-900/50`
-
-### Testing Dark Mode (6-Step Protocol)
-
-1. Toggle twice — check no flash
-2. Reload on dark — confirm persistence
-3. Open every modal/dropdown/overlay — check colors apply inside
-4. Check all form states (focus, disabled) — verify visibility
-5. Inspect charts, images, icons — check they don't invert poorly
-6. Run contrast tool (axe DevTools) — verify WCAG AA on every text
+6. Disabled states: `dark:text-gray-500 dark:bg-gray-800`
+7. Shadows: `shadow-lg dark:shadow-gray-900/50`
 
 ### React Flow + Dark Mode
 
-React Flow v12 provides a built-in `colorMode` prop:
-
-```tsx
-<ReactFlow colorMode={isDark ? 'dark' : 'light'} ... />
-```
-
-This automatically themes edges, controls, minimap, background, selection box, and connection lines via CSS variables. Do NOT manually override these with Tailwind `!important` — it breaks the minimap (see task `2_33d0241e`).
+React Flow v12 provides a built-in `colorMode` prop. Do NOT manually override these with Tailwind `!important` — it breaks the minimap.
 
 **Sources:**
-- https://blog.vibecoder.me/dark-mode-implementation-web-app (Relevance: HIGH)
 - https://tailwindcss.com/docs/dark-mode (Relevance: HIGH)
 - https://reactflow.dev/examples/styling/dark-mode (Relevance: HIGH)
 
 ---
 
-
 ## 7. Accessibility — Focus Traps, ARIA Dialogs, Keyboard Navigation
 
 **Relevance: HIGH** — Multiple tasks: focus trapping in dialogs, ARIA dialog semantics, keyboard navigation between nodes
-
-### WCAG Standards for Modals/Panels
-
-| Criterion | Requirement |
-|-----------|-------------|
-| 2.1.1 Keyboard | All modal functionality operable via keyboard alone |
-| 2.1.2 No Keyboard Trap | Users must exit via Escape key or close button |
-| 2.4.3 Focus Order | Focus sequence inside modal must be logical |
-| 4.1.2 Name, Role, Value | Modal exposes role and state via ARIA |
 
 ### Required ARIA Attributes for Dialogs
 
@@ -724,61 +820,54 @@ This automatically themes edges, controls, minimap, background, selection box, a
      aria-describedby="modal-desc">
   <h2 id="modal-title">Title</h2>
   <p id="modal-desc">Description</p>
-  <!-- ... content ... -->
 </div>
 ```
 
-- Use `role="alertdialog"` for confirmation dialogs requiring user action
+- Use `role="alertdialog"` for confirmation dialogs
 - Use `role="complementary"` for side panels (like the SIPOC form panel)
 
 ### Focus Trap Implementation Pattern (React)
 
 ```typescript
-import { useEffect, useRef, useCallback } from 'react';
-
 function useFocusTrap(isOpen: boolean, onClose: () => void) {
   const containerRef = useRef<HTMLDivElement>(null);
   const triggerRef = useRef<HTMLElement | null>(null);
 
-  const getFocusableElements = useCallback(() => {
-    if (!containerRef.current) return [];
-    return containerRef.current.querySelectorAll(
-      'a[href], button:not([disabled]), textarea, input, select, [tabindex]:not([tabindex="-1"])'
-    );
-  }, []);
-
   useEffect(() => {
     if (!isOpen) return;
-
-    // Store trigger for focus restoration
     triggerRef.current = document.activeElement as HTMLElement;
 
-    const focusable = getFocusableElements();
+    const getFocusable = () => {
+      if (!containerRef.current) return [];
+      return containerRef.current.querySelectorAll(
+        'a[href], button:not([disabled]), textarea, input, select, [tabindex]:not([tabindex="-1"])'
+      );
+    };
+
+    const focusable = getFocusable();
     if (focusable.length > 0) (focusable[0] as HTMLElement).focus();
 
     function handleKeyDown(e: KeyboardEvent) {
       if (e.key === 'Escape') { onClose(); return; }
       if (e.key !== 'Tab') return;
 
-      const elements = getFocusableElements();
+      const elements = getFocusable();
       const first = elements[0] as HTMLElement;
       const last = elements[elements.length - 1] as HTMLElement;
 
       if (e.shiftKey && document.activeElement === first) {
-        e.preventDefault();
-        last.focus();
+        e.preventDefault(); last.focus();
       } else if (!e.shiftKey && document.activeElement === last) {
-        e.preventDefault();
-        first.focus();
+        e.preventDefault(); first.focus();
       }
     }
 
     document.addEventListener('keydown', handleKeyDown);
     return () => {
       document.removeEventListener('keydown', handleKeyDown);
-      triggerRef.current?.focus(); // Restore focus
+      triggerRef.current?.focus();
     };
-  }, [isOpen, onClose, getFocusableElements]);
+  }, [isOpen, onClose]);
 
   return containerRef;
 }
@@ -786,17 +875,12 @@ function useFocusTrap(isOpen: boolean, onClose: () => void) {
 
 ### The `inert` Attribute (Modern Alternative)
 
-Instead of manually managing `aria-hidden` and `tabindex` on background content:
-
 ```typescript
-// When modal opens
-document.getElementById('app-root')!.inert = true;
-
-// When modal closes
-document.getElementById('app-root')!.inert = false;
+document.getElementById('app-root')!.inert = true;  // When modal opens
+document.getElementById('app-root')!.inert = false; // When modal closes
 ```
 
-Supported in all major browsers (2024+). Disables interaction AND hides from assistive technology in one declaration.
+Supported in all major browsers (2024+). Disables interaction AND hides from assistive technology.
 
 ### Keyboard Navigation Checklist
 
@@ -805,121 +889,42 @@ Supported in all major browsers (2024+). Disables interaction AND hides from ass
 - **Enter / Space** — Activates buttons and interactive elements
 - **Arrow keys** — Navigate between related items (nodes, tabs)
 
-### Visible Focus Indicators (WCAG 2.4.7 + 2.4.13)
-
-```css
-:focus-visible {
-  outline: 3px solid #1a73e8;
-  outline-offset: 2px;
-  border-radius: 3px;
-}
-```
-
-In Tailwind:
-```html
-<button class="focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2">
-```
-
-Never remove focus outlines without providing a high-contrast alternative.
-
-### Common Issues & Fixes
-
-| Issue | Cause | Fix |
-|-------|-------|-----|
-| Focus escapes modal | Dynamic content adds elements after trap init | Re-query focusable elements in keydown handler |
-| Screen reader reads background | Background not inert | Apply `inert` attribute to app root |
-| Focus doesn't return on close | Trigger ref lost | Store `document.activeElement` before opening |
-| No visible focus indicator | CSS resets remove outlines | Add `:focus-visible` styles |
-
 **Sources:**
+- https://www.w3.org/WAI/ARIA/apg/patterns/dialog-modal/ (Relevance: HIGH)
 - https://www.uxpin.com/studio/blog/how-to-build-accessible-modals-with-focus-traps/ (Relevance: HIGH)
-- https://clhenrick.io/blog/react-a11y-modal-dialog/ (Relevance: HIGH)
-- https://www.w3.org/WAI/WCAG22/Techniques/css/C39 (Relevance: MEDIUM)
-- https://techoral.com/react/react-accessibility.html (Relevance: MEDIUM)
 
 ---
 
-
 ## 8. Prefers-Reduced-Motion — Accessible Animations
 
-**Relevance: HIGH** — Task `3_47be87f3` specifically requires adding prefers-reduced-motion support for animated edges
+**Relevance: HIGH** — Task requires adding prefers-reduced-motion support for animated edges
 
 ### Tailwind CSS Modifiers
 
-Tailwind provides two built-in modifiers:
-
-- **`motion-safe:`** — Only applies styles when user has NOT requested reduced motion
-- **`motion-reduce:`** — Only applies styles when user HAS requested reduced motion
-
 ```html
-<!-- Animation only runs if user allows motion -->
 <div class="motion-safe:animate-pulse motion-reduce:animate-none">
-
-<!-- Transition only if motion is safe -->
 <div class="motion-safe:transition-all motion-safe:duration-300 motion-reduce:transition-none">
-
-<!-- Alternative static state for reduced-motion users -->
-<div class="motion-safe:animate-slowpan motion-reduce:bg-center">
-```
-
-### The Right Mental Model
-
-**Don't start with animations and disable them.** Start WITHOUT animations and enable them conditionally:
-
-```css
-/* ❌ Bad: animations on by default, disable for reduced motion */
-.animated-edge { transition: all 300ms; }
-@media (prefers-reduced-motion: reduce) { .animated-edge { transition: none; } }
-
-/* ✅ Good: no animation by default, enable for users who allow it */
-.animated-edge { /* no transition */ }
-@media (prefers-reduced-motion: no-preference) {
-  .animated-edge { transition: all 300ms; }
-}
-```
-
-In Tailwind, use `motion-safe:` prefix (equivalent to `no-preference`):
-
-```html
-<div class="motion-safe:transition-all motion-safe:duration-300">
 ```
 
 ### React Hook: `usePrefersReducedMotion`
 
-For JS-driven animations (React Spring, animated SVG edges, etc.):
-
 ```typescript
 function usePrefersReducedMotion(): boolean {
-  const QUERY = '(prefers-reduced-motion: no-preference)';
   const [prefersReducedMotion, setPrefersReducedMotion] = useState(true);
 
   useEffect(() => {
+    const QUERY = '(prefers-reduced-motion: no-preference)';
     const mediaQueryList = window.matchMedia(QUERY);
     setPrefersReducedMotion(!mediaQueryList.matches);
 
     const listener = (event: MediaQueryListEvent) => {
       setPrefersReducedMotion(!event.matches);
     };
-
     mediaQueryList.addEventListener('change', listener);
     return () => mediaQueryList.removeEventListener('change', listener);
   }, []);
 
   return prefersReducedMotion;
-}
-```
-
-Usage with animated edges:
-
-```tsx
-function AnimatedEdge({ ... }) {
-  const prefersReducedMotion = usePrefersReducedMotion();
-
-  // Skip animation entirely for reduced-motion users
-  const animationDuration = prefersReducedMotion ? 0 : 300;
-  const dashAnimation = prefersReducedMotion ? 'none' : 'dashdraw 0.5s linear infinite';
-
-  return <path style={{ animationDuration: `${animationDuration}ms`, animation: dashAnimation }} />;
 }
 ```
 
@@ -931,18 +936,20 @@ function AnimatedEdge({ ... }) {
 | Edge flow animations (dashed line moving) | Yes | Continuous motion, distracting |
 | Opacity fades | No (usually safe) | No spatial movement |
 | Color transitions | No (usually safe) | No spatial movement |
-| Scale/bounce | Yes | Spatial motion |
-| Spinner/loading | Replace | Use static indicator or reduced animation |
 
-### Testing
+### CSS for React Flow Animated Edges
 
-In Chrome DevTools: Ctrl+Shift+P → type "reduce" → select "Emulate CSS prefers-reduced-motion: reduce"
+```css
+@media (prefers-reduced-motion: reduce) {
+  .react-flow__edge-path {
+    animation: none !important;
+  }
+}
+```
 
 **Sources:**
 - https://www.joshwcomeau.com/react/prefers-reduced-motion/ (Relevance: HIGH)
-- https://epicweb.dev/tips/motion-safe-and-motion-reduce-modifiers (Relevance: HIGH)
 - https://www.w3.org/WAI/WCAG22/Techniques/css/C39 (Relevance: HIGH)
-- https://tailwindcss.com/docs/transition-duration (Relevance: MEDIUM)
 
 ---
 
@@ -953,21 +960,17 @@ In Chrome DevTools: Ctrl+Shift+P → type "reduce" → select "Emulate CSS prefe
 
 ### Library Mode (Current Project Pattern)
 
-The project uses React Router v7 in **library mode** — `BrowserRouter` + `Routes` + `Route` with JSX route definitions. This is the simpler approach (vs. data router/framework mode) and appropriate for this SPA.
+The project uses React Router v7 in **library mode** — `BrowserRouter` + `Routes` + `Route` with JSX route definitions.
 
-### Key Patterns for Value Modeller
-
-#### Nested Layouts with Outlet
+### Key Patterns
 
 ```tsx
-// Layout provides shell; Outlet renders child route
+// Nested Layouts with Outlet
 function AppLayout() {
   return (
     <div className="flex h-screen">
       <Header />
-      <main className="flex-1">
-        <Outlet />  {/* Child route renders here */}
-      </main>
+      <main className="flex-1"><Outlet /></main>
     </div>
   );
 }
@@ -980,72 +983,32 @@ function AppLayout() {
 </Route>
 ```
 
-#### URL Parameters with `useParams`
+### Route-Level Code Splitting with React.lazy
 
 ```tsx
-function CanvasEditor() {
-  const { streamId } = useParams<{ streamId: string }>();
-  // Load stream data based on streamId
-}
+import { Suspense, lazy } from 'react';
+
+const LandingPage = lazy(() => import('./components/landing/landing-page'));
+const StreamEditor = lazy(() => import('./components/layout/stream-editor'));
+
+// In routes:
+<Route index element={
+  <Suspense fallback={<LoadingSpinner />}>
+    <LandingPage />
+  </Suspense>
+} />
+<Route path="stream/:streamId" element={
+  <Suspense fallback={<LoadingSpinner />}>
+    <StreamEditor />
+  </Suspense>
+} />
 ```
 
-#### Programmatic Navigation
-
-```tsx
-const navigate = useNavigate();
-
-// Navigate to stream
-navigate(`/stream/${streamId}`);
-
-// Go back
-navigate(-1);
-
-// Replace current entry (no new history entry)
-navigate('/streams', { replace: true });
-```
-
-#### Search Params for Shareable UI State
-
-Use URL search params for state that should survive refresh and be shareable:
-
-```tsx
-const [searchParams, setSearchParams] = useSearchParams();
-const filter = searchParams.get('filter') || 'all';
-const view = searchParams.get('view') || 'card';
-
-// Update without navigation
-setSearchParams({ filter: 'active', view: 'table' });
-```
-
-**Good for URL:** filters, pagination, sort order, view mode
-**Bad for URL:** selected node, panel open/closed, draft text
-
-#### Code Splitting with React.lazy
-
-```tsx
-const CanvasEditor = lazy(() => import('./pages/CanvasEditor'));
-const LandingPage = lazy(() => import('./pages/LandingPage'));
-
-<Suspense fallback={<LoadingSkeleton />}>
-  <Routes>
-    <Route path="/" element={<LandingPage />} />
-    <Route path="/stream/:streamId" element={<CanvasEditor />} />
-  </Routes>
-</Suspense>
-```
-
-### Testing Routes
-
-```tsx
-import { MemoryRouter } from 'react-router-dom';
-
-// Wrap in MemoryRouter for tests
-render(
-  <MemoryRouter initialEntries={['/stream/abc123']}>
-    <App />
-  </MemoryRouter>
-);
-```
+Key points:
+- Use `React.lazy()` with dynamic `import()` — Vite automatically creates separate chunks
+- Wrap lazy components in `<Suspense>` with a loading fallback
+- For named exports: `lazy(() => import('./module').then(m => ({ default: m.NamedExport })))`
+- Initial bundle size reduces by 50-70% when splitting route-level components
 
 ### Common Pitfalls
 
@@ -1054,104 +1017,33 @@ render(
 | Using `<a href>` instead of `<Link>` | Causes full page reload; use `<Link to="...">` |
 | Server returns 404 on refresh | Configure server to serve index.html for all routes |
 | Back button goes to unexpected state | Use `replace: true` for state changes that shouldn't create history |
-| Stale data after navigation | Re-fetch data when params change (use key on route or effect deps) |
 
 **Sources:**
-- https://thelinuxcode.com/react-router-dom-on-npm-a-2026-field-guide-for-predictable-routing/ (Relevance: HIGH)
-- https://micropyramid.com/blog/react-router-for-navigation/ (Relevance: MEDIUM)
 - https://reactrouter.com/en/main (Relevance: HIGH)
+- https://www.robinwieruch.de/react-router-lazy-loading/ (Relevance: HIGH)
+- https://remix.run/blog/faster-lazy-loading (Relevance: HIGH)
 
 ---
 
-
 ## 10. SOLID Principles in React — Custom Hook & Component Composition
 
-**Relevance: HIGH** — Project has many custom hooks; tasks require extracting logic (e.g., `3_ec3fe23c` extracts sub-concerns into hooks)
+**Relevance: HIGH** — Project has many custom hooks; tasks require extracting logic into hooks
 
 ### Single Responsibility Principle (SRP)
 
-Each component/hook should have **one reason to change**.
-
-**Pattern:** Split "god components" into:
-- **Custom hooks** for data fetching and state logic
-- **Utility functions** for business logic (filtering, transformation)
-- **Presentational components** for pure UI rendering
-- **Container components** for composition
-
 ```typescript
-// ❌ Bad: one component does everything
-function FlowCanvas() {
-  // 200 lines mixing: event handlers, state, layout, rendering, persistence
-}
+// ❌ Bad: one component does everything (300+ lines)
+function FlowCanvas() { /* event handlers + state + layout + rendering + persistence */ }
 
 // ✅ Good: concerns extracted into focused hooks
 function FlowCanvas() {
-  const { nodes, edges, onNodesChange, onEdgesChange } = useGraphStore(selector);
-  const { handleConnect } = useConnectionLogic();
-  const { contextMenu, onContextMenu } = useCanvasContextMenu();
-  const { helperLines, onNodeDrag } = useHelperLines();
-  const { clipboard, onCopy, onPaste } = useCanvasClipboard();
-
+  const graph = useGraphStore(graphSelector);
+  const contextMenu = useCanvasContextMenu();
+  const clipboard = useCanvasClipboard();
+  const helperLines = useHelperLines();
+  const groupDrag = useGroupDragDetection();
   return <ReactFlow ... />;
 }
-```
-
-### Open/Closed Principle (OCP)
-
-Components should be **open for extension** but **closed for modification**.
-
-**Pattern:** Use composition and props instead of internal conditionals:
-
-```typescript
-// ❌ Bad: modify component for every new node type
-function NodeComponent({ type }) {
-  if (type === 'sipoc') return <SipocView />;
-  if (type === 'group') return <GroupView />;
-  // Must edit this file for every new type
-}
-
-// ✅ Good: use React Flow's nodeTypes registry
-const nodeTypes = {
-  sipoc: SipocNodeComponent,
-  group: GroupNodeComponent,
-  // Add new types without modifying existing code
-};
-<ReactFlow nodeTypes={nodeTypes} ... />
-```
-
-### Dependency Inversion Principle (DIP)
-
-High-level components depend on abstractions (props/hooks), not concrete implementations.
-
-**Pattern:** Pass dependencies via props or hooks:
-
-```typescript
-// ❌ Bad: component tightly coupled to specific store
-function NodeCard() {
-  const data = useGraphStore(s => s.getNodeById('hardcoded-id'));
-}
-
-// ✅ Good: component receives data via props
-function NodeCard({ nodeData }: { nodeData: SipocNodeData }) {
-  // Pure presentational — works with any data source
-}
-```
-
-### Interface Segregation Principle (ISP)
-
-Don't force components to depend on props they don't use.
-
-**Pattern:** Use `children` composition instead of bloated prop interfaces:
-
-```typescript
-// ❌ Bad: monolithic prop interface
-<Panel showClose showMinimize title="..." onClose={...} onMinimize={...} theme="..." />
-
-// ✅ Good: compose only what's needed
-<Panel title="SIPOC Details">
-  <CloseButton onClick={onClose} />
-  {children}
-</Panel>
 ```
 
 ### Custom Hook Composition Rules
@@ -1166,53 +1058,27 @@ Don't force components to depend on props they don't use.
 ### Extracting Hooks from Components (Refactoring Pattern)
 
 When a component grows beyond ~150 lines:
-
 1. Identify clusters of related state + effects
 2. Extract each cluster into a `useXxx` hook
 3. The hook returns only the values/handlers the component needs
 4. The component becomes a thin render layer composing hooks
 
-```typescript
-// Before: 300-line component with mixed concerns
-// After:
-function FlowCanvas() {
-  const graph = useGraphStore(graphSelector);
-  const contextMenu = useCanvasContextMenu();
-  const clipboard = useCanvasClipboard();
-  const helperLines = useHelperLines();
-  const groupDrag = useGroupDragDetection();
-
-  return (
-    <ReactFlow
-      onContextMenu={contextMenu.onContextMenu}
-      onNodeDrag={helperLines.onNodeDrag}
-      {...graph}
-    >
-      {contextMenu.isOpen && <ContextMenu {...contextMenu} />}
-      {helperLines.visible && <HelperLines {...helperLines} />}
-    </ReactFlow>
-  );
-}
-```
-
 **Sources:**
 - https://elvisduru.com/blog/applying-solid-principles-in-react-a-practical-guide (Relevance: HIGH)
 - https://certificates.dev/blog/writing-custom-hooks-in-react-patterns-pitfalls-and-when-to-reach-for-one (Relevance: HIGH)
-- https://feature-sliced.design/blog/react-hooks-architecture (Relevance: MEDIUM)
 
 ---
 
-
 ## 11. React.memo, useCallback, useMemo — When They Help vs. Hurt
 
-**Relevance: HIGH** — SmartEdge memoization task, performance optimization tasks, React Flow requires memoized handlers
+**Relevance: HIGH** — SmartEdge memoization task, performance optimization tasks
 
 ### When to Use Each
 
 | Tool | What it Memoizes | Use When |
 |------|-----------------|----------|
 | `React.memo` | Component output | Expensive render; parent re-renders often without changing this child's props |
-| `useMemo` | Computed value | Expensive calculation (filter/sort/transform large data); stable object reference needed |
+| `useMemo` | Computed value | Expensive calculation; stable object reference needed |
 | `useCallback` | Function reference | Function passed to memoized child; function in effect dependency array |
 
 ### Rules for This Project
@@ -1220,113 +1086,446 @@ function FlowCanvas() {
 **Always memoize:**
 - Custom React Flow node components (`React.memo`)
 - Custom React Flow edge components (`React.memo`)
-- All React Flow event handlers (`useCallback`) — `onNodesChange`, `onEdgesChange`, `onConnect`, `onNodeClick`, etc.
+- All React Flow event handlers (`useCallback`)
 - Objects/arrays passed as props to React Flow (`useMemo`) — `defaultEdgeOptions`, `snapGrid`, `nodeTypes`, `edgeTypes`
 
 **Don't bother memoizing:**
 - Simple leaf components with cheap renders
-- Values that are already primitives (strings, numbers, booleans)
+- Values that are already primitives
 - Functions that aren't passed as props to memoized children
-- Calculations that take < 1ms
-
-### Pattern: Memoized Custom Edge Component
-
-```tsx
-import { memo } from 'react';
-import type { EdgeProps } from '@xyflow/react';
-
-// ✅ Memoize edge components — they re-render on every node drag without this
-const SmartEdge = memo(function SmartEdge({ id, source, target, ...props }: EdgeProps) {
-  // ❌ Don't subscribe to nodes array here!
-  // const nodes = useGraphStore(s => s.nodes); // Causes re-render on every drag
-
-  // ✅ Use imperative access instead
-  const { getNodes } = useReactFlow();
-
-  const path = useMemo(() => {
-    const nodes = getNodes();
-    return computeSmartPath(source, target, nodes);
-  }, [source, target, getNodes]);
-
-  return <BaseEdge path={path} {...props} />;
-});
-```
 
 ### Pattern: Stable nodeTypes / edgeTypes
 
 ```tsx
-// ✅ Define OUTSIDE component or in useMemo — prevents React Flow from re-registering
+// ✅ Define OUTSIDE component — prevents React Flow from re-registering
 const nodeTypes = { sipoc: SipocNodeComponent, group: GroupNodeComponent };
 const edgeTypes = { smart: SmartEdge, labeled: LabeledEdge };
 
 function FlowCanvas() {
-  // ❌ DON'T define inside render — creates new object every render
-  // const nodeTypes = { sipoc: SipocNode };
-
   return <ReactFlow nodeTypes={nodeTypes} edgeTypes={edgeTypes} ... />;
 }
 ```
 
-### Pattern: Stable Event Handlers
-
-```tsx
-function FlowCanvas() {
-  // ✅ Memoize handlers — React Flow compares by reference
-  const handleNodeClick = useCallback((_event: React.MouseEvent, node: Node) => {
-    selectNode(node.id);
-  }, [selectNode]);
-
-  const handlePaneClick = useCallback(() => {
-    deselectNode();
-  }, [deselectNode]);
-
-  return <ReactFlow onNodeClick={handleNodeClick} onPaneClick={handlePaneClick} ... />;
-}
-```
-
-### Anti-Patterns to Avoid
-
-| Anti-Pattern | Why it's Bad | Fix |
-|--------------|-------------|-----|
-| `memo` on every component | Adds comparison overhead with zero benefit | Only memo components with expensive renders or frequent parent re-renders |
-| Inline object/array as prop to memoized child | New reference every render defeats `memo` | Extract to `useMemo` or module-level constant |
-| `useCallback` with unstable deps | Re-creates function anyway | Use functional state updates (`setState(prev => ...)`) to minimize deps |
-| `useMemo` for cheap operations | Cache overhead > computation cost | Only memoize when computation is measurably expensive |
-| Memoizing inside map loops | Hook rules violation | Extract mapped item to separate memoized component |
-
-### Measuring Performance
-
-Before optimizing, profile first:
-1. React DevTools Profiler — identify which components re-render and why
-2. Chrome Performance tab — find long tasks during interaction
-3. `console.count('SmartEdge render')` — quick check for render frequency
-
 **Sources:**
-- https://www.debugbear.com/blog/react-usememo-usecallback (Relevance: HIGH)
-- https://kentcdodds.com/blog/usememo-and-usecallback (Relevance: HIGH)
 - https://reactflow.dev/learn/advanced-use/performance (Relevance: HIGH)
-- https://freecodecamp.org/news/how-to-avoid-overusing-usecallback-and-usememo-in-react (Relevance: MEDIUM)
+- https://kentcdodds.com/blog/usememo-and-usecallback (Relevance: HIGH)
 
 ---
 
 
-## 12. Quick Reference — Guidelines Mapped to Active Tasks
+## 12. Export/Import JSON — File Download Pattern
+
+**Relevance: HIGH** — Project has export/import feature
+
+### Download JSON File (Browser)
+
+```typescript
+export function downloadJsonFile(data: object, filename: string): void {
+  const json = JSON.stringify(data, null, 2);
+  const blob = new Blob([json], { type: 'application/json' });
+  const url = URL.createObjectURL(blob);
+
+  const link = document.createElement('a');
+  link.href = url;
+  link.download = filename;
+  document.body.appendChild(link);
+  link.click();
+
+  document.body.removeChild(link);
+  URL.revokeObjectURL(url);
+}
+```
+
+### Import JSON File (Browser)
+
+```typescript
+export function importJsonFile<T>(file: File): Promise<T> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      try {
+        const data = JSON.parse(event.target?.result as string);
+        resolve(data);
+      } catch (e) {
+        reject(new Error('Invalid JSON file'));
+      }
+    };
+    reader.onerror = () => reject(new Error('Failed to read file'));
+    reader.readAsText(file);
+  });
+}
+```
+
+### Validation Pattern
+
+```typescript
+function isValidExportedModel(data: unknown): data is ExportedModel {
+  if (!data || typeof data !== 'object') return false;
+  const obj = data as Record<string, unknown>;
+  if (!Array.isArray(obj.nodes) || !Array.isArray(obj.edges)) return false;
+  return obj.nodes.every(node =>
+    typeof node === 'object' && node !== null &&
+    'id' in node && 'position' in node && 'data' in node
+  );
+}
+```
+
+**Sources:**
+- https://developer.mozilla.org/en-US/docs/Web/API/URL/createObjectURL_static (Relevance: MEDIUM)
+
+---
+
+## 13. React Error Boundaries — Crash Protection
+
+**Relevance: HIGH** — Active task to add Error Boundary for demo safety; prevents white screen crashes
+
+### What Boundaries Catch (and Don't)
+
+**Caught:** Errors during rendering, lifecycle methods, constructors of child components.
+**NOT caught:** Event handlers, async code, server-side rendering.
+
+### TypeScript Error Boundary Component
+
+```typescript
+import { Component, type ErrorInfo, type ReactNode } from 'react';
+
+interface Props {
+  children: ReactNode;
+  fallback?: ReactNode;
+  onError?: (error: Error, info: ErrorInfo) => void;
+}
+
+interface State {
+  hasError: boolean;
+  error: Error | null;
+}
+
+export class ErrorBoundary extends Component<Props, State> {
+  constructor(props: Props) {
+    super(props);
+    this.state = { hasError: false, error: null };
+  }
+
+  static getDerivedStateFromError(error: Error): State {
+    return { hasError: true, error };
+  }
+
+  componentDidCatch(error: Error, info: ErrorInfo) {
+    console.error('[ErrorBoundary]', error, info.componentStack);
+    this.props.onError?.(error, info);
+  }
+
+  render() {
+    if (this.state.hasError) {
+      return this.props.fallback ?? <p>Something went wrong.</p>;
+    }
+    return this.props.children;
+  }
+}
+```
+
+### Where to Place Boundaries
+
+- **App root** — Prevents full white screen; shows reload option
+- **Per route/page** — One broken page doesn't kill another
+- **Around optional features** — Sidebar, recommendations, charts (non-critical UI)
+- **Around third-party code** — Embedded widgets, library components you don't control
+
+### Fallback UX Best Practices
+
+Good fallbacks should:
+- Acknowledge that something broke, briefly
+- Offer a recovery action (try again, refresh, clear data and reload)
+- Show a reduced version of the feature if possible
+- Never show raw error messages to end users
+
+### Reset Pattern with `react-error-boundary`
+
+```tsx
+import { ErrorBoundary } from 'react-error-boundary';
+
+function ErrorFallback({ error, resetErrorBoundary }: {
+  error: Error;
+  resetErrorBoundary: () => void;
+}) {
+  return (
+    <div role="alert">
+      <p>Something went wrong: {error.message}</p>
+      <button onClick={resetErrorBoundary}>Try again</button>
+    </div>
+  );
+}
+
+// Usage — resetKeys causes boundary to reset when key changes
+<ErrorBoundary
+  FallbackComponent={ErrorFallback}
+  onError={(error, info) => reportError(error, info.componentStack)}
+  resetKeys={[streamId]}
+>
+  <StreamEditor />
+</ErrorBoundary>
+```
+
+### ChunkLoadError Handling (For Code-Split Apps)
+
+When using `React.lazy()`, network failures cause `ChunkLoadError`. Handle it specifically:
+
+```typescript
+static getDerivedStateFromError(error: Error): State {
+  if (error.name === 'ChunkLoadError') {
+    // Offer page reload instead of generic error
+    return { hasError: true, error, isChunkError: true };
+  }
+  return { hasError: true, error, isChunkError: false };
+}
+```
+
+**Sources:**
+- https://paulund.co.uk/notebook/react/react-error-boundaries-in-practice/ (Relevance: HIGH)
+- https://stevekinney.com/courses/react-typescript/error-boundaries-and-suspense-boundaries (Relevance: HIGH)
+
+---
+
+
+## 14. TypeScript Strict Mode — Patterns for React
+
+**Relevance: HIGH** — Project uses TypeScript strict mode; coding standards demand no `any`; multiple component/hook tasks need proper typing
+
+### Essential Strict Options for React
+
+| Option | What it Catches |
+|--------|----------------|
+| `noImplicitAny` | Untyped props, event handlers, `useState()` without type param |
+| `strictNullChecks` | Optional props accessed without null check; API data that might be null |
+| `noImplicitReturns` | Components with missing return in some branches |
+| `strictFunctionTypes` | Callback props with wrong signatures |
+
+### Common Patterns
+
+**Always type `useState` for complex/nullable state:**
+```typescript
+// ❌ TypeScript infers type as undefined
+const [user, setUser] = useState();
+
+// ✅ Explicit null union
+const [user, setUser] = useState<User | null>(null);
+```
+
+**Event handler typing (reference table):**
+
+| Element | Event Type | Use Case |
+|---------|-----------|----------|
+| `<input>`, `<textarea>` | `React.ChangeEvent<HTMLInputElement>` | Form inputs |
+| `<form>` | `React.FormEvent<HTMLFormElement>` | Form submission |
+| `<button>`, `<div>` | `React.MouseEvent<HTMLButtonElement>` | Click handlers |
+| `<input>` | `React.KeyboardEvent<HTMLInputElement>` | Keyboard shortcuts |
+
+**Prop typing with utility types:**
+```typescript
+// Extend native HTML attributes for proper prop spreading
+type ButtonProps = React.ButtonHTMLAttributes<HTMLButtonElement> & {
+  variant: 'primary' | 'secondary' | 'danger';
+};
+
+// Pick/Omit for reuse
+type PublicUser = Omit<User, 'password'>;
+type UserPreview = Pick<User, 'id' | 'name'>;
+```
+
+**Discriminated unions for state machines:**
+```typescript
+type ApiState<T> =
+  | { status: 'idle' }
+  | { status: 'loading' }
+  | { status: 'success'; data: T }
+  | { status: 'error'; error: string };
+```
+
+**`forwardRef` typing:**
+```typescript
+const Input = forwardRef<HTMLInputElement, InputProps>(
+  ({ placeholder, error }, ref) => {
+    return <input ref={ref} placeholder={placeholder} />;
+  },
+);
+Input.displayName = 'Input';
+```
+
+**Context with type guard:**
+```typescript
+const ThemeContext = createContext<Theme | undefined>(undefined);
+
+export function useTheme() {
+  const theme = useContext(ThemeContext);
+  if (!theme) {
+    throw new Error('useTheme must be used within ThemeProvider');
+  }
+  return theme; // TypeScript narrows to Theme (not Theme | undefined)
+}
+```
+
+### When to Use `// @ts-expect-error`
+
+Prefer `@ts-expect-error` over `@ts-ignore` — it fails if the error disappears (ensuring you remove the suppression when it's no longer needed):
+```typescript
+// @ts-expect-error: third-party library has incorrect types for this method
+const result = poorlyTypedLibrary.method();
+```
+
+**Sources:**
+- https://stevekinney.com/courses/react-typescript/strictness-options-for-react (Relevance: HIGH)
+- https://www.greatfrontend.com/blog/typescript-for-react-developers (Relevance: HIGH)
+
+---
+
+## 15. Vite 6 Build Optimization — Code Splitting & Bundle Size
+
+**Relevance: MEDIUM** — Relevant for production deployment and demo performance; project uses Vite 6
+
+### Manual Chunk Splitting for This Project
+
+```typescript
+// vite.config.ts
+export default defineConfig({
+  build: {
+    target: 'esnext',
+    minify: 'esbuild',
+    sourcemap: true,
+    rollupOptions: {
+      output: {
+        manualChunks: {
+          'react-vendor': ['react', 'react-dom'],
+          'router-vendor': ['react-router-dom'],
+          'flow-vendor': ['@xyflow/react'],
+          'state-vendor': ['zustand'],
+        },
+        chunkFileNames: 'js/[name]-[hash].js',
+        entryFileNames: 'js/[name]-[hash].js',
+        assetFileNames: 'assets/[name]-[hash].[ext]',
+      },
+    },
+  },
+});
+```
+
+### Route-Based Code Splitting
+
+Combine React.lazy with Vite's automatic chunk creation:
+```typescript
+const LandingPage = lazy(() => import('./components/landing/landing-page'));
+const StreamEditor = lazy(() => import('./components/layout/stream-editor'));
+```
+
+Each dynamic `import()` becomes a separate chunk that loads only when the route is visited.
+
+### Tree Shaking Best Practices
+
+```typescript
+// ❌ Imports entire library
+import _ from 'lodash';
+
+// ✅ Import specific functions (tree-shakeable)
+import { debounce, throttle } from 'lodash-es';
+```
+
+### Bundle Analysis
+
+```typescript
+// vite.config.ts — add for analysis
+import { visualizer } from 'rollup-plugin-visualizer';
+
+plugins: [
+  visualizer({
+    filename: 'dist/stats.html',
+    open: true,
+    gzipSize: true,
+    brotliSize: true,
+  }),
+],
+```
+
+### Key Optimization Results (Typical)
+
+| Technique | Bundle Size Reduction |
+|-----------|----------------------|
+| Vendor chunk splitting | 40-60% main bundle |
+| Route-based code splitting | 50-70% initial load |
+| Tree shaking (ES modules) | 200-500KB |
+
+**Sources:**
+- https://markaicode.com/vite-6-build-optimization-guide/ (Relevance: HIGH)
+- https://stevekinney.com/courses/react-typescript/vite-react-typescript-optimization (Relevance: MEDIUM)
+
+---
+
+
+## 16. Quick Reference — Guidelines Mapped to Active Tasks
 
 | Task Category | Relevant Sections | Key Takeaway |
 |---------------|-------------------|--------------|
-| Dark mode fixes (5+ tasks) | §6 Dark Mode | Always pair light classes with `dark:` variants; use React Flow `colorMode` prop |
+| Dark mode fixes (5+ tasks) | §6 Dark Mode | Always pair light classes with `dark:` variants; use React Flow `colorMode` prop; never use `!important` on colors |
 | SmartEdge performance | §1 React Flow, §11 Memoization | Use `useReactFlow().getNodes()` for imperative access; wrap with `React.memo` |
 | Focus trap / ARIA dialog | §7 Accessibility | Use `useFocusTrap` hook; apply `inert` to background; restore focus on close |
 | Keyboard navigation | §7 Accessibility | Arrow keys between nodes; Tab through focusable elements; visible focus rings |
 | prefers-reduced-motion | §8 Reduced Motion | `motion-safe:` prefix for Tailwind animations; `usePrefersReducedMotion` hook for JS |
 | Undo/redo | §4 Zundo | `temporal` middleware with `partialize`, `limit: 50`, debounced `handleSet` |
 | Unit tests (frontend) | §5 Vitest + RTL | `getByRole` first; `userEvent` over `fireEvent`; mock ResizeObserver for React Flow |
-| Unit tests (TecFactory) | §5 Vitest + Supertest | AAA pattern; ESM `.test.mjs` files; isolate tests with cleanup |
+| Unit tests (TecFactory) | §5b Express + Supertest | AAA pattern; separate app from server; ESM `.test.mjs` files |
 | Custom hook extraction | §10 SOLID/Hooks | One concern per hook; return stable refs; compose in container component |
 | Auto-layout | §2 Dagre | Reset graph before layout; use actual node dimensions; `fitView()` after |
-| Export/Import | §3 Zustand, §9 Router | JSON file download/upload; persist with error handling; keep URLs shareable |
+| Export/Import | §12 JSON Export | Blob + createObjectURL for download; FileReader for import; validate shape |
 | Node grouping / swimlanes | §1 React Flow (Sub-Flows) | Parent before children in array; `extent: 'parent'`; relative positioning |
-| Route navigation | §9 React Router v7 | Use `<Link>` not `<a>`; lazy load routes; `useParams` for stream ID |
+| Cycle detection / DAG | §1 React Flow (Cycle) | Use `getOutgoers` util; `isValidConnection` callback; DFS traversal |
+| Route navigation | §9 React Router v7 | Use `<Link>` not `<a>`; `useParams` for stream ID; lazy loading for routes |
+| State persistence evolution | §3 Zustand (Migrate) | Increment `version`; implement `migrate` function for breaking changes |
+| Error boundaries | §13 Error Boundaries | Class component wrapping App; per-route boundaries; ChunkLoadError handling |
+| TypeScript patterns | §14 TypeScript Strict | No `any`; type `useState` explicitly; discriminated unions for state |
+| Build optimization | §15 Vite Build | Manual chunks; route-level code splitting; tree shaking with ESM imports |
+| cn() utility usage | §6 Dark Mode (cn) | `clsx` for conditions + `tailwind-merge` for conflict resolution |
+
+---
+
+## 17. Component Dark Mode Checklist (New Component Template)
+
+When creating any new component, apply these dark mode classes from the start:
+
+```tsx
+function NewComponent() {
+  return (
+    <div className={cn(
+      'bg-white border-gray-200 shadow-sm',
+      'dark:bg-gray-800 dark:border-gray-700 dark:shadow-gray-900/20',
+    )}>
+      <h2 className="text-gray-900 dark:text-gray-100">Title</h2>
+      <p className="text-gray-600 dark:text-gray-400">Description</p>
+
+      <input className={cn(
+        'border-gray-300 bg-white text-gray-900 placeholder-gray-400',
+        'dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 dark:placeholder-gray-500',
+        'focus:ring-primary-500 dark:focus:ring-primary-400',
+      )} />
+
+      <button className={cn(
+        'bg-primary-600 text-white hover:bg-primary-700',
+        'dark:bg-primary-500 dark:hover:bg-primary-600',
+        'focus-visible:ring-2 focus-visible:ring-primary-500 focus-visible:ring-offset-2',
+        'dark:focus-visible:ring-offset-gray-800',
+      )}>
+        Action
+      </button>
+    </div>
+  );
+}
+```
+
+### Six-Step Dark Mode Testing Protocol
+
+1. Toggle twice — check no flash
+2. Reload on dark — confirm persistence
+3. Open every modal/dropdown/overlay — check colors apply inside
+4. Check all form states (focus, disabled) — verify visibility
+5. Inspect charts, images, icons — check they don't invert poorly
+6. Run contrast check — verify WCAG AA on every text element
 
 ---
 

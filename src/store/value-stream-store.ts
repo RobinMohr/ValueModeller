@@ -70,10 +70,12 @@ function createSdlcDemoStream(): ValueStream {
   };
 }
 
+const DEMO_STREAMS = [createDemoStream(), createSdlcDemoStream()];
+
 export const useValueStreamStore = create<ValueStreamStore>()(
   persist(
     (set, get) => ({
-      streams: [createDemoStream(), createSdlcDemoStream()],
+      streams: DEMO_STREAMS,
 
       createStream: (name) => {
         const stream = createDefaultStream(name);
@@ -113,6 +115,20 @@ export const useValueStreamStore = create<ValueStreamStore>()(
       name: 'value-modeller-streams',
       version: 1,
       storage: createJSONStorage(() => safeLocalStorage),
+      merge: (persistedState, currentState) => {
+        const persisted = persistedState as Partial<ValueStreamStore> | undefined;
+        if (!persisted || !persisted.streams) {
+          return { ...currentState };
+        }
+        // Merge demo streams into persisted data if they were deleted or never existed
+        const persistedIds = new Set(persisted.streams.map((s) => s.id));
+        const missingDemos = DEMO_STREAMS.filter((d) => !persistedIds.has(d.id));
+        return {
+          ...currentState,
+          ...persisted,
+          streams: [...missingDemos, ...persisted.streams],
+        };
+      },
     }
   )
 );

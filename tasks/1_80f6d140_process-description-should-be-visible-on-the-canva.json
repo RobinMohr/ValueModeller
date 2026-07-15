@@ -1,0 +1,9 @@
+{
+  "title": "process description should be visible on the canvas board",
+  "type": "improvement",
+  "priority": 1,
+  "description": "i want the process description to be shown in the step even without opening the step itself.\nit should be visible like the other sipoc values are.\nmake it visible on the steps in the canvas board",
+  "state": "developed",
+  "origin": "user",
+  "id": "80f6d140"
+}

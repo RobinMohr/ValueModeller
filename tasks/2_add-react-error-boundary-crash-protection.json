@@ -1,0 +1,13 @@
+{
+  "id": "a1e73f92",
+  "title": "Add React Error Boundary to prevent full-app crash during demo",
+  "priority": 2,
+  "type": "improvement",
+  "state": "todo",
+  "description": "The app has NO React Error Boundary. If any component throws during rendering (corrupted localStorage state, null reference in node data, unexpected edge data shape), the entire app crashes to a white screen with no recovery path.\n\nFor a live demo, this is a critical risk: one unexpected error in a single node's rendering would kill the entire presentation.\n\nFix: Add a React Error Boundary component that wraps the App. On error, show a friendly fallback UI with:\n1. A clear message ('Something went wrong')\n2. A 'Reload' button that refreshes the page\n3. Optionally a 'Clear data and reload' button that clears localStorage (in case corrupted data caused the crash)\n\nMinimal implementation:\n```tsx\n// src/components/ui/error-boundary.tsx\nclass ErrorBoundary extends React.Component {\n  state = { hasError: false, error: null };\n  static getDerivedStateFromError(error) { return { hasError: true, error }; }\n  componentDidCatch(error, info) { console.error('App crash:', error, info); }\n  render() { return this.state.hasError ? <FallbackUI /> : this.props.children; }\n}\n```\n\nWrap in main.tsx: `<ErrorBoundary><BrowserRouter><App />...</BrowserRouter></ErrorBoundary>`\n\nThis is a 15-minute task that provides critical demo safety.",
+  "files": [
+    "src/main.tsx",
+    "src/components/ui/error-boundary.tsx"
+  ],
+  "origin": "ai"
+}
