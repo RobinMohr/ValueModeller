@@ -1356,3 +1356,26 @@ npm run test:coverage # Coverage report
 - Improved maintainability: modifying one concern (e.g., clipboard shortcuts) no longer risks breaking others (e.g., helper lines)
 
 **Build:** Verified with `npm run build` — no errors.
+
+
+
+## 2026-07-15T09:59 — Fix: Keyboard shortcuts '?' button overlapping Add Process toolbar button
+
+**Category:** Critical Bug Fix (User Report)
+
+**What was broken:**
+The keyboard shortcuts `?` button (positioned at `bottom-right` of the canvas) was rendering at the same position as the `+ Add Process` toolbar button (positioned at `top-left`). This made it impossible to click "Add Process" because the `?` button panel was directly on top of it, intercepting all click events.
+
+**Root cause:**
+The `KeyboardShortcutsPanel` component had `className="relative"` applied directly to the React Flow `<Panel position="bottom-right">` component. This `relative` class interfered with React Flow's internal absolute positioning system for panels, causing the panel to render at position `(top: 71, left: 15)` with a width spanning the entire viewport (1249px) instead of its correct bottom-right corner position.
+
+**Fix:**
+Moved the `relative` class from the `<Panel>` component to an inner `<div>` wrapper element. This preserves the relative positioning context needed for the absolutely-positioned keyboard shortcuts dialog, while allowing React Flow to correctly position the Panel at `bottom-right`.
+
+**Before fix:** `?` panel at position (71, 15) with width 1249px — completely overlapping toolbar
+**After fix:** `?` panel at position (673, 1232) with width 32px — correctly at bottom-right corner
+
+**Files changed:**
+- `src/components/canvas/keyboard-shortcuts-panel.tsx`
+
+**Build:** ✅ Passes (`tsc -b && vite build` — 0 errors, 298 modules)

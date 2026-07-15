@@ -3,6 +3,6 @@
   "type": "bug",
   "priority": 1,
   "description": "adding a process doesnt work anymore, since a question mark button is right on top of it",
-  "state": "todo",
+  "state": "developed",
   "origin": "user"
 }
