@@ -263,6 +263,6 @@ export function NodeSearchPanel() {
         </div>
       )}
       </div>
-    </Panel>
+    </div>
   );
 }

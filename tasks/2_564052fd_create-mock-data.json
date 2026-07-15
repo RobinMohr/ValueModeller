@@ -1,0 +1,9 @@
+{
+  "title": "create mock data",
+  "type": "improvement",
+  "priority": 2,
+  "description": "generate an example value stream with data that could be used in real life \nit should be a little bit bigger",
+  "state": "developed",
+  "origin": "user",
+  "id": "564052fd"
+}

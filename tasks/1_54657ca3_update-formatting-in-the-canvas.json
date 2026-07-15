@@ -1,0 +1,9 @@
+{
+  "title": "update formatting in the canvas",
+  "type": "bug",
+  "priority": 1,
+  "description": "the formatting in the canvas is not used to the bigger step size which we have created. i want the formatting to keep the sizes of the steps in mind",
+  "state": "todo",
+  "origin": "user",
+  "id": "54657ca3"
+}

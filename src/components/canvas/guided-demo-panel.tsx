@@ -246,18 +246,16 @@ export function GuidedDemoPanel() {
 
   if (!isActive) {
     return (
-      <Panel position="top-right" className="mt-2 mr-2">
-        <Button
-          onClick={startDemo}
-          size="sm"
-          variant="secondary"
-          disabled={steps.length === 0}
-          title="Start guided walkthrough of the value stream"
-          aria-label="Start guided demo"
-        >
-          ▶ Demo
-        </Button>
-      </Panel>
+      <Button
+        onClick={startDemo}
+        size="sm"
+        variant="secondary"
+        disabled={steps.length === 0}
+        title="Start guided walkthrough of the value stream"
+        aria-label="Start guided demo"
+      >
+        ▶ Demo
+      </Button>
     );
   }
 

@@ -298,8 +298,10 @@ function FlowCanvasInner() {
         <Panel position="bottom-left">
           <NodePalette />
         </Panel>
-        <NodeSearchPanel />
-        <GuidedDemoPanel />
+        <Panel position="top-right" className="mt-2 mr-2 flex items-center gap-2">
+          <NodeSearchPanel />
+          <GuidedDemoPanel />
+        </Panel>
         <KeyboardShortcutsPanel />
         <HelperLinesRenderer
           horizontal={helperLines.horizontal}

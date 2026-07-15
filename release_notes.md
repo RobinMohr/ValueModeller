@@ -1,5 +1,35 @@
 # Release Notes — Value Modeller
 
+## 2026-07-15T12:09 — improvement: Create larger, realistic mock data (Insurance Claims Processing)
+
+**Task:** `tasks/2_564052fd_create-mock-data.json` → state set to `developed`
+
+**What was implemented:**
+- Replaced the 4-node Order Fulfillment demo with a **10-node Insurance Claims Processing** value stream
+- The new stream models a realistic end-to-end claims handling process with:
+  - **Branching:** Validate Claim splits into Fraud Screening (automated) and Assign Adjuster (operational) running in parallel
+  - **Merging:** Both branches feed into Investigate Claim
+  - **Decision branching:** Investigation leads to either Approve Settlement or Reject/Dispute
+  - **Final merge:** Both approval and rejection paths converge at Close Claim, then flow to Reporting & Analytics
+- All 10 nodes have complete, realistic SIPOC data including:
+  - Named enterprise applications (Guidewire, SAP, FRISS, Xactimate, Power BI, Snowflake)
+  - Multiple involved teams per step (11 distinct teams total)
+  - Realistic known issues with specific details (e.g., "ML fraud model has 12% false positive rate")
+  - Meaningful cycle time/lead time/value-add metrics that tell a story about bottlenecks
+- Updated the demo stream metadata: name, description, applications, teams, issues, created values, and customer segments all reflect the insurance domain
+
+**Nodes (10):** Receive Claim → Validate Claim → [Fraud Screening + Assign Adjuster] → Investigate Claim → [Approve Settlement / Reject or Dispute] → Process Payment → Close Claim → Reporting & Analytics
+
+**Edges (11):** Including parallel branches and merge points
+
+**Files modified:**
+- `src/utils/demo-data.ts` — Complete rewrite with 10 nodes and 11 edges
+- `src/store/value-stream-store.ts` — Updated `createDemoStream()` metadata
+
+**Build:** ✅ Passes (`tsc -b && vite build` — 0 errors, 297 modules)
+
+---
+
 ## 2026-07-15T12:03 — improvement: Fix State field formatting in TecFactory task editing form
 
 **Task:** `tasks/2_b5a4ad41_fix-state-formatting-in-editing-a-task.json` → state set to `developed`

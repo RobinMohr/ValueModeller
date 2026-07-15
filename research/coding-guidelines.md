@@ -454,3 +454,249 @@ function useFocusTrap(containerRef: RefObject<HTMLElement>, isOpen: boolean) {
 - https://www.allaccessible.org/blog/react-accessibility-best-practices-guide (Relevance: MEDIUM)
 - https://rtcamp.com/handbook/react-best-practices/accessibility/ (Relevance: MEDIUM)
 - https://www.w3.org/TR/WCAG21/ (Relevance: MEDIUM)
+
+
+
+---
+
+## 6. Tailwind CSS — Dark Mode & Styling Patterns
+
+**Relevance: HIGH** — Many tasks involve fixing missing dark mode styles
+
+### Dark Mode Strategy (class-based, already used)
+
+```javascript
+// tailwind.config.js
+module.exports = {
+  darkMode: 'class', // Toggle via class on <html> or root element
+}
+```
+
+### React Flow v12 colorMode Integration
+
+React Flow v12 has a built-in `colorMode` prop that handles internal styling:
+```tsx
+<ReactFlow colorMode={isDark ? 'dark' : 'light'} ... />
+```
+
+This is cleaner than manually overriding `.react-flow` CSS classes with Tailwind. The `colorMode` prop handles:
+- Background color
+- Edge colors
+- Handle colors
+- MiniMap colors
+- Controls styling
+
+**Note:** There's a task to migrate to this approach (`3_a292c7bc_use-react-flow-built-in-colormode-prop`).
+
+### Checklist for Dark Mode Consistency
+
+Every component with visible styling must have both light and dark variants:
+
+| Element | Light | Dark |
+|---------|-------|------|
+| Background | `bg-white` | `dark:bg-gray-800` or `dark:bg-gray-900` |
+| Text | `text-gray-900` | `dark:text-gray-100` |
+| Secondary text | `text-gray-600` | `dark:text-gray-400` |
+| Borders | `border-gray-200` | `dark:border-gray-600` or `dark:border-gray-700` |
+| Inputs | `bg-white border-gray-300` | `dark:bg-gray-700 dark:border-gray-600` |
+| Hover states | `hover:bg-gray-100` | `dark:hover:bg-gray-700` |
+| Focus rings | `focus:ring-blue-500` | `dark:focus:ring-blue-400` |
+
+### Common Mistakes (found in this project)
+
+1. Adding light mode classes but forgetting `dark:` counterparts on the same element
+2. Hardcoding colors like `text-gray-700` without dark variant — invisible on dark backgrounds
+3. Missing dark mode on headings/labels in form sections
+4. Not applying `dark:` to dynamically generated elements (e.g., React Flow MiniMap)
+5. Using Tailwind `!important` modifiers that override React Flow's internal dark mode
+
+**Sources:**
+- https://reactflow.dev/examples/styling/dark-mode (Relevance: HIGH)
+- https://magicui.design/blog/tailwind-dark-mode (Relevance: HIGH)
+- https://github.com/xyflow/xyflow/discussions/3764 (Relevance: MEDIUM)
+
+---
+
+## 7. TypeScript — Strict Mode Patterns
+
+**Relevance: MEDIUM** — Project uses TypeScript strict mode; relevant for future features
+
+### Discriminated Unions for Component Props
+
+Useful for components that behave differently based on a mode/variant:
+
+```typescript
+type NodeType = 'sipoc' | 'group';
+
+type NodeProps =
+  | { type: 'sipoc'; data: SipocNodeData }
+  | { type: 'group'; data: GroupNodeData };
+
+function renderNode(props: NodeProps) {
+  if (props.type === 'sipoc') {
+    // props.data is SipocNodeData here
+  }
+}
+```
+
+### React Flow TypeScript Patterns
+
+```typescript
+import type { Node, Edge, NodeProps } from '@xyflow/react';
+
+// Type your nodes generically
+type SipocNode = Node<SipocNodeData, 'sipoc'>;
+
+// Custom node component with proper typing
+function SipocNodeComponent({ data, id }: NodeProps<SipocNode>) {
+  // data is fully typed as SipocNodeData
+}
+```
+
+### JSON Import Validation (for Export/Import feature)
+
+When importing user-uploaded JSON files, validate at runtime:
+
+```typescript
+// Use a validation function — no need for Zod for a hackathon
+function validateImportedModel(data: unknown): data is GraphState {
+  if (!data || typeof data !== 'object') return false;
+  const obj = data as Record<string, unknown>;
+  
+  if (!Array.isArray(obj.nodes)) return false;
+  if (!Array.isArray(obj.edges)) return false;
+  
+  // Validate each node has required fields
+  for (const node of obj.nodes) {
+    if (!node.id || !node.position || !node.data) return false;
+  }
+  
+  return true;
+}
+```
+
+Key security practices for JSON import:
+- Always validate structure before using imported data
+- Sanitize string fields (strip HTML/script tags if rendering in DOM)
+- Set maximum file size limit (e.g., 5MB) before parsing
+- Wrap `JSON.parse()` in try/catch
+- Never use `eval()` or `Function()` on imported content
+
+**Sources:**
+- https://betterstack.com/community/guides/scaling-nodejs/typescript-json-type-safety/ (Relevance: HIGH)
+- https://codewithseb.com/blog/zod-typescript-validation-complete-guide (Relevance: MEDIUM)
+
+
+
+---
+
+## 8. Project-Specific Patterns (Observed from Codebase)
+
+**Relevance: HIGH** — These patterns are already established and should be followed for consistency
+
+### File Organization
+
+```
+src/components/{domain}/    # Grouped by feature (canvas, form, landing, layout, ui)
+src/store/{domain}-store.ts # One store per domain
+src/hooks/use-{name}.ts     # Custom hooks prefixed with "use-"
+src/utils/{name}.ts         # Pure utility functions
+src/types/{domain}.types.ts # Type definitions
+src/tests/{name}.test.ts    # Test files in tests/ directory
+```
+
+### Naming Conventions
+
+| Item | Convention | Example |
+|------|-----------|---------|
+| Files | kebab-case | `graph-store.ts`, `sipoc-form.tsx` |
+| Components | PascalCase | `SipocNode`, `FlowCanvas` |
+| Hooks | camelCase with `use` prefix | `useHelperLines`, `useFocusTrap` |
+| Stores | camelCase with `use` prefix | `useGraphStore`, `useUIStore` |
+| Types | PascalCase | `SipocNodeData`, `GraphState` |
+| Event handlers | `handle` prefix | `handleNodeClick`, `handleSave` |
+
+### ID Generation
+
+Always use `crypto.randomUUID()` (via `generateId()` utility in `src/utils/id.ts`).
+
+### State Update Pattern (Immutable)
+
+```typescript
+// Always create new references for React to detect changes:
+set({
+  nodes: get().nodes.map((node) =>
+    node.id === targetId
+      ? { ...node, data: { ...node.data, ...updates } }
+      : node
+  ),
+});
+```
+
+### Auto-Save Subscription Pattern
+
+```typescript
+// Debounced subscription for persistence
+useStore.subscribe(
+  (state) => ({ relevantData }),
+  ({ relevantData }) => {
+    if (saveTimeout) clearTimeout(saveTimeout);
+    saveTimeout = setTimeout(() => {
+      persistenceStore.save(relevantData);
+    }, 500);
+  },
+  { equalityFn: shallowCompare }
+);
+```
+
+---
+
+## 9. Future Considerations (Based on Task Queue)
+
+Based on the current task queue, these guidelines will become increasingly relevant:
+
+| Future Feature | Relevant Guidelines |
+|---------------|-------------------|
+| Node context menu (right-click) | React Flow `onNodeContextMenu`; position relative to pane bounds |
+| Copy/paste nodes (Ctrl+C/V) | Deep-clone with new IDs; remap edges; offset positions |
+| Undo/redo | Zundo middleware; partialize to nodes+edges only; throttle handleSet |
+| Export/import JSON | Validate schema on import; sanitize strings; max file size |
+| Node grouping/swimlanes | React Flow sub-flows; `parentId` + `extent: 'parent'` pattern |
+| Smart edge routing | Memoize expensive path calculations; avoid subscribing to full nodes array |
+| Proximity connect | Distance-based calculations; `useCallback` for performance |
+| Unit test expansion | Cover stores first (pure logic), then utils, then components |
+| Dark mode fixes | Use React Flow `colorMode` prop; systematic audit for `dark:` variants |
+| ARIA dialog semantics | Focus trap hook; `role="dialog"` + `aria-modal` on all modals |
+| Inline edge label editing | `EdgeLabelRenderer` component; controlled input with blur-to-save |
+| Loading transitions | Suspense or skeleton UI during stream navigation |
+
+---
+
+## 10. Reference Links (All Sources)
+
+| Topic | URL | Relevance |
+|-------|-----|-----------|
+| React Flow Performance | https://reactflow.dev/learn/advanced-use/performance | HIGH |
+| React Flow State Management | https://reactflow.dev/learn/advanced-use/state-management | HIGH |
+| React Flow Context Menu Example | https://reactflow.dev/examples/interaction/context-menu | HIGH |
+| React Flow Copy/Paste Example | https://reactflow.dev/examples/interaction/copy-paste | HIGH |
+| React Flow Undo/Redo Example | https://reactflow.dev/examples/interaction/undo-redo | HIGH |
+| React Flow Dark Mode | https://reactflow.dev/examples/styling/dark-mode | HIGH |
+| React Flow Accessibility | https://www.synergycodes.com/blog/building-usable-and-accessible-diagrams-with-react-flow | HIGH |
+| Synergy Codes RF Performance Guide | https://www.synergycodes.com/webbook/guide-to-optimize-react-flow-project-performance | HIGH |
+| Zundo (Zustand undo/redo) | https://github.com/charkour/zundo | HIGH |
+| Zustand Testing Guide | https://zustand.docs.pmnd.rs/learn/guides/testing | HIGH |
+| Vitest + RTL Guide | https://oneuptime.com/blog/post/2026-01-15-unit-test-react-vitest-testing-library/view | HIGH |
+| RTL Common Mistakes | https://medium.com/@samueldeveloper/react-testing-library-vitest-the-mistakes-that-haunt-developers | HIGH |
+| localStorage Error Handling | https://docs.bswen.com/blog/2026-04-07-fix-quotaexceedederror-localstorage/ | HIGH |
+| Accessible Modals & Focus Traps | https://www.uxpin.com/studio/blog/wcag-211-keyboard-accessibility-explained/ | HIGH |
+| TypeScript JSON Validation | https://betterstack.com/community/guides/scaling-nodejs/typescript-json-type-safety/ | HIGH |
+| WCAG 2.1 Spec | https://www.w3.org/TR/WCAG21/ | MEDIUM |
+| React Accessibility SPA Guide | https://www.allaccessible.org/blog/react-accessibility-best-practices-guide | MEDIUM |
+| React A11y Best Practices | https://rtcamp.com/handbook/react-best-practices/accessibility/ | MEDIUM |
+| Tailwind Dark Mode | https://magicui.design/blog/tailwind-dark-mode | MEDIUM |
+| Zustand Middleware Patterns | https://beyondthecode.medium.com/zustand-middleware-the-architectural-core-of-scalable-state-management-d8d1053489ac | MEDIUM |
+| Express Testing with Supertest | https://moldstud.com/articles/p-getting-started-with-supertest-a-comprehensive-guide-to-unit-testing-for-expressjs | MEDIUM |
+| Testing Strategies 2026 | https://www.nucamp.co/blog/testing-in-2026-jest-react-testing-library-and-full-stack-testing-strategies | MEDIUM |
+| Zod Validation Guide | https://codewithseb.com/blog/zod-typescript-validation-complete-guide | MEDIUM |
+| React Flow v12 Announcement | https://github.com/xyflow/xyflow/discussions/3764 | MEDIUM |
