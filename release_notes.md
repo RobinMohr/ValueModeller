@@ -1,5 +1,29 @@
 # Release Notes — Value Modeller
 
+## 2026-07-15T11:41 — improvement: Show full SIPOC information on canvas nodes
+
+**Task:** `tasks/2_show-full-sipoc-information.json` → state set to `developed`
+
+**What was implemented:**
+- Replaced the summarized SIPOC count badges (S:2, I:3, O:1, C:2) on canvas nodes with **full SIPOC text content** displayed directly on each node.
+- Each SIPOC field (Suppliers, Inputs, Outputs, Customers) is now shown as a labeled section with:
+  - Color-coded uppercase label (blue=Suppliers, green=Inputs, orange=Outputs, purple=Customers)
+  - Full text content with `whitespace-pre-line` preserving multiline formatting
+- Process description is now shown in full (no truncation via `max-w-[160px] truncate`).
+- Removed the hover tooltip (`NodeToolbar`) since full content is now always visible — no need for a preview popup.
+- Node width range set to `min-w-[200px] max-w-[320px]` to accommodate the expanded content while preventing excessive width.
+- Kept metrics badges (CT, LT, VA%) and completion status border indicator unchanged.
+- Extracted a reusable `SipocSection` subcomponent for rendering each labeled text section.
+
+**Behavior change:**
+- **Before:** Nodes showed compact badges (S:2, I:3, O:1, C:2) + truncated description; full content only visible in hover tooltip or side panel
+- **After:** Nodes show the actual SIPOC text content directly, making the value stream readable at a glance without hovering or clicking
+
+**Files modified:**
+- `src/components/canvas/sipoc-node.tsx`
+
+**Build:** ✅ Passes (`tsc -b && vite build` — 0 errors, 297 modules)
+
 ## 2026-07-15T11:38 — chore: Confirm "Outputs become inputs" auto-fill (already implemented)
 
 **Task:** `tasks/2_outputs-become-inputs.json` → state set to `developed`

@@ -1,5 +1,5 @@
 import { memo, useState, useRef, useCallback } from 'react';
-import { Handle, Position, NodeToolbar, type NodeProps } from '@xyflow/react';
+import { Handle, Position, type NodeProps } from '@xyflow/react';
 import type { SipocNode } from '../../types/sipoc.types';
 import { cn } from '../../utils/cn';
 import { useUiStore } from '../../store/ui-store';
@@ -8,13 +8,6 @@ import { useGraphKeyboardNav } from '../../hooks/use-graph-keyboard-nav';
 function countLines(text: string): number {
   if (!text || !text.trim()) return 0;
   return text.split('\n').filter((line) => line.trim() !== '').length;
-}
-
-function truncate(text: string, maxLength: number): string {
-  if (!text) return '';
-  const trimmed = text.trim();
-  if (trimmed.length <= maxLength) return trimmed;
-  return trimmed.slice(0, maxLength) + '…';
 }
 
 type CompletionStatus = 'empty' | 'partial' | 'complete';
@@ -45,6 +38,27 @@ const completionLabel: Record<CompletionStatus, string> = {
   complete: 'All SIPOC fields filled',
 };
 
+interface SipocSectionProps {
+  label: string;
+  content: string;
+  colorClass: string;
+  darkColorClass: string;
+}
+
+function SipocSection({ label, content, colorClass, darkColorClass }: SipocSectionProps) {
+  if (!content || !content.trim()) return null;
+  return (
+    <div className="flex flex-col gap-0.5">
+      <span className={cn('text-[10px] font-semibold uppercase tracking-wide', colorClass, darkColorClass)}>
+        {label}
+      </span>
+      <p className="text-xs text-gray-700 dark:text-gray-300 whitespace-pre-line leading-relaxed">
+        {content.trim()}
+      </p>
+    </div>
+  );
+}
+
 export const SipocNodeComponent = memo(function SipocNodeComponent({
   data,
   id,
@@ -59,11 +73,10 @@ export const SipocNodeComponent = memo(function SipocNodeComponent({
   const inputCount = countLines(data.inputs);
   const outputCount = countLines(data.outputs);
   const customerCount = countLines(data.customers);
-  const totalItems = supplierCount + inputCount + outputCount + customerCount;
   const completionStatus = getCompletionStatus(supplierCount, inputCount, outputCount, customerCount);
 
   const hasMetrics = Boolean(data.cycleTime || data.leadTime || data.valueAddPercent);
-  const hasContent = totalItems > 0 || Boolean(data.processDescription);
+  const hasContent = supplierCount > 0 || inputCount > 0 || outputCount > 0 || customerCount > 0 || Boolean(data.processDescription);
 
   const handleMouseEnter = useCallback(() => {
     hoverTimeoutRef.current = setTimeout(() => {
@@ -79,10 +92,13 @@ export const SipocNodeComponent = memo(function SipocNodeComponent({
     setIsHovered(false);
   }, []);
 
+  // Suppress unused variable warning — isHovered is kept for potential future tooltip usage
+  void isHovered;
+
   return (
     <div
       className={cn(
-        'rounded-lg border-2 border-l-4 bg-white dark:bg-gray-800 px-4 py-3 shadow-md transition-all min-w-[180px]',
+        'rounded-lg border-2 border-l-4 bg-white dark:bg-gray-800 px-4 py-3 shadow-md transition-all min-w-[200px] max-w-[320px]',
         'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500 focus-visible:ring-offset-2 dark:focus-visible:ring-offset-gray-900',
         completionBorderColor[completionStatus],
         selected
@@ -105,108 +121,55 @@ export const SipocNodeComponent = memo(function SipocNodeComponent({
         aria-label="Input connection handle"
       />
 
-      {/* Hover Tooltip */}
-      <NodeToolbar
-        isVisible={isHovered && !selected && hasContent}
-        position={Position.Bottom}
-        offset={8}
-        align="center"
-      >
-        <div
-          className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-600 rounded-lg shadow-lg p-3 max-w-[280px] text-left pointer-events-none"
-          role="tooltip"
-          aria-label={`SIPOC preview for ${data.label}`}
-        >
-          {/* Process description */}
-          {data.processDescription && (
-            <p className="text-xs text-gray-600 dark:text-gray-300 mb-2 leading-relaxed">
-              {truncate(data.processDescription, 100)}
-            </p>
-          )}
-
-          {/* SIPOC summary grid */}
-          {totalItems > 0 && (
-            <div className="grid grid-cols-2 gap-x-3 gap-y-1 text-[11px]">
-              {supplierCount > 0 && (
-                <div className="flex items-center gap-1">
-                  <span className="font-medium text-blue-600 dark:text-blue-400">S</span>
-                  <span className="text-gray-600 dark:text-gray-400">{supplierCount} supplier{supplierCount !== 1 ? 's' : ''}</span>
-                </div>
-              )}
-              {inputCount > 0 && (
-                <div className="flex items-center gap-1">
-                  <span className="font-medium text-green-600 dark:text-green-400">I</span>
-                  <span className="text-gray-600 dark:text-gray-400">{inputCount} input{inputCount !== 1 ? 's' : ''}</span>
-                </div>
-              )}
-              {outputCount > 0 && (
-                <div className="flex items-center gap-1">
-                  <span className="font-medium text-orange-600 dark:text-orange-400">O</span>
-                  <span className="text-gray-600 dark:text-gray-400">{outputCount} output{outputCount !== 1 ? 's' : ''}</span>
-                </div>
-              )}
-              {customerCount > 0 && (
-                <div className="flex items-center gap-1">
-                  <span className="font-medium text-purple-600 dark:text-purple-400">C</span>
-                  <span className="text-gray-600 dark:text-gray-400">{customerCount} customer{customerCount !== 1 ? 's' : ''}</span>
-                </div>
-              )}
-            </div>
-          )}
-
-          {/* Metrics */}
-          {hasMetrics && (
-            <div className={cn('flex gap-2 flex-wrap', totalItems > 0 ? 'mt-2 pt-2 border-t border-gray-100 dark:border-gray-700' : '')}>
-              {data.cycleTime && (
-                <span className="text-[10px] px-1.5 py-0.5 rounded bg-indigo-50 dark:bg-indigo-900/30 text-indigo-700 dark:text-indigo-300">
-                  CT: {data.cycleTime}m
-                </span>
-              )}
-              {data.leadTime && (
-                <span className="text-[10px] px-1.5 py-0.5 rounded bg-amber-50 dark:bg-amber-900/30 text-amber-700 dark:text-amber-300">
-                  LT: {data.leadTime}m
-                </span>
-              )}
-              {data.valueAddPercent && (
-                <span className="text-[10px] px-1.5 py-0.5 rounded bg-emerald-50 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-300">
-                  VA: {data.valueAddPercent}%
-                </span>
-              )}
-            </div>
-          )}
-
-          {/* Hint */}
-          <p className="text-[10px] text-gray-400 dark:text-gray-500 mt-2 italic">
-            Click to view full details
-          </p>
-        </div>
-      </NodeToolbar>
-
-      <div className="flex flex-col gap-1">
-        <div className="font-semibold text-gray-900 dark:text-gray-100 text-sm truncate">
+      <div className="flex flex-col gap-2">
+        {/* Node title */}
+        <div className="font-semibold text-gray-900 dark:text-gray-100 text-sm">
           {data.label || 'Untitled Step'}
         </div>
+
+        {/* Process description */}
         {data.processDescription && (
-          <div className="text-xs text-gray-500 dark:text-gray-400 truncate max-w-[160px]">
+          <p className="text-xs text-gray-500 dark:text-gray-400 leading-relaxed whitespace-pre-line">
             {data.processDescription}
+          </p>
+        )}
+
+        {/* Full SIPOC content sections */}
+        {hasContent && (
+          <div className="flex flex-col gap-2 mt-1 pt-2 border-t border-gray-100 dark:border-gray-700">
+            <SipocSection
+              label="Suppliers"
+              content={data.suppliers}
+              colorClass="text-blue-600"
+              darkColorClass="dark:text-blue-400"
+            />
+            <SipocSection
+              label="Inputs"
+              content={data.inputs}
+              colorClass="text-green-600"
+              darkColorClass="dark:text-green-400"
+            />
+            <SipocSection
+              label="Outputs"
+              content={data.outputs}
+              colorClass="text-orange-600"
+              darkColorClass="dark:text-orange-400"
+            />
+            <SipocSection
+              label="Customers"
+              content={data.customers}
+              colorClass="text-purple-600"
+              darkColorClass="dark:text-purple-400"
+            />
           </div>
         )}
-        <div className="flex gap-2 mt-1" aria-label={`SIPOC counts: ${supplierCount} suppliers, ${inputCount} inputs, ${outputCount} outputs, ${customerCount} customers`}>
-          <span className="text-xs px-1.5 py-0.5 rounded bg-blue-50 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300" aria-hidden="true">
-            S:{supplierCount}
-          </span>
-          <span className="text-xs px-1.5 py-0.5 rounded bg-green-50 dark:bg-green-900/30 text-green-700 dark:text-green-300" aria-hidden="true">
-            I:{inputCount}
-          </span>
-          <span className="text-xs px-1.5 py-0.5 rounded bg-orange-50 dark:bg-orange-900/30 text-orange-700 dark:text-orange-300" aria-hidden="true">
-            O:{outputCount}
-          </span>
-          <span className="text-xs px-1.5 py-0.5 rounded bg-purple-50 dark:bg-purple-900/30 text-purple-700 dark:text-purple-300" aria-hidden="true">
-            C:{customerCount}
-          </span>
-        </div>
+
+        {/* Metrics */}
         {hasMetrics && (
-          <div className="flex gap-1.5 mt-1.5 pt-1.5 border-t border-gray-100 dark:border-gray-700" aria-hidden="true">
+          <div className={cn(
+            'flex gap-1.5 flex-wrap',
+            hasContent ? 'mt-1 pt-2 border-t border-gray-100 dark:border-gray-700' : 'mt-1'
+          )} aria-hidden="true">
             {data.cycleTime && (
               <span className="text-[10px] px-1.5 py-0.5 rounded bg-indigo-50 dark:bg-indigo-900/30 text-indigo-700 dark:text-indigo-300" title="Cycle Time">
                 CT: {data.cycleTime}m
@@ -224,7 +187,9 @@ export const SipocNodeComponent = memo(function SipocNodeComponent({
             )}
           </div>
         )}
-        {totalItems === 0 && (
+
+        {/* Empty state hint */}
+        {!hasContent && !hasMetrics && (
           <div className="text-xs text-gray-400 dark:text-gray-500 italic mt-1">
             Click to add details
           </div>

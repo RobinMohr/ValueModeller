@@ -1,0 +1,8 @@
+{
+  "title": "show full sipoc information",
+  "type": "improvement",
+  "priority": 2,
+  "description": "we dont want the step information to be summarized in the view.\nshow the full sipoc information",
+  "state": "developed",
+  "origin": "user"
+}
