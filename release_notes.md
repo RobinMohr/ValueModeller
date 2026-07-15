@@ -1262,3 +1262,23 @@ npm run test:coverage # Coverage report
 - Network error detection catches API failures that were previously invisible
 
 **Build:** ✅ Passes (`tsc -b && vite build` — 0 errors, 292 modules)
+
+
+## 2026-07-15T09:43 — Extract shared EdgeLabelEditor component (DRY refactor)
+
+**What changed:**
+- Created `src/components/canvas/edge-label-editor.tsx` — a shared `EdgeLabelEditor` component that encapsulates all inline label editing state, event handlers, and JSX rendering.
+- Refactored `smart-edge.tsx` to use `<EdgeLabelEditor>` instead of inline editing logic (~60 lines removed).
+- Refactored `labeled-edge.tsx` to use `<EdgeLabelEditor>` instead of inline editing logic (~60 lines removed).
+- Fixed dark mode bug: `LabeledEdge` was missing `dark:` class variants for its label container; now inherits correct dark mode styling from the shared component.
+
+**Impact:**
+- Eliminates ~120 lines of duplicated code across the two edge components.
+- Single Responsibility: edge components now handle only path computation; label editing is a separate concern.
+- Future label editing changes (styling, behavior) only need to be made in one place.
+- LabeledEdge now correctly supports dark mode backgrounds/text.
+
+**Files modified:**
+- `src/components/canvas/edge-label-editor.tsx` (new)
+- `src/components/canvas/smart-edge.tsx`
+- `src/components/canvas/labeled-edge.tsx`

@@ -1,0 +1,8 @@
+{
+  "title": "ai agent support to create task doesnt work",
+  "type": "improvement",
+  "priority": 1,
+  "description": "Error: AI agent returned an empty response. Please try again with a more detailed prompt.\nwhen trying to use the ai assist mode to create a new task\nlook at the error logs, they might hold relevant information",
+  "state": "in-progress",
+  "origin": "user"
+}
