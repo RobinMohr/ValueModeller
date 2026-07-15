@@ -1,5 +1,15 @@
 # Release Notes — Value Modeller
 
+## 2026-07-15T11:05 — chore: Confirm auto-propagation of input/supplier on connect (already implemented)
+
+**Task:** `tasks/2_linking-two-tasks-should-know-input-and-supplier-a.json` → state set to `developed`
+
+**Verification:** The `onConnect` handler in `src/store/graph-store.ts` already auto-fills the target node's `inputs` from the source node's `outputs`, and the target's `suppliers` from the source's `customers`, when connecting two nodes — but only if the target fields are currently empty. This was originally implemented at 2026-07-15T10:49. No code changes needed.
+
+**Build:** ✅ Passes (`tsc -b && vite build` — 0 errors, 297 modules)
+
+---
+
 ## 2026-07-15T10:59 — Rename "Process" to "Step" in all user-facing labels
 
 **What changed:**
