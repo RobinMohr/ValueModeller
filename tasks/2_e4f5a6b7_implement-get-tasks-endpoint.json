@@ -3,8 +3,10 @@
   "title": "Implement GET /api/tasks endpoint",
   "priority": 2,
   "type": "improvement",
-  "state": "todo",
+  "state": "developed",
   "description": "List all tasks with optional query param filters: state, priority, type, origin. Returns tasks array plus summary object (counts by_state, by_priority, by_origin, total). Supports ETag header based on MAX(updated_at) — returns 304 Not Modified if client sends matching If-None-Match. This is the main endpoint TecFactory polls every 5 seconds.",
-  "files": ["task-api/src/functions/get-tasks.ts"],
+  "files": [
+    "task-api/src/functions/get-tasks.ts"
+  ],
   "origin": "user-assisted"
 }

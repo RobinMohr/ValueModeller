@@ -1,5 +1,28 @@
 # Release Notes — Value Modeller
 
+## 2026-07-15T16:07 — feat: Implement GET /api/tasks endpoint
+
+**Task:** `tasks/2_e4f5a6b7_implement-get-tasks-endpoint.json` → state set to `developed`
+
+**Changes:**
+- Created `task-api/src/functions/get-tasks.ts` — GET /api/tasks endpoint
+- Lists all tasks from the database, ordered by priority ASC then created_at ASC
+- Optional query parameter filters: `state`, `priority`, `type`, `origin` — builds dynamic WHERE clause
+- Returns response body: `{ tasks: Task[], summary: { by_state, by_priority, by_origin, total } }`
+- Summary object provides counts grouped by state, priority, and origin for dashboard display
+- ETag support based on `MAX(updated_at)` from the tasks table (base64-encoded)
+- Returns 304 Not Modified if client sends matching `If-None-Match` header (efficient polling)
+- Sets `Cache-Control: no-cache` to ensure conditional requests still reach the server
+- Requires `x-api-key` authentication via `requireAuth` middleware
+- Returns 500 with JSON error on database failures
+- Build verified: `npm run build` passes with 0 errors
+
+**Files created:**
+- `task-api/src/functions/get-tasks.ts`
+
+---
+
+
 ## 2026-07-15T16:05 — feat: Migration script (JSON files → Azure SQL)
 
 **Task:** `tasks/2_e0f1a2b3_migration-script-json-files-to-azure-sql.json` → state set to `developed`
