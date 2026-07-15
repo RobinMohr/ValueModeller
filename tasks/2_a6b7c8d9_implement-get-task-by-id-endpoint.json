@@ -3,8 +3,10 @@
   "title": "Implement GET /api/tasks/:id endpoint",
   "priority": 2,
   "type": "improvement",
-  "state": "todo",
+  "state": "developed",
   "description": "Returns a single task by its 8-char hex ID. Returns 404 with JSON error body if not found.",
-  "files": ["task-api/src/functions/get-task.ts"],
+  "files": [
+    "task-api/src/functions/get-task.ts"
+  ],
   "origin": "user-assisted"
 }

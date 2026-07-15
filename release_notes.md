@@ -1,5 +1,20 @@
 # Release Notes — Value Modeller
 
+## 2026-07-15T15:58 — feat: Implement GET /api/tasks/:id endpoint
+
+**Task:** `tasks/2_a6b7c8d9_implement-get-task-by-id-endpoint.json` → state set to `developed`
+
+**Changes:**
+- Created `task-api/src/functions/get-task.ts` — GET /api/tasks/{id} endpoint
+- Validates 8-char hex ID format (returns 400 on invalid)
+- Queries database with parameterized ID (SQL injection safe)
+- Returns 404 JSON error body if task not found
+- Returns 200 with full task object if found
+- Requires x-api-key authentication (same as other endpoints)
+- Build verified: `npm run build` passes with no errors
+
+---
+
 ## 2026-07-15T15:56 — feat: Implement GET /api/tasks/next endpoint
 
 **Task:** `tasks/1_f5a6b7c8_implement-get-next-task-endpoint.json` → state set to `developed`
