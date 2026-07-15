@@ -65,23 +65,18 @@ The `origin` field tracks who created the task:
 
 ## Instructions
 
-### Phase 1: Read and Decide
+### Phase 1: Read Your Assigned Task
 
-1. Read ALL task files in `tasks/` that have `"state": "todo"`. **Skip `0_task_template.json`** — it is a template, not a real task.
-2. **If there are no tasks with `"state": "todo"`:** Report "No actionable tasks" and **exit immediately**. Do NOT wait or retry.
+**IMPORTANT:** Your task is pre-assigned by the agent loop. You will receive a prompt that tells you EXACTLY which task to implement. Do NOT scan tasks/ looking for work yourself.
+
+1. Read the assigned task file specified in your prompt (e.g., `tasks/1_some-task.json`).
+2. The task state is already set to `"in-progress"` by the loop — do NOT change it yourself at the start.
 3. Read `release_notes.md` (if it exists) to understand what has already been done.
-4. Select the **single highest-priority task** to implement using this order:
-   - Lowest priority number first (1 before 2 before 3 before 4)
-   - Within same priority: prefer tasks by origin — `"user"` first, then `"user-assisted"`, then `"ai"`
-   - If still tied: pick whichever is listed first
-5. Read all source files relevant to the chosen task (check the `files` field).
+4. Read all source files relevant to the assigned task (check the `files` field).
 
-### Phase 2: Claim the Task
+**If no task is assigned in the prompt** (fallback mode): Read all task files with `"state": "todo"`, pick the highest-priority one (lowest number first, then origin: user > user-assisted > ai), set it to `"in-progress"`, and proceed.
 
-1. **Immediately** update the task JSON file: set `"state": "in-progress"`.
-2. This signals to other agents/developers that this task is being worked on.
-
-### Phase 3: Implement the Change
+### Phase 2: Implement the Change
 
 1. Make the code change. Follow these coding standards:
    - TypeScript strict mode, no `any`
@@ -93,12 +88,12 @@ The `origin` field tracks who created the task:
 3. Keep changes minimal and focused — ONE task only.
 4. After making changes, run `npm run build` to verify no TypeScript or build errors.
 
-### Phase 4: Mark Task as Developed
+### Phase 3: Mark Task as Developed
 
 1. Update the task JSON file: set `"state": "developed"`.
 2. This signals the task implementation is complete.
 
-### Phase 5: Update release_notes.md
+### Phase 4: Update release_notes.md
 
 Append a new entry to `release_notes.md` (create the file if it doesn't exist). Use this format:
 
@@ -115,7 +110,7 @@ Append a new entry to `release_notes.md` (create the file if it doesn't exist). 
 ---
 ```
 
-### Phase 6: Verify and Exit
+### Phase 5: Verify and Exit
 
 1. Run `npm run build` to confirm no errors.
 2. If the dev server is running at http://localhost:5173, optionally use Puppeteer to take a screenshot and visually confirm the change looks correct.
@@ -124,12 +119,12 @@ Append a new entry to `release_notes.md` (create the file if it doesn't exist). 
 ## Constraints
 
 - **ONE task per invocation.** After completing one task, stop. Do not continue to the next.
+- **Your task is pre-assigned.** The agent loop selects and locks the task before you start. Do NOT scan for tasks yourself unless no task was specified in the prompt (fallback mode).
 - Do NOT add new tasks — only implement existing ones. The QA agent creates new tasks.
 - Do NOT break existing functionality. If a change is too risky, skip it and pick the next task.
-- If no tasks have `"state": "todo"`, report that and exit immediately.
+- If the assigned task cannot be completed, set its state back to `"todo"` and explain why in release_notes.md. This releases it for future attempts.
 - Keep commits small and focused (the script runner will handle git if needed).
 - Always verify with `npm run build` before finishing.
-- Always set state to `in-progress` BEFORE starting implementation.
 - Always set state to `developed` AFTER successful implementation and build verification.
 
 ## Tools Available
