@@ -637,8 +637,17 @@ class TaskManager {
   constructor() {
     this.tasks = [];
     this.currentFilter = 'all';
+    this.currentSort = 'priority';
     this.editingFilename = null;
     this.currentMode = 'manual';
+  }
+
+  setSort(sortKey) {
+    this.currentSort = sortKey;
+    document.querySelectorAll('.sort-btn').forEach(b => b.classList.remove('active'));
+    const activeBtn = document.querySelector(`.sort-btn[data-sort="${sortKey}"]`);
+    if (activeBtn) activeBtn.classList.add('active');
+    this.renderTasks();
   }
 
   async loadTasks() {
@@ -657,6 +666,18 @@ class TaskManager {
     if (this.currentFilter !== 'all') {
       filtered = this.tasks.filter(t => t.state === this.currentFilter);
     }
+
+    // Apply sorting
+    filtered = [...filtered].sort((a, b) => {
+      if (this.currentSort === 'lastModified') {
+        // Sort by last modified time descending (most recent first)
+        const aTime = a._lastModified || 0;
+        const bTime = b._lastModified || 0;
+        return bTime - aTime;
+      }
+      // Default: sort by priority ascending (lowest number = highest priority)
+      return (a.priority || 99) - (b.priority || 99);
+    });
 
     if (filtered.length === 0) {
       container.innerHTML = '<div class="empty-state-box">No tasks found. Create one to get started!</div>';
@@ -689,6 +710,7 @@ class TaskManager {
         </div>
         <p class="task-description">${esc(task.description || '')}</p>
         <div class="task-meta-row">
+          ${task._lastModified ? `<span class="task-meta-item task-modified">&#128339; ${new Date(task._lastModified).toLocaleString()}</span>` : ''}
           ${task.files && task.files.length ? `<span class="task-meta-item task-files">&#128193; ${task.files.map(f => esc(f)).join(', ')}</span>` : ''}
         </div>
       </div>

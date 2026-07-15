@@ -20,16 +20,6 @@
     "maxIterations": 0
   },
   {
-    "id": "task-order",
-    "name": "Task Prioritization Agent",
-    "type": "task-order",
-    "agent": "task-order-agent",
-    "description": "Re-evaluates and re-orders task priorities based on current project state.",
-    "intervalSeconds": 0,
-    "timeoutSeconds": 300,
-    "maxIterations": 1
-  },
-  {
     "id": "another-dev-agent",
     "name": "another dev agent",
     "type": "dev",
@@ -40,13 +30,15 @@
     "maxIterations": 0
   },
   {
-    "id": "code-reviewer",
-    "name": "Code Reviewer Agent",
-    "type": "qa",
-    "agent": "code-reviewer-agent",
-    "description": "Reviews code for SOLID principle violations and code reuse opportunities. Creates task files for findings.",
+    "id": "collect-coding-guidelines",
+    "name": "Collect coding guidelines",
+    "type": "information-collector",
+    "agent": "information-collector-agent",
+    "description": "collects lots of coding guidelines from the internet for future use",
     "intervalSeconds": 0,
     "timeoutSeconds": 600,
-    "maxIterations": 1
+    "maxIterations": 10,
+    "searchPrompt": "should look for coding guidelines and standard practices which might be useful for this repository.\nbase that on the codebase to get the technical structure and look at the tasks, and the requirements.md to figure out, what might be needed in the future",
+    "outputFile": "research/coding-guidelines.md"
   }
 ]
