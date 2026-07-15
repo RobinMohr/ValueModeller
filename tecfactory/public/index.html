@@ -50,6 +50,11 @@
           <button class="filter-btn" data-filter="developed" onclick="filterTasks('developed')">Developed</button>
           <button class="filter-btn" data-filter="done" onclick="filterTasks('done')">Done</button>
         </div>
+        <div class="tasks-sort">
+          <label class="sort-label">Sort:</label>
+          <button class="sort-btn active" data-sort="priority" onclick="taskManager.setSort('priority')" title="Sort by priority (lowest number first)">&#9733; Priority</button>
+          <button class="sort-btn" data-sort="lastModified" onclick="taskManager.setSort('lastModified')" title="Sort by last edited time (most recent first)">&#128339; Last Edited</button>
+        </div>
         <button class="btn btn-start" onclick="taskManager.showCreateForm()">+ New Task</button>
       </div>
 

@@ -4,7 +4,7 @@ import { createServer } from 'http';
 import { spawn } from 'child_process';
 import { fileURLToPath } from 'url';
 import { dirname, join, resolve } from 'path';
-import { readFileSync, writeFileSync, existsSync, readdirSync, unlinkSync, watch, mkdirSync } from 'fs';
+import { readFileSync, writeFileSync, existsSync, readdirSync, unlinkSync, watch, mkdirSync, statSync } from 'fs';
 import { randomBytes } from 'crypto';
 
 const __filename = fileURLToPath(import.meta.url);
@@ -46,8 +46,10 @@ function loadAllTasks() {
   const tasks = [];
   for (const file of files) {
     try {
-      const content = JSON.parse(readFileSync(join(TASKS_DIR, file), 'utf-8'));
-      tasks.push({ ...content, _filename: file });
+      const filepath = join(TASKS_DIR, file);
+      const content = JSON.parse(readFileSync(filepath, 'utf-8'));
+      const stat = statSync(filepath);
+      tasks.push({ ...content, _filename: file, _lastModified: stat.mtimeMs });
     } catch (e) {
       // skip malformed files
     }
