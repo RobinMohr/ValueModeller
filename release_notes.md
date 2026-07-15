@@ -1,5 +1,21 @@
 # Release Notes — Value Modeller
 
+## 2026-07-15T13:56 — fix: Header toolbar horizontal overflow at tablet/mobile widths
+
+**Task:** `tasks/3_d4a19c3f_fix-header-toolbar-horizontal-overflow-tablet.json` → state set to `developed`
+
+**What was done:**
+- Hid button text labels below `lg:` (1024px) breakpoint — icons remain visible at all widths
+- Changed icon margin from `mr-1` to `lg:mr-1` so spacing only applies when labels are shown
+- Added `min-w-0 flex-shrink overflow-hidden` to the toolbar container for safety
+- Reduced gap from `gap-2` to `gap-1 lg:gap-2` for tighter spacing at smaller viewports
+- Hid divider elements below `lg:` with `hidden lg:block`
+- All toolbar buttons retain full functionality via `aria-label` attributes at any viewport width
+
+**File changed:** `src/components/layout/app-shell.tsx`
+
+---
+
 ## 2026-07-15T13:54 — improvement: Add React Error Boundary for crash protection
 
 **Task:** `tasks/2_add-react-error-boundary-crash-protection.json` → state set to `developed`

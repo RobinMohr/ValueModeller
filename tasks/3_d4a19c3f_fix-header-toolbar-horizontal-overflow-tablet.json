@@ -3,7 +3,7 @@
   "title": "Fix header toolbar horizontal overflow at tablet/mobile widths",
   "priority": 3,
   "type": "problem",
-  "state": "todo",
+  "state": "developed",
   "description": "The canvas page header toolbar causes horizontal page overflow at viewport widths <= 768px (tablet and below).\n\nReproduction:\n1. Open app at http://localhost:5173\n2. Navigate to any stream (click Open)\n3. Resize browser to 768px width (or use DevTools tablet emulation)\n4. Observe: page scrolls horizontally, body scrollWidth (879px) exceeds viewport (768px)\n\nCause: The right-side toolbar in app-shell.tsx header contains ~7 buttons/elements (Stream Details, Stats, divider, Import, Export, divider, ThemeToggle, SaveIndicator) in a `flex items-center gap-2` container with no overflow handling or responsive wrapping.\n\nThe landing page does NOT overflow at 768px — only the canvas view header.\n\nFix options (pick simplest):\n1. Add `overflow-hidden` to the header and `flex-shrink min-w-0` to the right toolbar\n2. Hide text labels on buttons at `md:` breakpoint, showing only icons: `<span className=\"hidden lg:inline\">Import</span>`\n3. Use `flex-wrap` on the toolbar with appropriate height handling\n4. Collapse less-used buttons (Import/Export) into a dropdown menu at smaller widths\n\nOption 2 is recommended — hide button text labels below `lg:` (1024px) so only icons show. This matches common responsive toolbar patterns and maintains all functionality.\n\nVerified via Puppeteer at 768px viewport: elements with class `flex items-center gap-2 text-sm text-gray-500` overflow to right: 879px.",
   "files": [
     "src/components/layout/app-shell.tsx"
