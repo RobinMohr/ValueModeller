@@ -1,5 +1,15 @@
 # Release Notes — Value Modeller
 
+## 2026-07-15T11:38 — chore: Close unit test temporary task (no-op)
+
+**Task:** `tasks/4_f1dc0063_unit-test-temporary-task.json` → state set to `developed`
+
+**What happened:** This task was created by a unit test as a temporary placeholder ("Created by unit test - safe to delete"). No implementation work was required — the task is a no-op. Marked as developed per workflow rules.
+
+**Build:** ✅ No changes to verify.
+
+---
+
 ## 2026-07-15T11:34 — feat: Expandable detail view for value streams
 
 **Task:** `tasks/2_detail-view-for-value-streams.json` → state set to `developed`
