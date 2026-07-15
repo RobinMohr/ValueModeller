@@ -1,5 +1,25 @@
 # Release Notes — Value Modeller
 
+## 2026-07-15T11:08 — improvement: Rename "Step Description" to "Process Description" in SIPOC form
+
+**Task:** `tasks/2_rename-step-description.json` → state set to `developed`
+
+**What changed:**
+- Renamed the "Step Description" label to "Process Description" in `sipoc-form.tsx` — this field represents the "P" in SIPOC and should be labeled accordingly.
+- Moved the "Process Description" field from its position between Step Name and Suppliers to between Inputs and Outputs, following the correct S-I-P-O-C order.
+- The form now shows fields in this order: Step Name, Suppliers (S), Inputs (I), Process Description (P), Outputs (O), Customers (C).
+
+**Impact:**
+- The SIPOC form now correctly reflects the SIPOC methodology ordering.
+- "Process Description" label makes the field's purpose clearer as the core process documentation.
+
+**Files modified:**
+- `src/components/form/sipoc-form.tsx`
+
+**Build:** ✅ Passes (`tsc -b && vite build` — 0 errors, 297 modules)
+
+
+
 ## 2026-07-15T11:06 — improvement: Make delete button less noticeable with confirmation
 
 **Task:** `tasks/2_update-delete-button.json` → state set to `developed`

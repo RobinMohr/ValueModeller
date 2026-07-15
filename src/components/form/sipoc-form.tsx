@@ -98,14 +98,6 @@ export function SipocForm() {
         />
 
         <SipocTextAreaField
-          id="process-description"
-          label="Step Description"
-          value={node.data.processDescription}
-          placeholder="Describe what this step does..."
-          onChange={(value) => handleUpdate('processDescription', value)}
-        />
-
-        <SipocTextAreaField
           id="suppliers"
           label="Suppliers"
           value={node.data.suppliers}
@@ -119,6 +111,14 @@ export function SipocForm() {
           value={node.data.inputs}
           placeholder="What materials, data, or resources enter? (one per line)"
           onChange={(value) => handleUpdate('inputs', value)}
+        />
+
+        <SipocTextAreaField
+          id="process-description"
+          label="Process Description"
+          value={node.data.processDescription}
+          placeholder="Describe what this step does..."
+          onChange={(value) => handleUpdate('processDescription', value)}
         />
 
         <SipocTextAreaField
