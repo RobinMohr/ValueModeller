@@ -1295,3 +1295,23 @@ npm run test:coverage # Coverage report
 
 **Files modified:**
 - `src/components/canvas/flow-canvas.tsx`
+
+
+
+## 2026-07-15T09:46 — Fix SmartEdge subscribing to full nodes array (performance)
+
+**What changed:**
+- Removed `useGraphStore((s) => s.nodes)` subscription from `SmartEdge` component — this caused every edge to re-render on every node position change (drag, auto-layout, etc.)
+- Replaced with imperative `getNodes()` from `useReactFlow()` which reads the current nodes at render time without subscribing to the reactive state
+- Removed the `useGraphStore` import (no longer needed)
+- Removed the `void getNodes` suppression line that was a workaround for the unused variable
+
+**Impact:**
+- SmartEdge components no longer re-render on every node drag/position change
+- Only re-renders when React Flow actually passes new edge props (source/target positions change)
+- Eliminates expensive per-edge obstruction detection + path computation during node dragging
+- Follows React Flow official performance guide: "One of the most common performance pitfalls is directly accessing nodes or edges in components"
+- Fixes SOLID Dependency Inversion violation — edge component no longer directly subscribes to mutable shared state
+
+**Files modified:**
+- `src/components/canvas/smart-edge.tsx`

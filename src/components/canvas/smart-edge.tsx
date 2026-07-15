@@ -5,7 +5,6 @@ import {
   useReactFlow,
   type EdgeProps,
 } from '@xyflow/react';
-import { useGraphStore } from '../../store/graph-store';
 import { getObstructingNodes, computeSmartPath } from '../../utils/edge-routing';
 import { EdgeLabelEditor } from './edge-label-editor';
 
@@ -36,7 +35,9 @@ export const SmartEdge = memo(function SmartEdge({
   data,
 }: EdgeProps) {
   const { getNodes } = useReactFlow();
-  const nodes = useGraphStore((s) => s.nodes);
+  // Use imperative getNodes() to read current nodes at render time
+  // without subscribing to the full nodes array (avoids re-renders on every node drag)
+  const nodes = getNodes();
 
   const edgeData = data as SmartEdgeData | undefined;
   const label = edgeData?.label ?? '';
@@ -77,9 +78,6 @@ export const SmartEdge = memo(function SmartEdge({
     labelX = defaultLabelX;
     labelY = defaultLabelY;
   }
-
-  // Suppress unused variable warnings for getNodes (used to trigger re-render)
-  void getNodes;
 
   return (
     <>
