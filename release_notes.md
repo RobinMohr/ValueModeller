@@ -1,5 +1,27 @@
 # Release Notes — Value Modeller
 
+## 2026-07-15T11:14 — improvement: Fix Demo button hidden behind Search button
+
+**Task:** `tasks/2_e523971e_fix-formatting.json` → state set to `developed`
+
+**What changed:**
+- Fixed a UI overlap where the NodeSearchPanel's search button (positioned with `absolute top-3 right-3 z-10`) was overlapping and hiding the GuidedDemoPanel's "▶ Demo" button (positioned via React Flow's `<Panel position="top-right">`).
+- Changed the NodeSearchPanel's right offset from `right-3` (12px) to `right-24` (96px) in both the closed (button) and open (expanded panel) states.
+- This ensures the Demo button is now fully visible and accessible beside the Search button in the top-right area of the canvas.
+
+**Verification:**
+- Confirmed via Puppeteer that the search button (right edge at ~1183px) no longer overlaps with the Demo button (left edge at ~1191px). There is now proper spacing between them.
+
+**Impact:**
+- The "▶ Demo" button in the top-right corner of the canvas is now fully accessible and clickable, no longer hidden behind the search panel.
+
+**Files modified:**
+- `src/components/canvas/node-search-panel.tsx`
+
+**Build:** ✅ Passes (`tsc -b && vite build` — 0 errors, 297 modules)
+
+
+
 ## 2026-07-15T11:09 — improvement: Add unique IDs to task filenames
 
 **Task:** `tasks/1_48bc73fd_update-tasks.json` → state set to `developed`

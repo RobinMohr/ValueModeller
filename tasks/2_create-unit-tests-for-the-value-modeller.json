@@ -1,0 +1,8 @@
+{
+  "title": "create unit tests for the value modeller",
+  "type": "improvement",
+  "priority": 2,
+  "description": "create unit tests for the value modeller",
+  "state": "todo",
+  "origin": "user"
+}

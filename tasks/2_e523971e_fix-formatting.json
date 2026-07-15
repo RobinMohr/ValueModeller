@@ -3,7 +3,7 @@
   "type": "improvement",
   "priority": 2,
   "description": "there is a button hidden behind the search function, its not really accessible figure out, which that one is and fix the formatting",
-  "state": "todo",
+  "state": "developed",
   "origin": "user",
   "id": "e523971e"
 }
