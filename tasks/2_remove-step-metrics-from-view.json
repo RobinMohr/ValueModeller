@@ -1,0 +1,8 @@
+{
+  "title": "remove step metrics from view",
+  "type": "improvement",
+  "priority": 2,
+  "description": "we dont need to see the Step Metrics in the general view",
+  "state": "developed",
+  "origin": "user"
+}

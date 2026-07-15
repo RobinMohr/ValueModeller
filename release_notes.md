@@ -1,5 +1,24 @@
 # Release Notes — Value Modeller
 
+## 2026-07-15T11:43 — improvement: Remove step metrics from general view
+
+**Task:** `tasks/2_remove-step-metrics-from-view.json` → state set to `developed`
+
+**What was removed:**
+- Removed the Step Metrics badges (Cycle Time, Lead Time, Value Add %) from canvas nodes in the general view
+- Removed `hasMetrics` variable and its usage in the aria-label attribute
+- Simplified empty state condition from `!hasContent && !hasMetrics` to `!hasContent`
+- The metrics data fields remain in the data model and SIPOC form — only the canvas node display is affected
+
+**Behavior change:**
+- **Before:** Nodes displayed CT, LT, and VA% badges (indigo/amber/emerald colored) below SIPOC content
+- **After:** Nodes only show the process name, description, and SIPOC content sections — metrics are only visible in the side panel form
+
+**Files modified:**
+- `src/components/canvas/sipoc-node.tsx`
+
+**Build:** ✅ Passes (`tsc -b && vite build` — 0 errors, 297 modules)
+
 ## 2026-07-15T11:41 — improvement: Show full SIPOC information on canvas nodes
 
 **Task:** `tasks/2_show-full-sipoc-information.json` → state set to `developed`

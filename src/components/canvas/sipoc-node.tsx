@@ -75,7 +75,6 @@ export const SipocNodeComponent = memo(function SipocNodeComponent({
   const customerCount = countLines(data.customers);
   const completionStatus = getCompletionStatus(supplierCount, inputCount, outputCount, customerCount);
 
-  const hasMetrics = Boolean(data.cycleTime || data.leadTime || data.valueAddPercent);
   const hasContent = supplierCount > 0 || inputCount > 0 || outputCount > 0 || customerCount > 0 || Boolean(data.processDescription);
 
   const handleMouseEnter = useCallback(() => {
@@ -109,7 +108,7 @@ export const SipocNodeComponent = memo(function SipocNodeComponent({
       onMouseEnter={handleMouseEnter}
       onMouseLeave={handleMouseLeave}
       role="button"
-      aria-label={`Step node: ${data.label}. ${completionLabel[completionStatus]}. ${hasMetrics ? `Metrics: ${data.cycleTime ? `Cycle Time ${data.cycleTime}m` : ''}${data.leadTime ? `, Lead Time ${data.leadTime}m` : ''}${data.valueAddPercent ? `, Value Add ${data.valueAddPercent}%` : ''}. ` : ''}Use arrow keys to navigate between connected nodes. Enter to edit.`}
+      aria-label={`Step node: ${data.label}. ${completionLabel[completionStatus]}. Use arrow keys to navigate between connected nodes. Enter to edit.`}
       aria-roledescription="step node"
       tabIndex={0}
       onKeyDown={(e) => handleNodeKeyDown(e, id)}
@@ -164,32 +163,8 @@ export const SipocNodeComponent = memo(function SipocNodeComponent({
           </div>
         )}
 
-        {/* Metrics */}
-        {hasMetrics && (
-          <div className={cn(
-            'flex gap-1.5 flex-wrap',
-            hasContent ? 'mt-1 pt-2 border-t border-gray-100 dark:border-gray-700' : 'mt-1'
-          )} aria-hidden="true">
-            {data.cycleTime && (
-              <span className="text-[10px] px-1.5 py-0.5 rounded bg-indigo-50 dark:bg-indigo-900/30 text-indigo-700 dark:text-indigo-300" title="Cycle Time">
-                CT: {data.cycleTime}m
-              </span>
-            )}
-            {data.leadTime && (
-              <span className="text-[10px] px-1.5 py-0.5 rounded bg-amber-50 dark:bg-amber-900/30 text-amber-700 dark:text-amber-300" title="Lead Time">
-                LT: {data.leadTime}m
-              </span>
-            )}
-            {data.valueAddPercent && (
-              <span className="text-[10px] px-1.5 py-0.5 rounded bg-emerald-50 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-300" title="Value Add %">
-                VA: {data.valueAddPercent}%
-              </span>
-            )}
-          </div>
-        )}
-
         {/* Empty state hint */}
-        {!hasContent && !hasMetrics && (
+        {!hasContent && (
           <div className="text-xs text-gray-400 dark:text-gray-500 italic mt-1">
             Click to add details
           </div>
