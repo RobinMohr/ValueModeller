@@ -1,5 +1,13 @@
 # Release Notes — Value Modeller
 
+## 2026-07-15T11:38 — chore: Confirm "Outputs become inputs" auto-fill (already implemented)
+
+**Task:** `tasks/2_outputs-become-inputs.json` → state set to `developed`
+
+**Verification:** The `onConnect` handler in `src/store/graph-store.ts` (lines 57-75) already auto-fills the target node's `inputs` from the source node's `outputs`, and the target's `suppliers` from the source's `customers`, when connecting two nodes — but only if the target fields are currently empty. This was originally implemented at 2026-07-15T10:49. No code changes needed.
+
+**Build:** ✅ Passes (`tsc -b && vite build` — 0 errors, 297 modules)
+
 ## 2026-07-15T11:38 — chore: Close unit test temporary task (no-op)
 
 **Task:** `tasks/4_f1dc0063_unit-test-temporary-task.json` → state set to `developed`
