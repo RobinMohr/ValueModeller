@@ -237,6 +237,13 @@ function FlowCanvasInner() {
     closeContextMenu();
   }, [closeContextMenu]);
 
+  const handleNodeClick = useCallback(
+    (_event: React.MouseEvent, node: SipocNode) => {
+      openSidePanel(node.id);
+    },
+    [openSidePanel]
+  );
+
   const handleNodeDoubleClick = useCallback(
     (_event: React.MouseEvent, node: SipocNode) => {
       openSidePanel(node.id);
@@ -283,6 +290,7 @@ function FlowCanvasInner() {
         onConnect={handleConnect}
         isValidConnection={isValidConnection}
         onNodeDoubleClick={handleNodeDoubleClick}
+        onNodeClick={handleNodeClick}
         onNodeContextMenu={handleNodeContextMenu}
         onPaneClick={handlePaneClick}
         onNodeDrag={onNodeDrag}

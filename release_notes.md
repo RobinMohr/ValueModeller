@@ -1,5 +1,16 @@
 # Release Notes — Value Modeller
 
+## 2026-07-15T10:46 — Single click to edit steps
+
+**What changed:**
+- Added `onNodeClick` handler to the ReactFlow canvas (`flow-canvas.tsx`) so single-clicking a step now opens the SIPOC editor side panel for that step (previously required double-click).
+- `onNodeDoubleClick` is preserved for backwards compatibility.
+- Updated tooltip text in `sipoc-node.tsx` from "Double-click to view full details" to "Click to view full details" and "Double-click to add details" to "Click to add details".
+
+**Impact:** Faster workflow — users no longer need to double-click to edit a process step.
+
+---
+
 ## 2026-07-15T10:20 — Fix ACP Dev Loop Console Issues
 
 **What changed:**

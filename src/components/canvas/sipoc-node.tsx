@@ -177,7 +177,7 @@ export const SipocNodeComponent = memo(function SipocNodeComponent({
 
           {/* Hint */}
           <p className="text-[10px] text-gray-400 dark:text-gray-500 mt-2 italic">
-            Double-click to view full details
+            Click to view full details
           </p>
         </div>
       </NodeToolbar>
@@ -226,7 +226,7 @@ export const SipocNodeComponent = memo(function SipocNodeComponent({
         )}
         {totalItems === 0 && (
           <div className="text-xs text-gray-400 dark:text-gray-500 italic mt-1">
-            Double-click to add details
+            Click to add details
           </div>
         )}
       </div>
