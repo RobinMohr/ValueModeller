@@ -1,0 +1,8 @@
+{
+  "title": "unit tests for tecfactory",
+  "type": "improvement",
+  "priority": 2,
+  "description": "we want unit tests for tecfactory with a good coverage these should follow the aaa prinziple and there should be a skill, which has a template for how the tests should look like and be created like afterwards",
+  "state": "developed",
+  "origin": "user"
+}

@@ -1,0 +1,9 @@
+{
+  "title": "Enhance QA Puppeteer tests to prioritize critical bug detection and auto-create tasks",
+  "priority": 2,
+  "type": "improvement",
+  "state": "developed",
+  "description": "The QA agent (qa-improvement-agent) already uses Puppeteer for visual testing and creates task files. Enhance its Puppeteer testing phase to be more thorough in detecting major/critical bugs that would break the demo:\n\n1. Add console error monitoring — capture and classify JS errors during Puppeteer tests. Any unhandled exception should auto-generate a priority-1 task.\n2. Add interaction failure detection — if a click/fill action doesn't produce the expected DOM change within 3 seconds, flag it as a priority-1 bug.\n3. Add visual regression checks — screenshot key states (empty canvas, canvas with nodes, form open, form filled) and compare against expected layouts (no overlapping elements, no elements off-screen).\n4. Add network error detection — catch failed fetch requests or 4xx/5xx responses during testing.\n5. Ensure all critical user flows are tested every run:\n   - Load app → verify canvas renders\n   - Add node → verify it appears\n   - Click node → verify form panel opens with correct data\n   - Edit form → verify changes persist\n   - Delete node → verify it's removed and form closes\n   - Connect two nodes → verify edge appears\n   - Zoom/pan → verify no rendering glitches\n\nThe agent should classify findings by severity and auto-create tasks with appropriate priority levels. Major bugs (broken core flows, console errors, visual breakage) get priority 1. Minor UX issues get priority 2-3.\n\nFiles to update: .kiro/agents/qa-improvement-agent.md (the agent prompt with enhanced Puppeteer instructions)",
+  "files": [".kiro/agents/qa-improvement-agent.md", ".kiro/agents/qa-improvement-agent.json"],
+  "origin": "ai"
+}
