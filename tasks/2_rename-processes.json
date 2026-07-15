@@ -1,0 +1,8 @@
+{
+  "title": "rename processes",
+  "type": "improvement",
+  "priority": 2,
+  "description": "we want to rename the \"processses\" which are the main information holders in the canvas to be named \"steps\"",
+  "state": "todo",
+  "origin": "user"
+}

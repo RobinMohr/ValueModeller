@@ -160,7 +160,6 @@ function FlowCanvasInner() {
         target: info.targetId,
         type: 'smart' as const,
         animated: true,
-        data: { label: info.label },
       };
       useGraphStore.setState({ edges: [...currentEdges, newEdge] });
     },
@@ -211,25 +210,18 @@ function FlowCanvasInner() {
 
   const handleConnect = useCallback(
     (connection: Connection) => {
-      // Derive edge label from source node's outputs (first line)
-      const sourceNode = getNodeById(connection.source);
-      const outputsText = sourceNode?.data?.outputs ?? '';
-      const firstOutput = outputsText.split('\n').filter((s) => s.trim())[0] ?? '';
-
-      // Add edge with label and smart type
       const { edges: currentEdges } = useGraphStore.getState();
       const newEdge = {
         ...connection,
         id: `e${connection.source}-${connection.target}`,
         type: 'smart' as const,
         animated: true,
-        data: { label: firstOutput },
       };
       useGraphStore.setState({
         edges: [...currentEdges, newEdge],
       });
     },
-    [getNodeById]
+    []
   );
 
   // Close context menu on pane click

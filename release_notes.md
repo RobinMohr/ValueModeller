@@ -1,5 +1,17 @@
 # Release Notes — Value Modeller
 
+## 2026-07-15T10:57 — Remove labels from connectors
+
+**What changed:**
+- Removed `EdgeLabelEditor` rendering from `SmartEdge` and `LabeledEdge` components — edges no longer show labels or "(click to label)" prompts.
+- Removed auto-derived label data from `handleConnect` (previously set label from source node's outputs).
+- Removed label data from `handleProximityEdge` (proximity-connect no longer sets labels).
+- The `edge-label-editor.tsx` file remains in the codebase but is no longer imported or used.
+
+**Impact:** Cleaner canvas — connectors between process nodes are now plain lines without text labels, reducing visual clutter.
+
+---
+
 ## 2026-07-15T10:49 — Outputs become inputs (auto-fill on connect)
 
 **What changed:**
