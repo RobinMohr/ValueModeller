@@ -120,235 +120,90 @@ app.delete('/api/tasks/:filename', (req, res) => {
 // ─── ACP Helper for AI Task Generation ───────────────────────────────────────
 
 /**
- * Lightweight ACP client that spawns kiro-cli in ACP mode, sends a single prompt
- * to the task-creator-agent, collects the streamed text response, and kills the
- * process. Uses raw NDJSON over stdio — no SDK dependency needed.
+ * Spawns kiro-cli chat in non-interactive mode with the task-creator-agent.
+ * Collects all stdout output and returns it as a string for JSON extraction.
+ *
+ * This replaces the previous ACP-based approach which was unreliable due to
+ * protocol complexities and timing issues with streamed session updates.
  */
-async function runAcpTaskCreator(userPrompt, cwd, timeoutMs = 90000) {
+async function runTaskCreatorChat(userPrompt, cwd, timeoutMs = 90000) {
   return new Promise((resolve, reject) => {
-    let collectedText = '';
-    let buffer = '';
-    let sessionId = null;
-    let requestIdCounter = 1;
-    let initResolve = null;
-    let sessionResolve = null;
-    let promptResolved = false;
+    let stdoutData = '';
+    let stderrData = '';
+    let resolved = false;
 
-    const proc = spawn('kiro-cli', ['acp', '--agent', 'task-creator-agent', '--trust-all-tools'], {
+    const promptText = `Generate a task for: ${userPrompt}`;
+
+    const proc = spawn('kiro-cli', [
+      'chat',
+      '--agent', 'task-creator-agent',
+      '--trust-all-tools',
+      '--no-interactive',
+      '--wrap', 'never',
+      promptText
+    ], {
       stdio: ['pipe', 'pipe', 'pipe'],
       cwd,
       env: { ...process.env, NO_COLOR: '1', FORCE_COLOR: '0' }
     });
 
+    // Close stdin immediately — non-interactive mode doesn't need input
+    proc.stdin.end();
+
     // Timeout safety
     const timeout = setTimeout(() => {
-      if (proc.exitCode === null) {
-        if (process.platform === 'win32') {
-          spawn('taskkill', ['/PID', String(proc.pid), '/T', '/F'], { stdio: 'ignore' });
-        } else {
-          proc.kill('SIGTERM');
+      if (!resolved) {
+        resolved = true;
+        if (proc.exitCode === null) {
+          if (process.platform === 'win32') {
+            spawn('taskkill', ['/PID', String(proc.pid), '/T', '/F'], { stdio: 'ignore' });
+          } else {
+            proc.kill('SIGTERM');
+          }
         }
-      }
-      if (!promptResolved) {
-        promptResolved = true;
-        reject(new Error('AI task generation timed out'));
+        // If we collected some output before timeout, try to use it
+        if (stdoutData.trim()) {
+          resolve(stdoutData);
+        } else {
+          reject(new Error('AI task generation timed out'));
+        }
       }
     }, timeoutMs);
 
-    function send(msg) {
-      proc.stdin.write(JSON.stringify(msg) + '\n');
-    }
-
-    const PROMPT_REQUEST_ID = 3;
-
-    function handleMessage(msg) {
-      // Handle _kiro.dev/session/update notifications (streamed text)
-      if (msg.method === '_kiro.dev/session/update' && msg.params?.update) {
-        const update = msg.params.update;
-        if (update.sessionUpdate === 'agent_message_chunk' && update.content?.text) {
-          collectedText += update.content.text;
-        }
-        // Handle session error/completion notifications
-        if (update.sessionUpdate === 'session_error' || update.sessionUpdate === 'agent_error') {
-          const errMsg = update.error?.message || update.message || 'Agent session error';
-          console.error('[ai-assist] Session error notification:', errMsg);
-          if (!promptResolved) {
-            promptResolved = true;
-            clearTimeout(timeout);
-            cleanup();
-            reject(new Error(`Agent error: ${errMsg}`));
-          }
-        }
-        return;
-      }
-
-      // Handle requestPermission — auto-approve for read-only agent
-      // (Redundant with --trust-all-tools flag but kept as fallback)
-      if (msg.method === 'requestPermission' && 'id' in msg) {
-        const options = msg.params?.options || [];
-        const approve = options.find(o => o.kind === 'allow_once') ||
-                        options.find(o => o.kind === 'allow_always') ||
-                        options[0];
-        send({
-          jsonrpc: '2.0',
-          id: msg.id,
-          result: { outcome: { outcome: 'selected', optionId: approve?.optionId || '' } }
-        });
-        return;
-      }
-
-      // Handle JSON-RPC error responses
-      if ('id' in msg && 'error' in msg) {
-        const errorMsg = msg.error?.message || JSON.stringify(msg.error);
-        console.error(`[ai-assist] JSON-RPC error (id=${msg.id}):`, errorMsg);
-        if (msg.id === PROMPT_REQUEST_ID) {
-          promptResolved = true;
-          clearTimeout(timeout);
-          cleanup();
-          // If we already have collected text, try to use it despite the error
-          if (collectedText.trim()) {
-            resolve(collectedText);
-          } else {
-            reject(new Error(`Agent returned error: ${errorMsg}`));
-          }
-          return;
-        }
-        // For init/session errors, reject immediately
-        if (initResolve || sessionResolve) {
-          promptResolved = true;
-          clearTimeout(timeout);
-          cleanup();
-          reject(new Error(`ACP handshake failed: ${errorMsg}`));
-          return;
-        }
-        return;
-      }
-
-      // Handle JSON-RPC responses (matched by id)
-      if ('id' in msg && 'result' in msg) {
-        // Prompt completion — the main thing we're waiting for
-        if (msg.id === PROMPT_REQUEST_ID) {
-          promptResolved = true;
-          clearTimeout(timeout);
-          cleanup();
-          resolve(collectedText);
-          return;
-        }
-
-        // Handshake responses (initialize, session/new)
-        if (initResolve) {
-          initResolve(msg.result);
-          initResolve = null;
-        } else if (sessionResolve) {
-          sessionResolve(msg.result);
-          sessionResolve = null;
-        }
-      }
-    }
-
-    function cleanup() {
-      if (proc.exitCode === null) {
-        if (process.platform === 'win32') {
-          spawn('taskkill', ['/PID', String(proc.pid), '/T', '/F'], { stdio: 'ignore' });
-        } else {
-          proc.kill('SIGTERM');
-        }
-      }
-    }
-
-    // Parse NDJSON from stdout
     proc.stdout.on('data', (chunk) => {
-      buffer += chunk.toString();
-      const lines = buffer.split('\n');
-      buffer = lines.pop() || '';
-      for (const line of lines) {
-        const trimmed = line.trim();
-        if (!trimmed) continue;
-        try {
-          handleMessage(JSON.parse(trimmed));
-        } catch { /* skip non-JSON lines */ }
-      }
+      stdoutData += chunk.toString();
     });
 
-    // Log stderr for debugging
-    let stderrOutput = '';
     proc.stderr.on('data', (chunk) => {
-      stderrOutput += chunk.toString();
+      stderrData += chunk.toString();
     });
 
     proc.on('error', (err) => {
-      clearTimeout(timeout);
-      if (!promptResolved) {
-        promptResolved = true;
+      if (!resolved) {
+        resolved = true;
+        clearTimeout(timeout);
         reject(new Error(`Failed to spawn kiro-cli: ${err.message}`));
       }
     });
 
     proc.on('close', (code) => {
-      clearTimeout(timeout);
-      if (stderrOutput.trim()) {
-        console.error('[ai-assist] kiro-cli stderr:', stderrOutput.trim().substring(0, 500));
-      }
-      if (!promptResolved) {
-        promptResolved = true;
-        if (collectedText.trim()) {
-          resolve(collectedText);
+      if (!resolved) {
+        resolved = true;
+        clearTimeout(timeout);
+
+        if (stderrData.trim()) {
+          console.error('[ai-assist] kiro-cli stderr:', stderrData.trim().substring(0, 500));
+        }
+
+        if (stdoutData.trim()) {
+          resolve(stdoutData);
+        } else if (code !== 0) {
+          reject(new Error(`kiro-cli exited with code ${code}. stderr: ${stderrData.trim().substring(0, 200) || '(empty)'}`));
         } else {
-          reject(new Error(`kiro-cli ACP exited with code ${code} before completing. stderr: ${stderrOutput.trim().substring(0, 200) || '(empty)'}`));
+          reject(new Error('AI agent returned an empty response'));
         }
       }
     });
-
-    // --- ACP Handshake sequence ---
-    // Step 1: Initialize
-    const initId = requestIdCounter++;
-    send({
-      jsonrpc: '2.0',
-      id: initId,
-      method: 'initialize',
-      params: {
-        protocolVersion: '0.1',
-        clientCapabilities: {}
-      }
-    });
-
-    // Wait for initialize response, then create session, then send prompt
-    // We use a simple state machine via the resolve callbacks
-    initResolve = () => {
-      // Step 2: Create session
-      const sessionReqId = requestIdCounter++;
-      send({
-        jsonrpc: '2.0',
-        id: sessionReqId,
-        method: 'session/new',
-        params: {
-          cwd,
-          mcpServers: []
-        }
-      });
-
-      sessionResolve = (result) => {
-        sessionId = result?.sessionId;
-        if (!sessionId) {
-          promptResolved = true;
-          clearTimeout(timeout);
-          cleanup();
-          reject(new Error('ACP session creation failed — no sessionId returned'));
-          return;
-        }
-
-        // Step 3: Send the prompt
-        send({
-          jsonrpc: '2.0',
-          id: PROMPT_REQUEST_ID,
-          method: 'session/prompt',
-          params: {
-            sessionId,
-            prompt: [{ type: 'text', text: `Generate a task for: ${userPrompt}` }]
-          }
-        });
-      };
-    };
   });
 }
 
@@ -507,7 +362,7 @@ app.post('/api/tasks/generate', async (req, res) => {
   }
 
   try {
-    const result = await runAcpTaskCreator(prompt.trim(), PROJECT_ROOT);
+    const result = await runTaskCreatorChat(prompt.trim(), PROJECT_ROOT);
 
     if (!result || !result.trim()) {
       console.error('[ai-assist] Empty response from agent');

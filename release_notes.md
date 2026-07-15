@@ -1379,3 +1379,42 @@ Moved the `relative` class from the `<Panel>` component to an inner `<div>` wrap
 - `src/components/canvas/keyboard-shortcuts-panel.tsx`
 
 **Build:** ✅ Passes (`tsc -b && vite build` — 0 errors, 298 modules)
+
+
+
+## [2026-07-15T10:10] fix: AI Assist task creation — replace unreliable ACP client with kiro-cli chat
+
+**Category:** Critical Bug Fix — User Request
+
+**What was broken:**
+The "AI Assist" mode in TecFactory's new task form was failing with:
+```
+Error: AI agent returned an empty response. Please try again with a more detailed prompt.
+```
+
+**Root cause:**
+The `runAcpTaskCreator` function manually implemented the ACP protocol over raw NDJSON stdin/stdout. This approach was fundamentally unreliable because:
+- `agent_message_chunk` session update notifications weren't always being collected before the `session/prompt` response resolved
+- The complex handshake (initialize → session/new → session/prompt) had timing issues with streamed updates
+- When the task-creator-agent used tools (read, glob, grep, code) to explore the codebase before generating JSON, the tool interactions produced protocol messages that could interfere with text collection
+- The result: `collectedText` was empty when the prompt completed, even though the agent had produced valid output
+
+**Fix:**
+Replaced the entire 180-line `runAcpTaskCreator` ACP client with a much simpler `runTaskCreatorChat` function that:
+1. Spawns `kiro-cli chat` with `--no-interactive --wrap never --trust-all-tools --agent task-creator-agent`
+2. Passes the prompt as the positional `[INPUT]` argument
+3. Collects all stdout output (which contains the agent's complete response including any JSON)
+4. Passes the collected output through the existing robust `extractTaskJson()` function
+
+This approach is reliable because:
+- No manual ACP protocol handling — `kiro-cli chat` manages the full agent lifecycle internally
+- All agent output (text, tool results, final answer) goes to stdout in a single stream
+- `--no-interactive` ensures the process exits cleanly when done
+- `--wrap never` prevents line-wrapping that could break JSON extraction
+- The existing `extractTaskJson()` with its 5-strategy parser handles any mixed output format
+
+**Files changed:**
+- `tecfactory/server.js` — Replaced `runAcpTaskCreator` (180 lines) with `runTaskCreatorChat` (65 lines)
+
+**Build:** ✅ Passes (`tsc -b && vite build` — 0 errors, 298 modules)
+**Tests:** ✅ All 58 TecFactory tests pass

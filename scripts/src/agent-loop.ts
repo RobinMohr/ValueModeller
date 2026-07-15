@@ -346,6 +346,44 @@ function releaseTaskLock(cwd: string, taskFilename: string): void {
 }
 
 /**
+ * Reset a task's state back to "todo" after a failed agent run.
+ * This ensures the task goes back into the pool for the next iteration.
+ */
+function resetTaskToTodo(cwd: string, taskFilename: string): void {
+  const taskPath = join(cwd, "tasks", taskFilename);
+  try {
+    const content = JSON.parse(readFileSync(taskPath, "utf-8"));
+    content.state = "todo";
+    writeFileSync(taskPath, JSON.stringify(content, null, 2) + "\n");
+    log(`  Task reset to "todo": ${taskFilename}`, "yellow");
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err);
+    log(`  Failed to reset task state: ${msg}`, "red");
+  }
+}
+
+/**
+ * Verify (and enforce) that a task's state is "developed" after a successful run.
+ * If the agent didn't set it, we force it here as the loop's guarantee.
+ */
+function ensureTaskDeveloped(cwd: string, taskFilename: string): void {
+  const taskPath = join(cwd, "tasks", taskFilename);
+  try {
+    const content = JSON.parse(readFileSync(taskPath, "utf-8"));
+    if (content.state !== "developed") {
+      log(`  Task state is "${content.state}" after success — forcing to "developed".`, "yellow");
+      content.state = "developed";
+      writeFileSync(taskPath, JSON.stringify(content, null, 2) + "\n");
+    } else {
+      log(`  Task state verified: "developed" ✓`, "green");
+    }
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err);
+    log(`  Failed to verify task state: ${msg}`, "red");
+  }
+}
+
+/**
  * Clean up any stale lock files from crashed previous runs.
  * A lock is considered stale if the task state is not "in-progress"
  * (meaning the agent finished but the lock wasn't cleaned up).
@@ -831,8 +869,9 @@ async function main(): Promise<void> {
         "green"
       );
 
-      // For dev agents, commit and push changes after successful iteration
-      if (config.type === "dev") {
+      // For dev agents: verify task is "developed", then commit and push
+      if (config.type === "dev" && claimedTask) {
+        ensureTaskDeveloped(cwd, claimedTask.filename);
         commitAndPush(cwd);
       }
     } else {
@@ -840,6 +879,11 @@ async function main(): Promise<void> {
         `[${timestamp()}] Iteration ${iteration} ended with issues. (Duration: ${duration}s)`,
         "red"
       );
+
+      // For dev agents: reset task back to "todo" so it can be retried
+      if (config.type === "dev" && claimedTask) {
+        resetTaskToTodo(cwd, claimedTask.filename);
+      }
     }
 
     // Release the task lock after the iteration completes (success or failure)
