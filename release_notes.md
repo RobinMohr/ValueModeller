@@ -1,5 +1,24 @@
 # Release Notes — Value Modeller
 
+## 2026-07-15T16:03 — feat: Implement DELETE /api/tasks/:id endpoint
+
+**Task:** `tasks/2_d9e0f1a2_implement-delete-task-endpoint.json` → state set to `developed`
+
+**Changes:**
+- Created `task-api/src/functions/delete-task.ts` — DELETE /api/tasks/{id} endpoint
+- Validates 8-char hex ID format from route param (returns 400 on invalid)
+- Requires `x-api-key` authentication via `requireAuth` middleware
+- Executes `DELETE FROM tasks WHERE id = @id` via parameterized query
+- Returns 404 if no rows affected (task not found)
+- Returns 204 No Content on successful deletion
+- Returns 500 with JSON error on database failures
+- Build verified: `npm run build` passes with 0 errors
+
+**Files created:**
+- `task-api/src/functions/delete-task.ts`
+
+---
+
 ## 2026-07-15T16:01 — feat: Implement PUT /api/tasks/:id endpoint
 
 **Task:** `tasks/2_c8d9e0f1_implement-update-task-endpoint.json` → state set to `developed`

@@ -3,8 +3,10 @@
   "title": "Implement DELETE /api/tasks/:id endpoint",
   "priority": 2,
   "type": "improvement",
-  "state": "todo",
+  "state": "developed",
   "description": "Deletes a task by ID. Returns 404 if not found, 204 No Content on success.",
-  "files": ["task-api/src/functions/delete-task.ts"],
+  "files": [
+    "task-api/src/functions/delete-task.ts"
+  ],
   "origin": "user-assisted"
 }
