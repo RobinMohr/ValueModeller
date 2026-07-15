@@ -1,5 +1,24 @@
 # Release Notes — Value Modeller
 
+## 2026-07-15T12:00 — improvement: Task sorting by priority or last edited time
+
+**Task:** `tasks/2_e437f021_order-the-tasks-by-the-last-edited-time-or-by-the-.json` → state set to `developed`
+
+**What was implemented:**
+- Added CSS styling for the sort buttons on the TecFactory tasks page (`.tasks-sort`, `.sort-label`, `.sort-btn` classes)
+- The sorting mechanism was already fully implemented in HTML (sort buttons with data-sort attributes) and JavaScript (TaskManager.setSort() + renderTasks() with priority ascending / lastModified descending sorting logic), but the buttons were invisible due to missing CSS
+- Sort buttons now render as styled pills matching the existing filter button pattern — pill shape, smooth transitions, hover state
+- Active sort button uses `--ta-ignition-500` (brand orange) background to differentiate from filter buttons (teal)
+- Priority sort: ascending (lowest priority number first = highest importance)
+- Last Edited sort: descending (most recently modified file first), using `_lastModified` timestamp from server file stat
+
+**Files modified:**
+- `tecfactory/public/style.css` — Added `.tasks-sort`, `.sort-label`, `.sort-btn` styles
+
+**Build:** ✅ Passes (`tsc -b && vite build` — 0 errors, 297 modules)
+
+---
+
 ## 2026-07-15T11:58 — bugfix: Fix ACP agents Git CRLF warning messages
 
 **Task:** `tasks/2_b97409fc_fix-acp-agents-warning-messages.json` → state set to `developed`

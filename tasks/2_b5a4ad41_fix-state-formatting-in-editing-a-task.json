@@ -1,0 +1,9 @@
+{
+  "title": "fix state formatting in editing a task",
+  "type": "improvement",
+  "priority": 2,
+  "description": "when editing a task in the tecfactory, the state is formatted not very well\nit is unlike the other fields\nuse puppeteer to find out what the issue is and fix it",
+  "state": "todo",
+  "origin": "user",
+  "id": "b5a4ad41"
+}
