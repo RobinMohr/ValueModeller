@@ -1,5 +1,23 @@
 # Release Notes — Value Modeller
 
+## 2026-07-15T15:59 — feat: Implement POST /api/tasks endpoint
+
+**Task:** `tasks/2_b7c8d9e0_implement-create-task-endpoint.json` → state set to `developed`
+
+**Changes:**
+- Created `task-api/src/functions/create-task.ts` — POST /api/tasks endpoint
+- Auto-generates 8-char hex ID via `crypto.randomBytes(4).toString('hex')`
+- Validates input with Zod `createTaskSchema` (title, priority, type, state, description, files, origin)
+- Returns 400 with detailed validation issues on invalid input
+- Returns 400 on malformed JSON body
+- Sets `created_at` and `updated_at` to current UTC ISO timestamp
+- Returns 201 with the full task object including timestamps
+- Requires `x-api-key` authentication via `requireAuth` middleware
+- Returns 500 with JSON error on database failures
+- Build verified: `npx tsc` passes with 0 errors
+
+---
+
 ## 2026-07-15T15:58 — feat: Implement GET /api/tasks/:id endpoint
 
 **Task:** `tasks/2_a6b7c8d9_implement-get-task-by-id-endpoint.json` → state set to `developed`
