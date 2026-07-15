@@ -23,9 +23,6 @@ function makeNode(id: string, x = 0, y = 0): SipocNode {
       applicationsInvolved: '',
       involvedTeams: '',
       knownIssues: '',
-      cycleTime: '',
-      leadTime: '',
-      valueAddPercent: '',
     },
   };
 }

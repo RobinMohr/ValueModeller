@@ -11,7 +11,6 @@ interface DemoStep {
   label: string;
   description: string;
   role: string;
-  metrics: string;
 }
 
 function getTopologicalOrder(nodes: SipocNode[], edges: SipocEdge[]): string[] {
@@ -81,19 +80,11 @@ function buildDemoSteps(nodes: SipocNode[], edges: SipocEdge[]): DemoStep[] {
       role = '⚙️ Step';
     }
 
-    // Build metrics string
-    const metricsParts: string[] = [];
-    if (data.cycleTime) metricsParts.push(`CT: ${data.cycleTime} min`);
-    if (data.leadTime) metricsParts.push(`LT: ${data.leadTime} min`);
-    if (data.valueAddPercent) metricsParts.push(`VA: ${data.valueAddPercent}%`);
-    const metrics = metricsParts.length > 0 ? metricsParts.join(' · ') : '';
-
     return {
       nodeId,
       label: data.label || 'Unnamed Step',
       description: data.processDescription || 'No description provided.',
       role,
-      metrics,
     };
   }).filter(Boolean) as DemoStep[];
 }
@@ -297,18 +288,6 @@ export function GuidedDemoPanel() {
             <p className="text-sm text-gray-600 dark:text-gray-300 leading-relaxed">
               {currentStep.description}
             </p>
-            {currentStep.metrics && (
-              <div className="mt-2 flex gap-2 flex-wrap">
-                {currentStep.metrics.split(' · ').map((metric) => (
-                  <span
-                    key={metric}
-                    className="text-xs font-mono bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 px-2 py-0.5 rounded"
-                  >
-                    {metric}
-                  </span>
-                ))}
-              </div>
-            )}
           </div>
         )}
 

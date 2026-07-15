@@ -10,12 +10,6 @@ export interface SipocNodeData {
   applicationsInvolved: string;
   involvedTeams: string;
   knownIssues: string;
-  /** Cycle time in minutes (time to complete one unit of work) */
-  cycleTime: string;
-  /** Lead time in minutes (total elapsed time from start to end) */
-  leadTime: string;
-  /** Value-add percentage (0-100) — portion of time that adds customer value */
-  valueAddPercent: string;
   /** Color for group nodes */
   color?: string;
   [key: string]: unknown;

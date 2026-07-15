@@ -1,5 +1,18 @@
 # Release Notes — Value Modeller
 
+## 2026-07-15T13:49 — improvement: Remove step metrics from process nodes
+
+**Task:** `tasks/1_f203e62b_remove-the-step-metrics.json` → state set to `developed`
+
+**What was done:**
+- Removed `cycleTime`, `leadTime`, and `valueAddPercent` fields from `SipocNodeData` interface in `src/types/sipoc.types.ts`
+- Removed default metric values from `addNode` and `addGroupNode` in `src/store/graph-store.ts`
+- Removed the entire "Step Metrics" section (Cycle Time, Lead Time, Value Add inputs) from `src/components/form/sipoc-form.tsx`
+- Removed metrics display from `src/components/canvas/guided-demo-panel.tsx` (DemoStep interface + rendering)
+- Cleaned metrics from all 10 nodes in `src/utils/demo-data.ts` and all 15 nodes in `src/utils/demo-data-sdlc.ts`
+- Removed metrics from test helper in `src/tests/auto-layout.test.ts`
+- Build verified clean (exit code 0, no TypeScript errors)
+
 ## 2026-07-15T13:47 — improvement: Process description visible on canvas board nodes
 
 **Task:** `tasks/1_80f6d140_process-description-should-be-visible-on-the-canva.json` → state set to `developed`

@@ -15,9 +15,6 @@ export const demoNodes: SipocNode[] = [
       applicationsInvolved: 'Guidewire ClaimCenter\nCustomer Self-Service Portal\nAWS S3 (Document Storage)',
       involvedTeams: 'Customer Service\nFirst Notice of Loss (FNOL) Team',
       knownIssues: 'Mobile app uploads sometimes fail for large files\nCall center agents occasionally miss required fields',
-      cycleTime: '10',
-      leadTime: '60',
-      valueAddPercent: '70',
     },
   },
   {
@@ -34,9 +31,6 @@ export const demoNodes: SipocNode[] = [
       applicationsInvolved: 'Guidewire ClaimCenter\nPolicy Administration System\nDocument Management (OpenText)',
       involvedTeams: 'Claims Processing Team\nUnderwriting Support',
       knownIssues: 'Policy database sync delays cause false "not covered" flags\nManual override needed for legacy policies migrated from old system',
-      cycleTime: '15',
-      leadTime: '120',
-      valueAddPercent: '65',
     },
   },
   {
@@ -53,9 +47,6 @@ export const demoNodes: SipocNode[] = [
       applicationsInvolved: 'FRISS Fraud Detection\nLexisNexis Risk Solutions\nInternal ML Model (Python/SageMaker)',
       involvedTeams: 'Fraud Detection Team\nData Science Team',
       knownIssues: 'ML model has 12% false positive rate on water damage claims\nLexisNexis API occasionally times out during batch processing',
-      cycleTime: '5',
-      leadTime: '30',
-      valueAddPercent: '85',
     },
   },
   {
@@ -72,9 +63,6 @@ export const demoNodes: SipocNode[] = [
       applicationsInvolved: 'Guidewire ClaimCenter\nWorkforce Management System\nMicrosoft Teams (Notifications)',
       involvedTeams: 'Claims Operations\nResource Management',
       knownIssues: 'Workload balancing algorithm does not account for adjuster PTO\nHigh-value claims sometimes assigned to junior adjusters during peak periods',
-      cycleTime: '3',
-      leadTime: '45',
-      valueAddPercent: '40',
     },
   },
   {
@@ -91,9 +79,6 @@ export const demoNodes: SipocNode[] = [
       applicationsInvolved: 'Guidewire ClaimCenter\nXactimate (Damage Estimation)\nGoogle Maps\nMobile Inspection App',
       involvedTeams: 'Claims Adjusters\nField Inspectors\nThird-Party Assessors',
       knownIssues: 'Field inspection scheduling averages 5-day wait time\nXactimate pricing database not updated for recent material cost increases',
-      cycleTime: '120',
-      leadTime: '4320',
-      valueAddPercent: '75',
     },
   },
   {
@@ -110,9 +95,6 @@ export const demoNodes: SipocNode[] = [
       applicationsInvolved: 'Guidewire ClaimCenter\nApproval Workflow Engine\nSAP Finance (Budget Check)',
       involvedTeams: 'Claims Management\nActuarial Team (for large claims)',
       knownIssues: 'Claims above €50k require 3 approvals — average 2-day delay per approval level\nNo weekend coverage for senior approvers',
-      cycleTime: '20',
-      leadTime: '480',
-      valueAddPercent: '50',
     },
   },
   {
@@ -129,9 +111,6 @@ export const demoNodes: SipocNode[] = [
       applicationsInvolved: 'Guidewire ClaimCenter\nDocument Generation (DocuSign)\nComplaints Management System',
       involvedTeams: 'Claims Management\nLegal Team\nCustomer Complaints',
       knownIssues: 'Rejection letter templates not updated for new regulation (IDD)\n15% of rejections escalate to ombudsman',
-      cycleTime: '30',
-      leadTime: '1440',
-      valueAddPercent: '30',
     },
   },
   {
@@ -148,9 +127,6 @@ export const demoNodes: SipocNode[] = [
       applicationsInvolved: 'SAP Finance\nBank Payment Gateway (SWIFT)\nGuidewire BillingCenter',
       involvedTeams: 'Finance Department\nTreasury Operations',
       knownIssues: 'International payments take 3-5 business days\nSWIFT cut-off time (14:00) causes next-day delays for late approvals',
-      cycleTime: '5',
-      leadTime: '1440',
-      valueAddPercent: '90',
     },
   },
   {
@@ -167,9 +143,6 @@ export const demoNodes: SipocNode[] = [
       applicationsInvolved: 'Guidewire ClaimCenter\nSurveyMonkey\nDocument Archive (AWS S3)\nBI Reporting (Power BI)',
       involvedTeams: 'Claims Processing Team\nCustomer Experience Team',
       knownIssues: 'Survey response rate only 18%\nArchiving large claims (100+ documents) sometimes exceeds S3 upload timeout',
-      cycleTime: '10',
-      leadTime: '60',
-      valueAddPercent: '55',
     },
   },
   {
@@ -186,9 +159,6 @@ export const demoNodes: SipocNode[] = [
       applicationsInvolved: 'Power BI\nSnowflake Data Warehouse\nSolvency II Reporting Tool\nJira (Improvement Backlog)',
       involvedTeams: 'Business Intelligence Team\nCompliance Department\nContinuous Improvement',
       knownIssues: 'Data warehouse refresh runs nightly — no real-time reporting\nSolvency II report generation takes 4 hours during quarter-end',
-      cycleTime: '60',
-      leadTime: '1440',
-      valueAddPercent: '60',
     },
   },
 ];

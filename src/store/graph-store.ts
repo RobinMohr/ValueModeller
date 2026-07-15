@@ -95,9 +95,6 @@ export const useGraphStore = create<GraphStore>()(
           applicationsInvolved: '',
           involvedTeams: '',
           knownIssues: '',
-          cycleTime: '',
-          leadTime: '',
-          valueAddPercent: '',
         },
       };
       set({ nodes: [...get().nodes, newNode] });
@@ -125,9 +122,6 @@ export const useGraphStore = create<GraphStore>()(
           applicationsInvolved: '',
           involvedTeams: '',
           knownIssues: '',
-          cycleTime: '',
-          leadTime: '',
-          valueAddPercent: '',
         },
         style: { width: 400, height: 250 },
       };

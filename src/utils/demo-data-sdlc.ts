@@ -24,9 +24,6 @@ export const sdlcDemoNodes: SipocNode[] = [
       applicationsInvolved: 'Jira\nProductboard\nConfluence\nMiro (Story Mapping)\nSlack',
       involvedTeams: 'Product Management\nCustomer Success\nBusiness Analysis',
       knownIssues: 'WSJF scoring subjective — different POs produce inconsistent priorities\nBacklog grows faster than delivery capacity (currently 340 items)\nStakeholder requests bypass formal intake process 30% of the time',
-      cycleTime: '120',
-      leadTime: '2880',
-      valueAddPercent: '45',
     },
   },
   {
@@ -43,9 +40,6 @@ export const sdlcDemoNodes: SipocNode[] = [
       applicationsInvolved: 'Figma\nMaze (Usability Testing)\nHotjar\nGoogle Analytics\nStorybook\nAxe DevTools',
       involvedTeams: 'UX Design\nUX Research\nAccessibility Specialist',
       knownIssues: 'Usability testing recruitment takes 2 weeks on average\nDesign-to-development handoff loses context — 25% of specs need clarification\nDesign system has 15 undocumented components',
-      cycleTime: '480',
-      leadTime: '7200',
-      valueAddPercent: '70',
     },
   },
   {
@@ -62,9 +56,6 @@ export const sdlcDemoNodes: SipocNode[] = [
       applicationsInvolved: 'Jira\nConfluence\nMiro (Planning Board)\nTeams (Sprint Planning Meeting)',
       involvedTeams: 'Scrum Team\nEngineering Management\nProduct Management',
       knownIssues: 'Velocity variance ±30% between sprints due to unplanned work\nCross-team dependencies cause 40% of sprint commitment misses\nTechnical debt items consistently deprioritized (last addressed 4 sprints ago)',
-      cycleTime: '180',
-      leadTime: '480',
-      valueAddPercent: '55',
     },
   },
   {
@@ -81,9 +72,6 @@ export const sdlcDemoNodes: SipocNode[] = [
       applicationsInvolved: 'VS Code\nGitHub\nStorybook\nChromatic (Visual Regression)\nLighthouse\nAxe DevTools\nVite',
       involvedTeams: 'Frontend Development\nDesign System Team',
       knownIssues: 'Bundle size growing 5% per sprint — no active tree-shaking strategy\nStorybook build takes 8 minutes (blocks visual regression checks)\nIE11 polyfill removal postponed 3 times due to enterprise customer dependency',
-      cycleTime: '960',
-      leadTime: '4320',
-      valueAddPercent: '80',
     },
   },
   {
@@ -100,9 +88,6 @@ export const sdlcDemoNodes: SipocNode[] = [
       applicationsInvolved: 'IntelliJ IDEA\nGitHub\nPostgres\nRedis\nDocker\nPostman\nSonarQube',
       involvedTeams: 'Backend Development\nDatabase Engineering\nPlatform Team',
       knownIssues: 'Database migration rollback strategy undocumented for 6 critical tables\nAPI response times degrade under >500 concurrent users (connection pool limits)\nTechnical debt: 3 legacy services still on Java 11 blocking Spring Boot 3 migration',
-      cycleTime: '1200',
-      leadTime: '5760',
-      valueAddPercent: '75',
     },
   },
   {
@@ -119,9 +104,6 @@ export const sdlcDemoNodes: SipocNode[] = [
       applicationsInvolved: 'GitHub (Pull Requests)\nSonarQube\nCodeClimate\nGitHub Actions\nSnyk (Dependency Scanning)',
       involvedTeams: 'All Engineering Teams\nSecurity Champions\nTech Leads',
       knownIssues: 'Average PR review time is 18 hours — goal is 4 hours\nReview fatigue on large PRs (>500 lines) leads to rubber-stamping\n2 senior engineers are bottleneck reviewers for 60% of backend PRs',
-      cycleTime: '30',
-      leadTime: '1080',
-      valueAddPercent: '65',
     },
   },
   {
@@ -138,9 +120,6 @@ export const sdlcDemoNodes: SipocNode[] = [
       applicationsInvolved: 'Playwright\nk6 (Performance)\nOWASP ZAP (DAST)\nAllure (Test Reports)\nGitHub Actions\nArgoCD (Staging Deploy)',
       involvedTeams: 'QA Engineering\nPerformance Engineering\nSecurity Engineering',
       knownIssues: 'E2E test suite takes 45 minutes — exceeds 30-minute target\nFlaky tests: 8% of E2E tests fail intermittently due to timing issues\nTest data management is manual — no automated seeding/teardown for staging',
-      cycleTime: '45',
-      leadTime: '180',
-      valueAddPercent: '85',
     },
   },
   {
@@ -157,9 +136,6 @@ export const sdlcDemoNodes: SipocNode[] = [
       applicationsInvolved: 'Jira (Release Board)\nConfluence (Release Notes)\nTestRail\nSlack (Go/No-Go Channel)',
       involvedTeams: 'QA Team\nProduct Management\nRelease Management',
       knownIssues: 'Release gate meetings take 2 hours due to too many stakeholders\nNo automated release readiness scoring — decision is subjective\nKnown issues list format inconsistent between teams',
-      cycleTime: '60',
-      leadTime: '480',
-      valueAddPercent: '50',
     },
   },
   {
@@ -176,9 +152,6 @@ export const sdlcDemoNodes: SipocNode[] = [
       applicationsInvolved: 'ArgoCD\nIstio (Traffic Splitting)\nPrometheus\nGrafana\nPagerDuty\nAWS EKS\nHelm',
       involvedTeams: 'DevOps Engineering\nSite Reliability Engineering\nPlatform Team',
       knownIssues: 'Canary analysis window (30 min) may miss slow-burn memory leaks\nDatabase migrations cannot be canary-tested (schema changes are all-or-nothing)\nCanary metrics baseline drifts on weekends due to different traffic patterns',
-      cycleTime: '30',
-      leadTime: '120',
-      valueAddPercent: '90',
     },
   },
   {
@@ -195,9 +168,6 @@ export const sdlcDemoNodes: SipocNode[] = [
       applicationsInvolved: 'ArgoCD\nAWS EKS\nDatadog\nGrafana\nStatusPage\nGitHub (Release Tags)',
       involvedTeams: 'DevOps Engineering\nSRE Team',
       knownIssues: 'Rollout to 100% takes 2 hours due to pod scheduling in multi-region EKS\nNo automated verification of business metrics during rollout stages\nStatusPage update is manual — often delayed by 30+ minutes',
-      cycleTime: '15',
-      leadTime: '180',
-      valueAddPercent: '88',
     },
   },
   {
@@ -214,9 +184,6 @@ export const sdlcDemoNodes: SipocNode[] = [
       applicationsInvolved: 'Datadog\nGrafana\nPagerDuty\nSentry (Error Tracking)\nStatusPage\nSlack (#incidents)',
       involvedTeams: 'Site Reliability Engineering\nOn-Call Engineers\nCustomer Success',
       knownIssues: 'Alert fatigue: 40% of PagerDuty alerts are non-actionable\nSentry error grouping produces too many unique issues (noisy)\nNo correlation between deployment events and business metric changes in Datadog',
-      cycleTime: '10',
-      leadTime: '2880',
-      valueAddPercent: '70',
     },
   },
   {
@@ -233,9 +200,6 @@ export const sdlcDemoNodes: SipocNode[] = [
       applicationsInvolved: 'PagerDuty\nSlack (#war-room)\nGitHub (hotfix branch)\nArgoCD\nSentry\nDatadog\nStatusPage',
       involvedTeams: 'On-Call Engineers\nSRE Team\nEngineering Management\nCustomer Communications',
       knownIssues: 'Mean time to detect (MTTD) is 8 minutes but mean time to resolve (MTTR) is 47 minutes\nPost-mortem action items completion rate is only 60% within 2 weeks\nHotfix deploys bypass E2E tests — introduced regression twice in Q1',
-      cycleTime: '30',
-      leadTime: '180',
-      valueAddPercent: '95',
     },
   },
   {
@@ -252,9 +216,6 @@ export const sdlcDemoNodes: SipocNode[] = [
       applicationsInvolved: 'LaunchDarkly\nAmplitude (Product Analytics)\nDatadog\nBigQuery\nLooker (Dashboards)',
       involvedTeams: 'Product Management\nData Analytics\nEngineering (Feature Owners)',
       knownIssues: 'Feature flag cleanup: 45 stale flags active in production (technical debt)\nA/B test sample sizes often too small for statistical significance\nLaunchDarkly SDK adds 200ms to initial page load (evaluated synchronously)',
-      cycleTime: '15',
-      leadTime: '10080',
-      valueAddPercent: '60',
     },
   },
   {
@@ -271,9 +232,6 @@ export const sdlcDemoNodes: SipocNode[] = [
       applicationsInvolved: 'Miro (Retro Board)\nJira (Action Items)\nConfluence (Team Agreements)\nGitHub (DORA Metrics)\nMultiplier (Team Health)',
       involvedTeams: 'Scrum Team\nEngineering Management\nAgile Coaches',
       knownIssues: 'Retro action items completion rate is 55% — too many actions generated per retro\nSame systemic issues recur across 3+ retros without resolution (cross-team dependencies)\nDORA metrics not yet automated — manual collection takes 2 hours per sprint',
-      cycleTime: '90',
-      leadTime: '90',
-      valueAddPercent: '40',
     },
   },
   {
@@ -290,9 +248,6 @@ export const sdlcDemoNodes: SipocNode[] = [
       applicationsInvolved: 'Amplitude\nGainsight\nIntercom\nBigQuery\nLooker\nSalesforce',
       involvedTeams: 'Product Analytics\nCustomer Success\nSupport Operations\nProduct Management',
       knownIssues: 'Telemetry event taxonomy inconsistent across frontend/backend — 20% of events unattributed\nNPS response rate dropped from 25% to 12% after survey frequency increase\nNo single customer health score — 3 competing models in use across teams',
-      cycleTime: '240',
-      leadTime: '10080',
-      valueAddPercent: '55',
     },
   },
 ];
