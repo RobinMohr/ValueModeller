@@ -62,7 +62,7 @@ export const GroupNodeComponent = memo(function GroupNodeComponent({
         selected && 'ring-2 ring-offset-2 dark:ring-offset-gray-900',
         selected && colorClasses.ring
       )}
-      aria-label={`Group: ${data.label}. Drag process nodes inside to group them.`}
+      aria-label={`Group: ${data.label}. Drag step nodes inside to group them.`}
       aria-roledescription="swimlane group"
     >
       <NodeResizer

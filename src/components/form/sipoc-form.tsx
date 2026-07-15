@@ -60,7 +60,7 @@ export function SipocForm() {
   if (!node) {
     return (
       <div className="flex items-center justify-center h-full text-gray-400 dark:text-gray-500 text-sm p-4">
-        Select a process node to view details
+        Select a step node to view details
       </div>
     );
   }
@@ -68,7 +68,7 @@ export function SipocForm() {
   return (
     <div className="flex flex-col h-full">
       <div className="flex items-center justify-between p-4 border-b border-gray-200 dark:border-gray-700">
-        <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100">Process Details</h2>
+        <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100">Step Details</h2>
         <button
           onClick={closeSidePanel}
           className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 transition-colors"
@@ -83,7 +83,7 @@ export function SipocForm() {
       <div className="flex-1 overflow-y-auto p-4 space-y-6">
         <Input
           id="process-label"
-          label="Process Name"
+          label="Step Name"
           value={node.data.label}
           onChange={(e) => handleUpdate('label', e.target.value)}
           placeholder="e.g., Order Processing"
@@ -91,9 +91,9 @@ export function SipocForm() {
 
         <SipocTextAreaField
           id="process-description"
-          label="Process Description"
+          label="Step Description"
           value={node.data.processDescription}
-          placeholder="Describe what this process does..."
+          placeholder="Describe what this step does..."
           onChange={(value) => handleUpdate('processDescription', value)}
         />
 
@@ -101,7 +101,7 @@ export function SipocForm() {
           id="suppliers"
           label="Suppliers"
           value={node.data.suppliers}
-          placeholder="Who provides inputs to this process? (one per line)"
+          placeholder="Who provides inputs to this step? (one per line)"
           onChange={(value) => handleUpdate('suppliers', value)}
         />
 
@@ -117,7 +117,7 @@ export function SipocForm() {
           id="outputs"
           label="Outputs"
           value={node.data.outputs}
-          placeholder="What does this process produce? (one per line)"
+          placeholder="What does this step produce? (one per line)"
           onChange={(value) => handleUpdate('outputs', value)}
         />
 
@@ -130,7 +130,7 @@ export function SipocForm() {
         />
 
         <div className="border-t border-gray-200 dark:border-gray-700 pt-6 space-y-6">
-          <h3 className="text-sm font-semibold text-gray-700 dark:text-gray-300 uppercase tracking-wider">Process Metrics</h3>
+          <h3 className="text-sm font-semibold text-gray-700 dark:text-gray-300 uppercase tracking-wider">Step Metrics</h3>
 
           <div className="grid grid-cols-3 gap-3">
             <div className="flex flex-col gap-1">
@@ -202,7 +202,7 @@ export function SipocForm() {
             id="applications-involved"
             label="Applications Involved"
             value={node.data.applicationsInvolved ?? ''}
-            placeholder="Which applications or systems are involved in this process step?"
+            placeholder="Which applications or systems are involved in this step?"
             onChange={(value) => handleUpdate('applicationsInvolved', value)}
           />
 
@@ -210,7 +210,7 @@ export function SipocForm() {
             id="involved-teams"
             label="Involved Teams"
             value={node.data.involvedTeams ?? ''}
-            placeholder="Which teams or departments are involved in this process step?"
+            placeholder="Which teams or departments are involved in this step?"
             onChange={(value) => handleUpdate('involvedTeams', value)}
           />
 
@@ -226,7 +226,7 @@ export function SipocForm() {
 
       <div className="p-4 border-t border-gray-200 dark:border-gray-700">
         <Button variant="danger" size="sm" onClick={handleDelete} className="w-full">
-          Delete Process
+          Delete Step
         </Button>
       </div>
     </div>

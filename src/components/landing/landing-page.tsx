@@ -212,7 +212,7 @@ function CardsView({ streams, deleteConfirmId, onOpen, onDelete, onDeleteConfirm
                 {stream.name}
               </h3>
               <span className="ml-2 inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-primary-50 dark:bg-primary-900/30 text-primary-700 dark:text-primary-300">
-                {stream.nodes.length} {stream.nodes.length === 1 ? 'process' : 'processes'}
+                {stream.nodes.length} {stream.nodes.length === 1 ? 'step' : 'steps'}
               </span>
             </div>
 
@@ -283,7 +283,7 @@ function TableView({ streams, deleteConfirmId, onOpen, onDelete, onDeleteConfirm
                 Name
               </th>
               <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-                Processes
+                Steps
               </th>
               <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
                 Teams

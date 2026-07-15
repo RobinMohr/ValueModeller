@@ -169,7 +169,7 @@ export function AppShell() {
             'border-l border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 transition-all duration-300 overflow-hidden shrink-0',
             isSidePanelOpen ? 'w-[380px]' : 'w-0'
           )}
-          aria-label="Process detail panel"
+          aria-label="Step detail panel"
           aria-hidden={!isSidePanelOpen}
         >
           <div className="w-[380px] h-full">

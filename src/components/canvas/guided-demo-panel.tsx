@@ -68,7 +68,7 @@ function buildDemoSteps(nodes: SipocNode[], edges: SipocEdge[]): DemoStep[] {
     const outgoingEdges = edges.filter((e) => e.source === nodeId);
 
     // Determine the node's role in the flow
-    let role = 'Process Step';
+    let role = 'Step';
     if (incomingEdges.length === 0) {
       role = '🚀 Starting Point';
     } else if (outgoingEdges.length === 0) {
@@ -78,7 +78,7 @@ function buildDemoSteps(nodes: SipocNode[], edges: SipocEdge[]): DemoStep[] {
     } else if (incomingEdges.length > 1) {
       role = '🔗 Merge Point';
     } else {
-      role = '⚙️ Process Step';
+      role = '⚙️ Step';
     }
 
     // Build metrics string
@@ -90,7 +90,7 @@ function buildDemoSteps(nodes: SipocNode[], edges: SipocEdge[]): DemoStep[] {
 
     return {
       nodeId,
-      label: data.label || 'Unnamed Process',
+      label: data.label || 'Unnamed Step',
       description: data.processDescription || 'No description provided.',
       role,
       metrics,

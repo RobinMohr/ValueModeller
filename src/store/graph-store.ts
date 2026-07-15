@@ -86,7 +86,7 @@ export const useGraphStore = create<GraphStore>()(
         type: 'sipoc',
         position,
         data: {
-          label: 'New Process',
+          label: 'New Step',
           processDescription: '',
           suppliers: '',
           inputs: '',

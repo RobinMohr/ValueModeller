@@ -202,9 +202,9 @@ export function NodeSearchPanel() {
           value={query}
           onChange={(e) => setQuery(e.target.value)}
           onKeyDown={handleInputKeyDown}
-          placeholder="Search processes…"
+          placeholder="Search steps…"
           className="flex-1 text-sm text-gray-900 dark:text-gray-100 placeholder-gray-400 dark:placeholder-gray-500 outline-none bg-transparent"
-          aria-label="Search processes by name, description, or SIPOC fields"
+          aria-label="Search steps by name, description, or SIPOC fields"
         />
         <button
           onClick={handleToggle}
@@ -222,7 +222,7 @@ export function NodeSearchPanel() {
         <div className="max-h-60 overflow-y-auto">
           {results.length === 0 ? (
             <div className="px-3 py-4 text-sm text-gray-500 dark:text-gray-400 text-center">
-              No processes found
+              No steps found
             </div>
           ) : (
             <ul className="py-1" role="listbox" aria-label="Search results">

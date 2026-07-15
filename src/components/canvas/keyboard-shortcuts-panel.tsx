@@ -9,7 +9,7 @@ interface ShortcutEntry {
 }
 
 const shortcuts: ShortcutEntry[] = [
-  { keys: ['Double-click node'], description: 'Open process details' },
+  { keys: ['Double-click node'], description: 'Open step details' },
   { keys: ['Right-click node'], description: 'Context menu (Edit, Duplicate, Delete)' },
   { keys: ['Enter', 'Space'], description: 'Edit focused node' },
   { keys: ['→', '↓'], description: 'Navigate to downstream node' },
@@ -23,7 +23,7 @@ const shortcuts: ShortcutEntry[] = [
   { keys: ['Ctrl', 'C'], description: 'Copy selected nodes' },
   { keys: ['Ctrl', 'V'], description: 'Paste copied nodes' },
   { keys: ['Ctrl', 'D'], description: 'Duplicate selected nodes' },
-  { keys: ['Ctrl', 'F'], description: 'Search processes' },
+  { keys: ['Ctrl', 'F'], description: 'Search steps' },
   { keys: ['Ctrl', 'A'], description: 'Select all nodes' },
   { keys: ['Drag'], description: 'Move node' },
   { keys: ['Drag near node'], description: 'Auto-connect (proximity)' },

@@ -93,8 +93,8 @@ export const SipocNodeComponent = memo(function SipocNodeComponent({
       onMouseEnter={handleMouseEnter}
       onMouseLeave={handleMouseLeave}
       role="button"
-      aria-label={`Process node: ${data.label}. ${completionLabel[completionStatus]}. ${hasMetrics ? `Metrics: ${data.cycleTime ? `Cycle Time ${data.cycleTime}m` : ''}${data.leadTime ? `, Lead Time ${data.leadTime}m` : ''}${data.valueAddPercent ? `, Value Add ${data.valueAddPercent}%` : ''}. ` : ''}Use arrow keys to navigate between connected nodes. Enter to edit.`}
-      aria-roledescription="process node"
+      aria-label={`Step node: ${data.label}. ${completionLabel[completionStatus]}. ${hasMetrics ? `Metrics: ${data.cycleTime ? `Cycle Time ${data.cycleTime}m` : ''}${data.leadTime ? `, Lead Time ${data.leadTime}m` : ''}${data.valueAddPercent ? `, Value Add ${data.valueAddPercent}%` : ''}. ` : ''}Use arrow keys to navigate between connected nodes. Enter to edit.`}
+      aria-roledescription="step node"
       tabIndex={0}
       onKeyDown={(e) => handleNodeKeyDown(e, id)}
     >
@@ -184,7 +184,7 @@ export const SipocNodeComponent = memo(function SipocNodeComponent({
 
       <div className="flex flex-col gap-1">
         <div className="font-semibold text-gray-900 dark:text-gray-100 text-sm truncate">
-          {data.label || 'Untitled Process'}
+          {data.label || 'Untitled Step'}
         </div>
         {data.processDescription && (
           <div className="text-xs text-gray-500 dark:text-gray-400 truncate max-w-[160px]">

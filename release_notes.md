@@ -1,5 +1,47 @@
 # Release Notes — Value Modeller
 
+## 2026-07-15T10:59 — Rename "Process" to "Step" in all user-facing labels
+
+**What changed:**
+- Renamed all user-facing text from "Process" to "Step" across the UI:
+  - "Add Process" button → "Add Step"
+  - "Process Details" heading → "Step Details"
+  - "Process Name" label → "Step Name"
+  - "Process Description" label → "Step Description"
+  - "Process Metrics" section → "Step Metrics"
+  - "Delete Process" button → "Delete Step"
+  - "Select a process node to view details" → "Select a step node to view details"
+  - "Processes" stat badge → "Steps"
+  - "process"/"processes" count on landing page → "step"/"steps"
+  - "Process" in node palette → "Step"
+  - "Processes" table header → "Steps"
+  - "Search processes" → "Search steps"
+  - ARIA labels: "Process node" → "Step node", "process node" roledescription → "step node"
+  - Guided demo roles: "Process Step" → "Step"
+  - Default new node label: "New Process" → "New Step"
+  - Keyboard shortcuts: "Open process details" → "Open step details", "Search processes" → "Search steps"
+  - Group node ARIA: "Drag process nodes inside to group them" → "Drag step nodes inside to group them"
+  - Side panel ARIA: "Process detail panel" → "Step detail panel"
+- Internal field names (`processDescription`), variable names (`totalProcesses`), and demo business data (e.g., "Order Processing Team", "Process Payment") left unchanged to preserve data persistence compatibility.
+
+**Impact:** All user-facing terminology now consistently uses "Step" instead of "Process", better reflecting that canvas nodes represent individual steps in a value stream.
+
+**Files modified:**
+- `src/components/canvas/flow-canvas.tsx`
+- `src/components/canvas/group-node.tsx`
+- `src/components/canvas/guided-demo-panel.tsx`
+- `src/components/canvas/keyboard-shortcuts-panel.tsx`
+- `src/components/canvas/node-palette.tsx`
+- `src/components/canvas/node-search-panel.tsx`
+- `src/components/canvas/sipoc-node.tsx`
+- `src/components/form/sipoc-form.tsx`
+- `src/components/landing/landing-page.tsx`
+- `src/components/layout/app-shell.tsx`
+- `src/components/layout/stream-stats-panel.tsx`
+- `src/store/graph-store.ts`
+
+---
+
 ## 2026-07-15T10:57 — Remove labels from connectors
 
 **What changed:**

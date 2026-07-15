@@ -97,7 +97,7 @@ export function StreamStatsPanel() {
     <div className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl shadow-sm p-4 space-y-4" aria-label="Stream statistics panel">
       {/* Summary stat badges */}
       <div className="grid grid-cols-3 gap-2 sm:grid-cols-4 lg:grid-cols-7">
-        <StatBadge label="Processes" value={stats.totalProcesses} color="blue" />
+        <StatBadge label="Steps" value={stats.totalProcesses} color="blue" />
         <StatBadge label="Connections" value={stats.totalConnections} color="indigo" />
         <StatBadge label="Complete" value={`${stats.completionPct}%`} color={stats.completionPct === 100 ? 'green' : 'amber'} />
         <StatBadge label="Teams" value={stats.teamCount} color="purple" />

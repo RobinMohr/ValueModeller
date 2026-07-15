@@ -44,8 +44,8 @@ export function NodePalette() {
         Drag to canvas
       </p>
       <PaletteItem
-        label="Process"
-        description="SIPOC process step"
+        label="Step"
+        description="SIPOC step"
         nodeType="sipoc"
         icon={
           <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">

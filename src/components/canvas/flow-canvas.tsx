@@ -94,7 +94,7 @@ function ToolbarPanel() {
   return (
     <Panel position="top-left" className="flex gap-2">
       <Button onClick={handleAddNode} size="sm">
-        + Add Process
+        + Add Step
       </Button>
       <Button
         onClick={undo}
