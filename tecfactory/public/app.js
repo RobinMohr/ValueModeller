@@ -82,6 +82,16 @@ class TecFactory {
   initAgents(agentList) {
     const grid = document.getElementById('agentsGrid');
     grid.innerHTML = '';
+
+    // Default to collapsed if no preference has been saved yet
+    const hasPreference = sessionStorage.getItem('tf_collapsed') !== null;
+    if (!hasPreference) {
+      for (const agent of agentList) {
+        this.collapsedAgents.add(agent.id);
+      }
+      this.persistCollapsed();
+    }
+
     for (const agent of agentList) {
       this.agents.set(agent.id, agent);
       this.autoScroll.set(agent.id, true);
@@ -828,10 +838,14 @@ class TaskManager {
       }, 1500);
     } catch (err) {
       statusText.textContent = `Error: ${err.message}`;
+      statusEl.classList.add('ai-assist-error');
       submitBtn.disabled = false;
+      submitBtn.textContent = '🔄 Retry';
       setTimeout(() => {
         statusEl.style.display = 'none';
-      }, 4000);
+        statusEl.classList.remove('ai-assist-error');
+        submitBtn.textContent = '\u{1F916} Generate Task';
+      }, 6000);
     }
   }
 

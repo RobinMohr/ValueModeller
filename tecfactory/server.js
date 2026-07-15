@@ -134,7 +134,7 @@ async function runAcpTaskCreator(userPrompt, cwd, timeoutMs = 90000) {
     let sessionResolve = null;
     let promptResolved = false;
 
-    const proc = spawn('kiro-cli', ['acp', '--agent', 'task-creator-agent'], {
+    const proc = spawn('kiro-cli', ['acp', '--agent', 'task-creator-agent', '--trust-all-tools'], {
       stdio: ['pipe', 'pipe', 'pipe'],
       cwd,
       env: { ...process.env, NO_COLOR: '1', FORCE_COLOR: '0' }
@@ -168,10 +168,22 @@ async function runAcpTaskCreator(userPrompt, cwd, timeoutMs = 90000) {
         if (update.sessionUpdate === 'agent_message_chunk' && update.content?.text) {
           collectedText += update.content.text;
         }
+        // Handle session error/completion notifications
+        if (update.sessionUpdate === 'session_error' || update.sessionUpdate === 'agent_error') {
+          const errMsg = update.error?.message || update.message || 'Agent session error';
+          console.error('[ai-assist] Session error notification:', errMsg);
+          if (!promptResolved) {
+            promptResolved = true;
+            clearTimeout(timeout);
+            cleanup();
+            reject(new Error(`Agent error: ${errMsg}`));
+          }
+        }
         return;
       }
 
       // Handle requestPermission — auto-approve for read-only agent
+      // (Redundant with --trust-all-tools flag but kept as fallback)
       if (msg.method === 'requestPermission' && 'id' in msg) {
         const options = msg.params?.options || [];
         const approve = options.find(o => o.kind === 'allow_once') ||
@@ -182,6 +194,33 @@ async function runAcpTaskCreator(userPrompt, cwd, timeoutMs = 90000) {
           id: msg.id,
           result: { outcome: { outcome: 'selected', optionId: approve?.optionId || '' } }
         });
+        return;
+      }
+
+      // Handle JSON-RPC error responses
+      if ('id' in msg && 'error' in msg) {
+        const errorMsg = msg.error?.message || JSON.stringify(msg.error);
+        console.error(`[ai-assist] JSON-RPC error (id=${msg.id}):`, errorMsg);
+        if (msg.id === PROMPT_REQUEST_ID) {
+          promptResolved = true;
+          clearTimeout(timeout);
+          cleanup();
+          // If we already have collected text, try to use it despite the error
+          if (collectedText.trim()) {
+            resolve(collectedText);
+          } else {
+            reject(new Error(`Agent returned error: ${errorMsg}`));
+          }
+          return;
+        }
+        // For init/session errors, reject immediately
+        if (initResolve || sessionResolve) {
+          promptResolved = true;
+          clearTimeout(timeout);
+          cleanup();
+          reject(new Error(`ACP handshake failed: ${errorMsg}`));
+          return;
+        }
         return;
       }
 
@@ -231,8 +270,11 @@ async function runAcpTaskCreator(userPrompt, cwd, timeoutMs = 90000) {
       }
     });
 
-    // Drain stderr
-    proc.stderr.on('data', () => { /* ignore */ });
+    // Log stderr for debugging
+    let stderrOutput = '';
+    proc.stderr.on('data', (chunk) => {
+      stderrOutput += chunk.toString();
+    });
 
     proc.on('error', (err) => {
       clearTimeout(timeout);
@@ -244,12 +286,15 @@ async function runAcpTaskCreator(userPrompt, cwd, timeoutMs = 90000) {
 
     proc.on('close', (code) => {
       clearTimeout(timeout);
+      if (stderrOutput.trim()) {
+        console.error('[ai-assist] kiro-cli stderr:', stderrOutput.trim().substring(0, 500));
+      }
       if (!promptResolved) {
         promptResolved = true;
-        if (collectedText) {
+        if (collectedText.trim()) {
           resolve(collectedText);
         } else {
-          reject(new Error(`kiro-cli ACP exited with code ${code} before completing`));
+          reject(new Error(`kiro-cli ACP exited with code ${code} before completing. stderr: ${stderrOutput.trim().substring(0, 200) || '(empty)'}`));
         }
       }
     });
@@ -320,7 +365,14 @@ async function runAcpTaskCreator(userPrompt, cwd, timeoutMs = 90000) {
 function extractTaskJson(text) {
   if (!text || !text.trim()) return null;
 
-  const trimmed = text.trim();
+  // Clean the text: strip BOM, ANSI escape codes, zero-width characters
+  const cleaned = text
+    .replace(/^\uFEFF/, '')                    // BOM
+    .replace(/\x1B\[[0-9;]*[a-zA-Z]/g, '')   // ANSI escape codes
+    .replace(/[\u200B-\u200D\uFEFF]/g, '');   // zero-width chars
+  const trimmed = cleaned.trim();
+
+  if (!trimmed) return null;
 
   // Strategy 1: Direct parse (agent responded with pure JSON)
   try {
@@ -335,18 +387,54 @@ function extractTaskJson(text) {
   ];
   for (const pattern of fencePatterns) {
     let match;
+    const fenceCandidates = [];
     while ((match = pattern.exec(trimmed)) !== null) {
       try {
         const parsed = JSON.parse(match[1].trim());
-        if (parsed && typeof parsed === 'object' && parsed.title) return parsed;
+        if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) {
+          fenceCandidates.push(parsed);
+        }
       } catch { /* try next match */ }
     }
+    // Prefer fence candidates with "title" field (most likely the task)
+    const withTitle = fenceCandidates.find(c => c.title);
+    if (withTitle) return withTitle;
+    if (fenceCandidates.length > 0) return fenceCandidates[fenceCandidates.length - 1];
   }
 
-  // Strategy 3: Find JSON objects that contain a "title" field
-  // Use a balanced-brace scanner to find valid JSON objects
+  // Strategy 3: Find JSON objects using balanced-brace scanner
   const candidates = findJsonCandidates(trimmed);
-  // Prefer the last candidate with a "title" field (most likely the final answer)
+
+  // Score candidates: prefer objects that look like tasks
+  // A task object has: title (required), plus optionally priority, type, description
+  let bestCandidate = null;
+  let bestScore = -1;
+
+  for (let i = candidates.length - 1; i >= 0; i--) {
+    try {
+      const parsed = JSON.parse(candidates[i]);
+      if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) continue;
+
+      // Score based on task-like fields
+      let score = 0;
+      if (parsed.title) score += 10;
+      if (parsed.description) score += 5;
+      if (parsed.priority && [1, 2, 3, 4].includes(parsed.priority)) score += 3;
+      if (parsed.type && ['improvement', 'problem', 'idea'].includes(parsed.type)) score += 3;
+      if (Array.isArray(parsed.files)) score += 2;
+      // Bonus for later candidates (agent's final answer tends to be at the end)
+      score += (i / candidates.length) * 2;
+
+      if (score > bestScore) {
+        bestScore = score;
+        bestCandidate = parsed;
+      }
+    } catch { /* try next */ }
+  }
+
+  if (bestCandidate && bestScore >= 10) return bestCandidate;
+
+  // Strategy 4: Fall back to any valid JSON object with a title
   for (let i = candidates.length - 1; i >= 0; i--) {
     try {
       const parsed = JSON.parse(candidates[i]);
@@ -354,7 +442,7 @@ function extractTaskJson(text) {
     } catch { /* try next */ }
   }
 
-  // Strategy 4: Try any candidate JSON object (last one first)
+  // Strategy 5: Any valid JSON object at all (last resort)
   for (let i = candidates.length - 1; i >= 0; i--) {
     try {
       const parsed = JSON.parse(candidates[i]);
@@ -368,6 +456,7 @@ function extractTaskJson(text) {
 /**
  * Scans text for balanced-brace JSON object candidates.
  * Returns an array of substrings that start with { and end with a matching }.
+ * Focuses on finding likely task JSON objects (small, with expected fields).
  */
 function findJsonCandidates(text) {
   const candidates = [];
@@ -396,8 +485,9 @@ function findJsonCandidates(text) {
             depth--;
             if (depth === 0) {
               const candidate = text.slice(i, j + 1);
-              // Only consider candidates that look like they might be JSON (have a colon)
-              if (candidate.includes(':') && candidate.length < 5000) {
+              // Only consider candidates that look like JSON objects (have a colon)
+              // and are a reasonable size for a task object (< 10KB)
+              if (candidate.includes(':') && candidate.length < 10000) {
                 candidates.push(candidate);
               }
               break;
@@ -419,11 +509,18 @@ app.post('/api/tasks/generate', async (req, res) => {
   try {
     const result = await runAcpTaskCreator(prompt.trim(), PROJECT_ROOT);
 
+    if (!result || !result.trim()) {
+      console.error('[ai-assist] Empty response from agent');
+      throw new Error('AI agent returned an empty response. Please try again.');
+    }
+
     // Try to extract JSON from the agent's response using multiple strategies
     let taskData;
     taskData = extractTaskJson(result);
     if (!taskData) {
-      console.error('[ai-assist] Failed to parse AI response. Raw output:', result.substring(0, 2000));
+      console.error('[ai-assist] Failed to parse AI response. Raw output length:', result.length);
+      console.error('[ai-assist] First 1000 chars:', result.substring(0, 1000));
+      console.error('[ai-assist] Last 500 chars:', result.substring(result.length - 500));
       throw new Error('Could not parse AI response as JSON');
     }
 
@@ -455,13 +552,22 @@ app.post('/api/tasks/generate', async (req, res) => {
     res.status(201).json({ ...task, _filename: filename });
   } catch (err) {
     const userMessage = err.message || 'AI task generation failed';
+    console.error('[ai-assist] Task generation error:', userMessage);
     // Provide a more helpful error message to the client
     const isParseError = userMessage.includes('parse') || userMessage.includes('JSON');
-    res.status(500).json({
-      error: isParseError
-        ? 'AI generated a response but it could not be parsed as a valid task. Please try rephrasing your prompt with more specific requirements.'
-        : userMessage
-    });
+    const isTimeout = userMessage.includes('timed out');
+    const isEmpty = userMessage.includes('empty');
+    let clientError;
+    if (isTimeout) {
+      clientError = 'AI task generation timed out. The agent may be overloaded — please try again in a moment.';
+    } else if (isEmpty) {
+      clientError = 'AI agent returned an empty response. Please try again with a more detailed prompt.';
+    } else if (isParseError) {
+      clientError = 'AI generated a response but it could not be parsed as a valid task. Please try rephrasing your prompt with more specific requirements.';
+    } else {
+      clientError = userMessage;
+    }
+    res.status(500).json({ error: clientError });
   }
 });
 
@@ -1282,6 +1388,11 @@ if (existsSync(TASKS_DIR)) {
 // ─── Start ───────────────────────────────────────────────────────────────────
 const PORT = process.env.PORT || 3500;
 
-server.listen(PORT, () => {
-  console.log(`TecFactory running at http://localhost:${PORT}`);
-});
+// Allow importing for tests without auto-starting
+if (process.env.NODE_ENV !== 'test') {
+  server.listen(PORT, () => {
+    console.log(`TecFactory running at http://localhost:${PORT}`);
+  });
+}
+
+export { app, server, wss, loadAllTasks, getTaskFilename, extractTaskJson, findJsonCandidates, parseQaAgentActivity, agents, broadcast, TASKS_DIR };

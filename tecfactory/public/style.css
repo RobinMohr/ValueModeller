@@ -908,6 +908,16 @@ main {
   animation: spin 0.8s linear infinite;
 }
 
+.ai-assist-status.ai-assist-error {
+  background: rgba(239, 68, 68, 0.1);
+  border-color: #ef4444;
+  color: #fca5a5;
+}
+
+.ai-assist-status.ai-assist-error .ai-spinner {
+  display: none;
+}
+
 @keyframes spin {
   to { transform: rotate(360deg); }
 }
