@@ -1,5 +1,19 @@
 # Release Notes — Value Modeller
 
+## 2026-07-15T13:54 — improvement: Add React Error Boundary for crash protection
+
+**Task:** `tasks/2_add-react-error-boundary-crash-protection.json` → state set to `developed`
+
+**What was done:**
+- Created `src/components/ui/error-boundary.tsx` — a class-based React Error Boundary with strict TypeScript types
+- Fallback UI shows a friendly "Something went wrong" message with the error details
+- Provides two recovery buttons: "Reload page" and "Clear data & reload" (clears localStorage for corrupted-state recovery)
+- Supports dark mode via Tailwind classes
+- Wrapped `<BrowserRouter>`, `<App />`, and `<ToastContainer />` inside `<ErrorBoundary>` in `src/main.tsx`
+- Build verified clean (exit code 0, no TypeScript errors)
+
+This provides critical demo safety: any rendering crash in a child component will show a recoverable fallback UI instead of a white screen.
+
 ## 2026-07-15T13:49 — improvement: Remove step metrics from process nodes
 
 **Task:** `tasks/1_f203e62b_remove-the-step-metrics.json` → state set to `developed`

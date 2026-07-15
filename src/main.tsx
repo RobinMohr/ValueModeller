@@ -2,6 +2,7 @@ import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
 import { BrowserRouter } from 'react-router-dom';
 import { App } from './App';
+import { ErrorBoundary } from './components/ui/error-boundary';
 import { ToastContainer } from './components/ui/toast-container';
 import './index.css';
 
@@ -10,9 +11,11 @@ import './store/theme-store';
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
-    <BrowserRouter>
-      <App />
-      <ToastContainer />
-    </BrowserRouter>
+    <ErrorBoundary>
+      <BrowserRouter>
+        <App />
+        <ToastContainer />
+      </BrowserRouter>
+    </ErrorBoundary>
   </StrictMode>
 );
