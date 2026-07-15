@@ -1,0 +1,13 @@
+{
+  "title": "Add prefers-reduced-motion support for animated edges",
+  "priority": 3,
+  "type": "improvement",
+  "state": "developed",
+  "description": "All edges in the app are created with animated: true by default (flow-canvas.tsx defaultEdgeOptions, demo-data.ts, use-proximity-connect.ts). React Flow's animated prop applies a CSS stroke-dasharray animation to edge paths. Users who have prefers-reduced-motion: reduce enabled in their OS/browser settings receive no relief — all edge animations still play. This is a WCAG 2.1 SC 2.3.3 (Animation from Interactions) concern. Additionally, animated edges with stroke-dasharray can cause performance issues with many edges (Chrome bug: chromium issues/40958492). Fix: Add a CSS rule in index.css: @media (prefers-reduced-motion: reduce) { .react-flow__edge.animated path { animation: none !important; stroke-dasharray: none !important; } } This single CSS rule respects the user's motion preference and also improves performance for motion-sensitive users. Alternatively, read the prefers-reduced-motion media query in JS and conditionally set animated: false on defaultEdgeOptions.",
+  "files": [
+    "src/index.css",
+    "src/components/canvas/flow-canvas.tsx"
+  ],
+  "origin": "ai",
+  "id": "47be87f3"
+}

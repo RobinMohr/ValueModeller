@@ -1,0 +1,14 @@
+{
+  "title": "Landing page with full Value Stream CRUD",
+  "priority": 1,
+  "type": "improvement",
+  "state": "developed",
+  "description": "Create a landing page that displays all value streams as cards. Users can create new value streams, open existing ones, update their metadata, and delete them. Each card shows the stream name, description, process count, team/app/segment metadata pills, and last updated date. Creating a stream opens a name dialog then navigates to the canvas editor.",
+  "files": [
+    "src/components/landing/landing-page.tsx",
+    "src/store/value-stream-store.ts",
+    "src/types/value-stream.types.ts"
+  ],
+  "origin": "user",
+  "id": "2fccc5c9"
+}

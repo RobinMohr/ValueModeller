@@ -1,8 +1,0 @@
-{
-  "title": "remove labels from connectors",
-  "type": "improvement",
-  "priority": 2,
-  "description": "we dont want the connectors between processes to have labels. remove them",
-  "state": "developed",
-  "origin": "user"
-}

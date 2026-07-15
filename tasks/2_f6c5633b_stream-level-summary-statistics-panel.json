@@ -1,0 +1,13 @@
+{
+  "title": "Stream-Level Summary Statistics Panel",
+  "priority": 2,
+  "type": "improvement",
+  "state": "developed",
+  "description": "Add a collapsible statistics panel (either in the header or as a floating panel) that shows real-time summary statistics for the current value stream: total number of processes, total connections, completion percentage (how many nodes have all SIPOC fields filled), list of known issues aggregated from all nodes, and counts of involved teams and applications across the stream. This leverages data already in the model (SipocNodeData has applicationsInvolved, involvedTeams, knownIssues fields) but not currently surfaced at the stream level. Transforms the tool from a diagramming tool into an analytical one.",
+  "files": [
+    "src/components/layout/app-shell.tsx",
+    "src/components/layout/stream-stats-panel.tsx"
+  ],
+  "origin": "ai",
+  "id": "f6c5633b"
+}

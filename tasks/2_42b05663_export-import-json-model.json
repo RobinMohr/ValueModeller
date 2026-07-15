@@ -1,0 +1,13 @@
+{
+  "title": "Export/Import JSON model",
+  "priority": 2,
+  "type": "improvement",
+  "state": "developed",
+  "description": "Add buttons to export the current model as a JSON file download and import a previously saved model from a JSON file. This is within scope (not PDF/PNG export). Shows data portability and shareability.",
+  "files": [
+    "src/utils/export-import.ts",
+    "src/components/layout/app-shell.tsx"
+  ],
+  "origin": "ai",
+  "id": "42b05663"
+}

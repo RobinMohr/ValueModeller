@@ -1,0 +1,12 @@
+{
+  "title": "Add loading/transition state when navigating between streams",
+  "priority": 3,
+  "type": "improvement",
+  "state": "developed",
+  "description": "When navigating from the landing page to a stream (or between streams), there's no visual feedback during the transition. The StreamEditor component calls loadStream which updates the graph store, but the canvas briefly shows an empty state before nodes render. Add a brief loading indicator (skeleton or spinner) in the StreamEditor component that shows during the initial frame after loadStream is called but before React Flow renders the nodes. This prevents the 'flash of empty canvas' that can confuse users during demos. Could be as simple as checking if nodes.length > 0 after loadStream and the stream has data, showing a centered spinner for the first render cycle.",
+  "files": [
+    "src/components/layout/stream-editor.tsx"
+  ],
+  "origin": "ai",
+  "id": "5f94c1fc"
+}

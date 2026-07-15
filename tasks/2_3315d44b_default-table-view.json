@@ -1,0 +1,9 @@
+{
+  "title": "default table view",
+  "type": "improvement",
+  "priority": 2,
+  "description": "i want the table view for the value stream view to be the default view\nthe grid one should be optional and selected by the user",
+  "state": "developed",
+  "origin": "user",
+  "id": "3315d44b"
+}

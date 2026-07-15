@@ -1,8 +1,0 @@
-{
-  "title": "agent error logging",
-  "type": "improvement",
-  "priority": 2,
-  "description": "when an kiro acp agent runs into an breaking error, i want it to write down, what went wrong in an errors folder which contains all the errors as .md files.\nit should include all the necessary information to reproduce the error",
-  "state": "developed",
-  "origin": "user"
-}

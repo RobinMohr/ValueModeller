@@ -1,0 +1,13 @@
+{
+  "title": "Inline Edge Label Editing",
+  "priority": 3,
+  "type": "improvement",
+  "state": "developed",
+  "description": "Allow users to double-click on edge labels to edit them directly in-place. Currently, edge labels are derived automatically from the source node's outputs but cannot be edited interactively. Adding inline editing would let users customize edge labels to better describe the flow between processes. Implementation: add a double-click handler to the LabeledEdge component that toggles an editable text field, and persist the label in the edge data.",
+  "files": [
+    "src/components/canvas/labeled-edge.tsx",
+    "src/store/graph-store.ts"
+  ],
+  "origin": "ai",
+  "id": "8b4d1910"
+}

@@ -1,0 +1,12 @@
+{
+  "title": "Fix duplicate Process Metrics section in SIPOC form",
+  "priority": 1,
+  "type": "problem",
+  "state": "developed",
+  "description": "The sipoc-form.tsx component contains two identical 'Process Metrics' sections (with heading 'Process Metrics' and fields for Cycle Time, Lead Time, and Value Add %). The first section (around line 128) uses a simpler layout with small text/inputs, while the second section (around line 161) uses a more polished layout with relative-positioned unit labels (min, min, %). The duplicate first section should be removed, keeping only the second, better-designed version. This is a clear bug that results in redundant form fields shown to the user.",
+  "files": [
+    "src/components/form/sipoc-form.tsx"
+  ],
+  "origin": "ai",
+  "id": "456398a0"
+}

@@ -1,0 +1,12 @@
+{
+  "title": "Add node hover tooltip with SIPOC data preview",
+  "priority": 4,
+  "type": "idea",
+  "state": "developed",
+  "description": "React Flow UI now has an official NodeTooltip component (reactflow.dev/ui/components/node-tooltip) — a wrapper that displays rich content when hovering over a node. Use this to show a quick SIPOC preview tooltip on hover without requiring the user to open the side panel. The tooltip could show: process description (first 100 chars), supplier count, input count, output count, customer count, and metrics (CT/LT/VA%) if present. This reduces the friction of needing to double-click each node to see its data during presentations or reviews. Quick glance → full detail is a common UX pattern. Consider whether to use the official NodeTooltip from @xyflow/react UI or build a lightweight version using the existing NodeToolbar component with isVisible controlled by hover state.",
+  "files": [
+    "src/components/canvas/sipoc-node.tsx"
+  ],
+  "origin": "ai",
+  "id": "0590d020"
+}

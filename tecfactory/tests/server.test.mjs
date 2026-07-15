@@ -59,64 +59,79 @@ describe('getTaskFilename', () => {
     getTaskFilename = mod.getTaskFilename;
   });
 
-  it('should generate a filename from task title and priority', () => {
+  it('should generate a filename with id from task title and priority', () => {
     // Arrange
-    const task = { title: 'Fix the broken button', priority: 1 };
+    const task = { title: 'Fix the broken button', priority: 1, id: 'a1b2c3d4' };
 
     // Act
     const filename = getTaskFilename(task);
 
     // Assert
-    expect(filename).toBe('1_fix-the-broken-button.json');
+    expect(filename).toBe('1_a1b2c3d4_fix-the-broken-button.json');
   });
 
   it('should handle special characters in the title', () => {
     // Arrange
-    const task = { title: 'Add <html> & "quotes" support!', priority: 2 };
+    const task = { title: 'Add <html> & "quotes" support!', priority: 2, id: 'deadbeef' };
 
     // Act
     const filename = getTaskFilename(task);
 
     // Assert
-    expect(filename).toBe('2_add-html-quotes-support.json');
+    expect(filename).toBe('2_deadbeef_add-html-quotes-support.json');
   });
 
   it('should truncate long titles to 50 characters', () => {
     // Arrange
     const task = {
       title: 'This is a very long task title that exceeds the maximum allowed length for filenames in the system',
-      priority: 3
+      priority: 3,
+      id: '12345678'
     };
 
     // Act
     const filename = getTaskFilename(task);
 
     // Assert
-    const slug = filename.replace(/^\d+_/, '').replace('.json', '');
+    // Format: {priority}_{id}_{slug}.json — slug should be <= 50 chars
+    const parts = filename.replace('.json', '').split('_');
+    const slug = parts.slice(2).join('_');
     expect(slug.length).toBeLessThanOrEqual(50);
-    expect(filename).toMatch(/^3_.+\.json$/);
+    expect(filename).toMatch(/^3_12345678_.+\.json$/);
   });
 
   it('should remove leading and trailing dashes from the slug', () => {
     // Arrange
-    const task = { title: '---leading and trailing---', priority: 4 };
+    const task = { title: '---leading and trailing---', priority: 4, id: 'abcd1234' };
 
     // Act
     const filename = getTaskFilename(task);
 
     // Assert
-    expect(filename).toBe('4_leading-and-trailing.json');
+    expect(filename).toBe('4_abcd1234_leading-and-trailing.json');
   });
 
   it('should convert uppercase to lowercase', () => {
     // Arrange
-    const task = { title: 'UPPERCASE Title Here', priority: 1 };
+    const task = { title: 'UPPERCASE Title Here', priority: 1, id: 'ff00ff00' };
 
     // Act
     const filename = getTaskFilename(task);
 
     // Assert
-    expect(filename).toBe('1_uppercase-title-here.json');
+    expect(filename).toBe('1_ff00ff00_uppercase-title-here.json');
+  });
+
+  it('should generate a random id when none is provided', () => {
+    // Arrange
+    const task = { title: 'No id task', priority: 2 };
+
+    // Act
+    const filename = getTaskFilename(task);
+
+    // Assert
+    // Should match pattern: 2_{8-char-hex}_no-id-task.json
+    expect(filename).toMatch(/^2_[a-f0-9]{8}_no-id-task\.json$/);
   });
 });
 

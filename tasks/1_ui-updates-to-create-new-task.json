@@ -1,8 +1,0 @@
-{
-  "title": "Ui updates to create new task",
-  "type": "improvement",
-  "priority": 1,
-  "description": "when creating an task i dont want the fields state and origin to be able to be set\nthe program should decide, if its an user request, or if its made by the qa lop.\nadd an option in the new task view, where we can just enter a short prompt and an call to an kirp acp will be made to create a new item based on these requirements. \nthis should have the origin of \"user-assisted\"",
-  "state": "developed",
-  "origin": "user"
-}

@@ -5,6 +5,7 @@ import { spawn } from 'child_process';
 import { fileURLToPath } from 'url';
 import { dirname, join, resolve } from 'path';
 import { readFileSync, writeFileSync, existsSync, readdirSync, unlinkSync, watch, mkdirSync } from 'fs';
+import { randomBytes } from 'crypto';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
@@ -22,13 +23,21 @@ app.use(express.static(join(__dirname, 'public')));
 // ─── Tasks REST API ──────────────────────────────────────────────────────────
 const TASKS_DIR = resolve(__dirname, '..', 'tasks');
 
+/**
+ * Generates a short unique task ID (8-char hex string).
+ */
+function generateTaskId() {
+  return randomBytes(4).toString('hex');
+}
+
 function getTaskFilename(task) {
   const slug = task.title
     .toLowerCase()
     .replace(/[^a-z0-9]+/g, '-')
     .replace(/^-+|-+$/g, '')
     .substring(0, 50);
-  return `${task.priority}_${slug}.json`;
+  const id = task.id || generateTaskId();
+  return `${task.priority}_${id}_${slug}.json`;
 }
 
 function loadAllTasks() {
@@ -72,6 +81,8 @@ app.post('/api/tasks', (req, res) => {
       return res.status(400).json({ error: 'title and priority are required' });
     }
     if (!existsSync(TASKS_DIR)) mkdirSync(TASKS_DIR, { recursive: true });
+    // Assign a unique ID if not already present
+    if (!task.id) task.id = generateTaskId();
     const filename = getTaskFilename(task);
     const filepath = join(TASKS_DIR, filename);
     const { _filename, ...taskData } = task;
@@ -89,6 +100,11 @@ app.put('/api/tasks/:filename', (req, res) => {
     if (!existsSync(filepath)) return res.status(404).json({ error: 'Task not found' });
     const task = req.body;
     const { _filename, ...taskData } = task;
+    // Preserve or extract the ID: use existing id field, or extract from filename, or generate new
+    if (!taskData.id) {
+      const idMatch = req.params.filename.match(/^\d+_([a-f0-9]{8})_/);
+      taskData.id = idMatch ? idMatch[1] : generateTaskId();
+    }
     writeFileSync(filepath, JSON.stringify(taskData, null, 2) + '\n', 'utf-8');
     const newFilename = getTaskFilename(taskData);
     if (newFilename !== req.params.filename) {
@@ -385,6 +401,7 @@ app.post('/api/tasks/generate', async (req, res) => {
     }
 
     const task = {
+      id: generateTaskId(),
       title: String(taskData.title).substring(0, 100),
       priority: [1, 2, 3, 4].includes(taskData.priority) ? taskData.priority : 2,
       type: ['improvement', 'problem', 'idea'].includes(taskData.type) ? taskData.type : 'improvement',
@@ -1250,4 +1267,4 @@ if (process.env.NODE_ENV !== 'test') {
   });
 }
 
-export { app, server, wss, loadAllTasks, getTaskFilename, extractTaskJson, findJsonCandidates, parseQaAgentActivity, agents, broadcast, TASKS_DIR };
+export { app, server, wss, loadAllTasks, getTaskFilename, generateTaskId, extractTaskJson, findJsonCandidates, parseQaAgentActivity, agents, broadcast, TASKS_DIR };

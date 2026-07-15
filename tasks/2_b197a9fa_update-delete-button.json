@@ -1,0 +1,9 @@
+{
+  "title": "update delete button",
+  "type": "improvement",
+  "priority": 2,
+  "description": "the delete step button is really in your face and way too big\nit should be less noticeable and with a confirmation",
+  "state": "developed",
+  "origin": "user",
+  "id": "b197a9fa"
+}

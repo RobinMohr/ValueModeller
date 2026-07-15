@@ -1,0 +1,12 @@
+{
+  "title": "Fix NodePalette draggable items missing dark mode styles",
+  "priority": 3,
+  "type": "problem",
+  "state": "developed",
+  "description": "The NodePalette component (src/components/canvas/node-palette.tsx) outer wrapper correctly has dark mode classes (dark:bg-gray-800/90, dark:border-gray-700), but the inner PaletteItem draggable cards are missing ALL dark mode variants. They use: bg-white, border-gray-200, hover:border-primary-300, text-gray-700, text-gray-400, bg-primary-50, text-primary-600 — none with dark: counterparts. In dark mode, these appear as bright white cards against the dark container, creating a jarring visual inconsistency. Fix: Add dark: variants to the PaletteItem component: dark:bg-gray-700, dark:border-gray-600, dark:hover:border-primary-600, dark:text-gray-200, dark:text-gray-500, dark:bg-primary-900/30, dark:text-primary-300. Follow the same pattern used in sipoc-node.tsx for SIPOC badges which correctly applies both light and dark variants.",
+  "files": [
+    "src/components/canvas/node-palette.tsx"
+  ],
+  "origin": "ai",
+  "id": "197ee836"
+}

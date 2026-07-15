@@ -1,0 +1,9 @@
+{
+  "title": "let kiro commit",
+  "type": "improvement",
+  "priority": 2,
+  "description": "ensure that the dev loop is always working on the develop branch, and never on the main one\n\ni want the dev loop to add all the changes it has made to git, and then commit with a meaningful message in the same command and then get pushed",
+  "state": "developed",
+  "origin": "user",
+  "id": "b692a41a"
+}

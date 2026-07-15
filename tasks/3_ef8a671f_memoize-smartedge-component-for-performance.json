@@ -1,0 +1,14 @@
+{
+  "title": "Memoize SmartEdge component for performance",
+  "priority": 3,
+  "type": "improvement",
+  "state": "developed",
+  "description": "Per React Flow official performance guide (reactflow.dev/learn/advanced-use/performance): 'Components provided as props to the <ReactFlow> component, including custom node and edge components, should either be memoized using React.memo or declared outside the parent component.' The SipocNodeComponent is correctly wrapped in memo(), but the SmartEdge component (src/components/canvas/smart-edge.tsx) is NOT memoized. Since SmartEdge performs expensive obstruction detection and path computation on every render, wrapping it in React.memo would prevent unnecessary re-renders during drag/pan/zoom operations where the edge's props haven't changed. Also verify that LabeledEdge and GroupNodeComponent are wrapped in memo.",
+  "files": [
+    "src/components/canvas/smart-edge.tsx",
+    "src/components/canvas/labeled-edge.tsx",
+    "src/components/canvas/group-node.tsx"
+  ],
+  "origin": "ai",
+  "id": "ef8a671f"
+}

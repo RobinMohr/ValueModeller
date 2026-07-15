@@ -1,0 +1,9 @@
+{
+  "title": "ai assist create task not working",
+  "type": "bug",
+  "priority": 2,
+  "description": "Error: Could not parse AI response as JSON\nwhen trying to create a task using the ai assist version",
+  "state": "developed",
+  "origin": "user",
+  "id": "999a3b30"
+}

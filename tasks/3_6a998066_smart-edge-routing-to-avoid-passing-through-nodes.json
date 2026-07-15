@@ -1,0 +1,13 @@
+{
+  "title": "Smart edge routing to avoid passing through nodes",
+  "priority": 3,
+  "type": "improvement",
+  "state": "developed",
+  "description": "Implement smart/orthogonal edge routing so that edges avoid passing through intermediate nodes. Currently edges use smoothstep type which takes the shortest geometric path between source and target handles, which frequently runs through other nodes — users misread the graph when this happens. Options: 1) Use React Flow's built-in pathfindingEdge (if available in @xyflow/react), 2) Implement custom edge routing with A* pathfinding, or 3) Use a simpler heuristic that adds waypoints to route around node bounding boxes. This significantly improves readability of complex value streams with many connections. Reference: workflowbuilder.io identifies edge routing as a critical UX concern for production React Flow apps.",
+  "files": [
+    "src/components/canvas/flow-canvas.tsx",
+    "src/components/canvas/labeled-edge.tsx"
+  ],
+  "origin": "ai",
+  "id": "6a998066"
+}

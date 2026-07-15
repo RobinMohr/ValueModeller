@@ -1,0 +1,9 @@
+{
+  "title": "Single click to edt steps",
+  "type": "improvement",
+  "priority": 1,
+  "description": "Single-clicking on a step highlights the step. It should also change the editor to that step.",
+  "state": "developed",
+  "origin": "user",
+  "id": "050f45d6"
+}

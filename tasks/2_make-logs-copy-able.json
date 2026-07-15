@@ -1,8 +1,0 @@
-{
-  "title": "make logs copy-able",
-  "type": "improvement",
-  "priority": 2,
-  "description": "i want the logs from the agents to be in a textfield, so when i click in it and press strg a and strg c, that i then copy all of the logs",
-  "state": "developed",
-  "origin": "user"
-}

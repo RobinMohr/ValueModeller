@@ -1,0 +1,14 @@
+{
+  "title": "Extract duplicated edge label editing logic into shared component",
+  "priority": 2,
+  "type": "improvement",
+  "state": "developed",
+  "description": "DRY VIOLATION: SmartEdge (smart-edge.tsx) and LabeledEdge (labeled-edge.tsx) contain ~95% identical inline label editing code: same useState for isEditing/editValue, same useRef for inputRef, same useEffect for focus/select, same handleDoubleClick/commitEdit/handleKeyDown/handleBlur callbacks, and same JSX rendering (EdgeLabelRenderer div with input or span). This is ~60 lines of duplicated logic per component. Fix: Extract an `EdgeLabelEditor` component that encapsulates the editing state, input rendering, and commit logic. Both edge components should render `<EdgeLabelEditor edgeId={id} label={label} labelX={labelX} labelY={labelY} />`. Also fixes a secondary bug: LabeledEdge's label div is missing dark mode classes (only has bg-white/90, text-gray-700 without dark: variants) while SmartEdge has them. SOLID violation: Single Responsibility — edge components handle both path computation AND inline editing UI.",
+  "files": [
+    "src/components/canvas/smart-edge.tsx",
+    "src/components/canvas/labeled-edge.tsx",
+    "src/components/canvas/edge-label-editor.tsx"
+  ],
+  "origin": "ai",
+  "id": "44f634e9"
+}

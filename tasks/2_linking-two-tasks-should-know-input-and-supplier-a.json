@@ -1,8 +1,0 @@
-{
-  "title": "linking two tasks should know input and supplier already",
-  "type": "improvement",
-  "priority": 2,
-  "description": "when linking two steps together , we already know what the input and the supplier are based on the link- the previous steps output and customer are the data for the ladder one\nor the other way around, if it exists\nbut the default is to take the information from the \"previous\" step",
-  "state": "developed",
-  "origin": "user"
-}

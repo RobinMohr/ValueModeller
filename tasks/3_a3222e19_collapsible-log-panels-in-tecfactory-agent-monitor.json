@@ -1,0 +1,13 @@
+{
+  "title": "Collapsible log panels in TecFactory agent monitor",
+  "type": "improvement",
+  "priority": 3,
+  "description": "We might want to redo the agents- structure for this one and redo the tasks in here.Add expand/collapse functionality to the live log output panels on the TecFactory agents screen. Each agent's log area should have a toggle button (e.g., a chevron or minimize/maximize icon) that allows users to collapse the log output to a single-line summary (agent name + status) or expand it to show the full streaming output. This saves vertical space when monitoring multiple agents simultaneously. Collapsed state should be per-agent and persist for the session. Consider adding a global 'collapse all / expand all' control as well.",
+  "files": [
+    "tecfactory/public/index.html",
+    "tecfactory/server.js"
+  ],
+  "state": "developed",
+  "origin": "user-assisted",
+  "id": "a3222e19"
+}

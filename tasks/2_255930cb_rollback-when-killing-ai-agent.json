@@ -1,0 +1,9 @@
+{
+  "title": "rollback, when killing ai agent",
+  "type": "improvement",
+  "priority": 2,
+  "description": "when we are forcefully killing an ai acp agent, we want to rollback the changes, that it has made, and set the task back to \"to do\"",
+  "state": "developed",
+  "origin": "user",
+  "id": "255930cb"
+}

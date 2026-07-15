@@ -1,0 +1,13 @@
+{
+  "title": "Undo/Redo support",
+  "priority": 2,
+  "type": "improvement",
+  "state": "developed",
+  "description": "Implement undo/redo using a history stack in the graph store. Use Zustand temporal middleware (zustand/middleware) or a custom history stack. Add keyboard shortcuts (Ctrl+Z / Ctrl+Shift+Z) and toolbar buttons.",
+  "files": [
+    "src/store/graph-store.ts",
+    "src/components/canvas/flow-canvas.tsx"
+  ],
+  "origin": "ai",
+  "id": "36eb27ee"
+}

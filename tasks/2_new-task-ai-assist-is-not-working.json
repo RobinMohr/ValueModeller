@@ -1,8 +1,0 @@
-{
-  "title": "new task ai assist is not working",
-  "type": "improvement",
-  "priority": 2,
-  "description": "new task ai assist is not working \n\nError: kiro-cli exited with code 2: error: unexpected argument '--message' found tip: to pass '--message' as a value, use '-- --message' Usage: kiro-cli chat [OPTIONS] [INPUT] For more information, try '--help'.",
-  "state": "developed",
-  "origin": "user"
-}

@@ -1,0 +1,13 @@
+{
+  "title": "Guided Demo Mode / Walkthrough",
+  "priority": 4,
+  "type": "idea",
+  "state": "developed",
+  "description": "Add a 'Start Demo' button that sequentially highlights nodes and shows tooltips explaining the value stream flow. This is a presentation helper for live demos that makes presentations smoother and more professional.",
+  "files": [
+    "src/components/canvas/flow-canvas.tsx",
+    "src/components/canvas/guided-demo-panel.tsx"
+  ],
+  "origin": "ai",
+  "id": "543d30ad"
+}

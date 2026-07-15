@@ -1,0 +1,9 @@
+{
+  "title": "tasks prioritization",
+  "type": "improvement",
+  "priority": 1,
+  "description": "when the agent has to decide between two tasks to work on, which have the same priority, it should always prefer the one created by user, then user assisted and then ai only",
+  "state": "developed",
+  "origin": "user",
+  "id": "2e2df18a"
+}

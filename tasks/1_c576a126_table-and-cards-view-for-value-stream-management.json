@@ -1,0 +1,9 @@
+{
+  "title": "table and cards view for value stream management",
+  "priority": 1,
+  "type": "improvement",
+  "state": "developed",
+  "description": "the view to manage value streams must support 2 modi\n- table\n- cards",
+  "origin": "user",
+  "id": "c576a126"
+}

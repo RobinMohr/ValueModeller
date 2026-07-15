@@ -1,0 +1,14 @@
+{
+  "title": "Self-contained value streams (independent graph state)",
+  "priority": 1,
+  "type": "improvement",
+  "state": "developed",
+  "description": "Each value stream must be fully self-contained with its own nodes and edges, stored independently in localStorage via the value-stream-store. The graph-store is refactored to load/unload a specific stream rather than persisting a single global graph. An auto-save subscription writes graph changes back to the value-stream-store with debouncing. Streams are not dependent on one another.",
+  "files": [
+    "src/store/graph-store.ts",
+    "src/store/value-stream-store.ts",
+    "src/types/value-stream.types.ts"
+  ],
+  "origin": "user",
+  "id": "4c79c6d0"
+}

@@ -1,0 +1,9 @@
+{
+  "title": "update tasks",
+  "type": "improvement",
+  "priority": 1,
+  "description": "tasks should have an ID in the name of the json file\nso that the ai agent knows exactly what to work on",
+  "state": "developed",
+  "origin": "user",
+  "id": "48bc73fd"
+}

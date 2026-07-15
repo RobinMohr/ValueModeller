@@ -1,0 +1,9 @@
+{
+  "title": "rename step description",
+  "type": "improvement",
+  "priority": 2,
+  "description": "rename step description to process description\nits a part of the sipoc and should be visualized just like the others and in the right order",
+  "state": "developed",
+  "origin": "user",
+  "id": "34ce2630"
+}

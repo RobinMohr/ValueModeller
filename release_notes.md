@@ -1,5 +1,36 @@
 # Release Notes — Value Modeller
 
+## 2026-07-15T11:09 — improvement: Add unique IDs to task filenames
+
+**Task:** `tasks/1_48bc73fd_update-tasks.json` → state set to `developed`
+
+**What changed:**
+- Task filenames now include a unique 8-char hex ID: `{priority}_{id}_{slug}.json`
+- Added `generateTaskId()` function using `crypto.randomBytes(4)` for short unique IDs
+- Updated `getTaskFilename()` to include the ID in the generated filename
+- Updated `POST /api/tasks` to auto-generate an ID for new tasks
+- Updated `PUT /api/tasks/:filename` to preserve/extract IDs on task updates
+- Updated `POST /api/tasks/generate` (AI-assisted) to include IDs in generated tasks
+- Ran migration script to rename all 78 existing task files with new IDs
+- Updated `tasks/README.md` with new naming convention documentation
+- Updated `tasks/0_task_template.json` to include the `id` field
+- Updated `getTaskFilename` unit tests to verify new format
+
+**Why:**
+AI agents now have an unambiguous way to identify exactly which task they are working on. IDs persist across priority changes and title edits.
+
+**Files modified:**
+- `tecfactory/server.js` (core logic)
+- `tecfactory/tests/server.test.mjs` (updated tests)
+- `tecfactory/migrate-task-ids.js` (one-time migration script)
+- `tasks/README.md` (documentation)
+- `tasks/0_task_template.json` (schema template)
+- All 78 task files renamed with IDs
+
+**Build:** ✅ Passes (`tsc -b && vite build` — 0 errors, 297 modules)
+
+
+
 ## 2026-07-15T11:08 — improvement: Rename "Step Description" to "Process Description" in SIPOC form
 
 **Task:** `tasks/2_rename-step-description.json` → state set to `developed`

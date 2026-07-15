@@ -1,0 +1,12 @@
+{
+  "title": "Fix To Do field formatting in task card state badges",
+  "priority": 2,
+  "type": "problem",
+  "state": "developed",
+  "description": "The state badge on task cards in the TecFactory task board displays the raw value 'todo' instead of the human-readable label 'To Do'. Similarly, 'in-progress' should display as 'In Progress'. The renderTasks() function in app.js directly outputs task.state without mapping it to a display label. Add a state label map (similar to originLabels) so badges show formatted text: todo → To Do, in-progress → In Progress, developed → Developed, done → Done.",
+  "files": [
+    "tecfactory/public/app.js"
+  ],
+  "origin": "user-assisted",
+  "id": "0ac145f1"
+}
