@@ -533,7 +533,7 @@ function FlowCanvasInner() {
         <Controls />
         <MiniMap
           nodeStrokeWidth={3}
-          className="!bg-white !border-gray-200"
+          className="bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700"
         />
         <ToolbarPanel />
         <Panel position="bottom-left">

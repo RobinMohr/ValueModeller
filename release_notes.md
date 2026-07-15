@@ -1282,3 +1282,16 @@ npm run test:coverage # Coverage report
 - `src/components/canvas/edge-label-editor.tsx` (new)
 - `src/components/canvas/smart-edge.tsx`
 - `src/components/canvas/labeled-edge.tsx`
+
+
+## 2026-07-15T09:45 — Fix MiniMap Dark Mode (Remove !important Override)
+
+**What changed:**
+- Replaced `className="!bg-white !border-gray-200"` with `className="bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700"` on the `<MiniMap>` component in `flow-canvas.tsx`.
+
+**Impact:**
+- The MiniMap now correctly respects dark mode. Previously, Tailwind's `!` prefix generated `!important` declarations that overrode the `.dark .react-flow__minimap` CSS rules in `index.css`, causing the minimap to render as a bright white rectangle in dark mode.
+- With proper `dark:` variants, the minimap shows a dark gray background (`bg-gray-800`) and subtle border (`border-gray-700`) in dark mode, matching the rest of the UI.
+
+**Files modified:**
+- `src/components/canvas/flow-canvas.tsx`

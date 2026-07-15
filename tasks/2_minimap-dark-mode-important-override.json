@@ -2,7 +2,7 @@
   "title": "Fix MiniMap dark mode broken by Tailwind !important override",
   "priority": 2,
   "type": "problem",
-  "state": "todo",
+  "state": "developed",
   "description": "The MiniMap component in flow-canvas.tsx (line 534-537) uses className=\"!bg-white !border-gray-200\". The ! prefix generates CSS !important declarations, which override the dark mode styles in index.css (.dark .react-flow__minimap { background-color: #1f2937; border: 1px solid #374151 }). Result: in dark mode the minimap appears as a bright white rectangle with light border — a visible regression. Fix: Either (a) remove the ! prefix and add dark mode variants: className=\"bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700\", or (b) add !important to the dark CSS rule in index.css. Option (a) is preferred. Alternatively, this will be fully resolved when the colorMode prop is adopted (task 3_use-reactflow-colormode-prop), but that's a larger refactor. This is a quick 1-line fix.",
   "files": [
     "src/components/canvas/flow-canvas.tsx",
