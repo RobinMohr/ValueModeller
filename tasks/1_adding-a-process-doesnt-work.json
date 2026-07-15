@@ -1,0 +1,8 @@
+{
+  "title": "adding a process doesnt work",
+  "type": "bug",
+  "priority": 1,
+  "description": "adding a process doesnt work anymore, since a question mark button is right on top of it",
+  "state": "in-progress",
+  "origin": "user"
+}
