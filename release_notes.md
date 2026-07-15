@@ -1556,3 +1556,22 @@ This approach is reliable because:
 
 **Files modified:**
 - `src/components/landing/landing-page.tsx`
+
+## 2026-07-15T10:24 — Fix StreamStatsPanel missing dark mode styles
+
+**What changed:**
+- Added `dark:` variant classes to all light-only Tailwind classes in `stream-stats-panel.tsx`
+- StatBadge colors (6 colors: blue, green, amber, red, purple, indigo) now include `dark:bg-{color}-900/30 dark:text-{color}-300 dark:border-{color}-800`
+- Panel container: added `dark:bg-gray-800 dark:border-gray-700`
+- Section headings (Known Issues, Teams, Applications): added `dark:text-red-300`, `dark:text-purple-300`, `dark:text-blue-300`
+- Team and app tag pills: added dark background, text, and border variants
+- Issues list text: added `dark:text-gray-300`
+- Bullet color: added `dark:text-red-500`
+- All overflow "+N more" text elements: added `dark:text-gray-500`
+
+**Impact:**
+- StreamStatsPanel now renders correctly in dark mode, matching the patterns established in sipoc-node.tsx
+- All text, backgrounds, and borders adapt to the dark theme
+
+**Files modified:**
+- `src/components/layout/stream-stats-panel.tsx`
