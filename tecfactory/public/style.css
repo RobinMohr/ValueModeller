@@ -770,15 +770,20 @@ main {
 
 .form-row {
   display: grid;
-  grid-template-columns: 1fr 1fr 1fr;
+  grid-template-columns: 1fr 1fr auto;
   gap: 1rem;
+  align-items: start;
+}
+
+.form-row .form-group:last-child select {
+  min-width: 130px;
 }
 
 .form-row-single {
   display: grid;
   grid-template-columns: 1fr;
   max-width: 220px;
-  padding-bottom: 0.25rem;
+  margin-bottom: 0.5rem;
 }
 
 .form-actions {

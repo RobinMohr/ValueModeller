@@ -3,7 +3,7 @@
   "title": "Fix Edit Task form layout/formatting issues",
   "priority": 2,
   "type": "bug",
-  "state": "todo",
+  "state": "developed",
   "description": "When editing a task in the tecfactory task manager, the Edit Task modal has several formatting/layout problems:\n\n1. **Priority/Type/State row cramped** — The 3-column grid (`.form-row` with `grid-template-columns: 1fr 1fr 1fr`) forces Priority, Type, and State into equal-width columns that are too narrow. The State dropdown label appears slightly misaligned.\n\n2. **Origin row spacing** — The `.form-row-single` has `max-width: 220px` which is fine for width, but there's insufficient vertical spacing between the Origin hint text ('Set automatically — cannot be changed') and the Description label below.\n\n3. **Overall vertical rhythm** — The gap between sections (especially Origin → Description) needs to be increased for clearer visual grouping.\n\nFixes needed:\n- In style.css: Increase gap or margin between `.form-row-single` (Origin row) and the following `.form-group` (Description)\n- In style.css: Consider adjusting `.form-row` grid proportions when all 3 fields are visible (e.g. `1fr 1fr auto` or wider `max-width` on the panel)\n- Ensure consistent label alignment across the Priority/Type/State row",
   "files": [
     "tecfactory/public/style.css",

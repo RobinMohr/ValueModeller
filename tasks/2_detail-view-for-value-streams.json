@@ -1,0 +1,8 @@
+{
+  "title": "detail view for value streams",
+  "type": "improvement",
+  "priority": 2,
+  "description": "in the view for the value streams , we want to be able to view the details of each value stream without instantly opening it but keep the option to instantly open it",
+  "state": "todo",
+  "origin": "user"
+}

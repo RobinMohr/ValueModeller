@@ -3,6 +3,6 @@
   "type": "improvement",
   "priority": 2,
   "description": "create unit tests for the tecfactory\nso all the parts work as they should",
-  "state": "todo",
+  "state": "in-progress",
   "origin": "user"
 }
