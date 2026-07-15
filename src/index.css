@@ -25,49 +25,6 @@ body {
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
 }
 
-/* Dark mode: React Flow controls */
-.dark .react-flow__controls {
-  border-color: #374151;
-  background: #1f2937;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
-}
-
-.dark .react-flow__controls button {
-  background: #1f2937;
-  border-bottom-color: #374151;
-  fill: #d1d5db;
-}
-
-.dark .react-flow__controls button:hover {
-  background: #374151;
-}
-
-/* Dark mode: React Flow background */
-.dark .react-flow__background {
-  background-color: #111827;
-}
-
-/* Dark mode: React Flow minimap */
-.dark .react-flow__minimap {
-  background-color: #1f2937;
-  border: 1px solid #374151;
-  border-radius: 8px;
-}
-
-/* Dark mode: React Flow edges */
-.dark .react-flow__edge-path {
-  stroke: #6b7280;
-}
-
-.dark .react-flow__edge.animated path {
-  stroke: #6b7280;
-}
-
-/* Dark mode: React Flow panel */
-.dark .react-flow__panel {
-  color: #e5e7eb;
-}
-
 /* Accessibility: visible focus indicators for nodes */
 .react-flow__node:focus-within {
   z-index: 10 !important;

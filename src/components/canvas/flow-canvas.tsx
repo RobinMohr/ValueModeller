@@ -17,6 +17,7 @@ import '@xyflow/react/dist/style.css';
 import { useGraphStore } from '../../store/graph-store';
 import { useUiStore } from '../../store/ui-store';
 import { useHistoryStore } from '../../store/history-store';
+import { useThemeStore } from '../../store/theme-store';
 import { useProximityConnect } from '../../hooks/use-proximity-connect';
 import { useCanvasContextMenu } from '../../hooks/use-canvas-context-menu';
 import { useCanvasClipboard } from '../../hooks/use-canvas-clipboard';
@@ -139,6 +140,7 @@ function FlowCanvasInner() {
   const addNode = useGraphStore((s) => s.addNode);
   const getNodeById = useGraphStore((s) => s.getNodeById);
   const openSidePanel = useUiStore((s) => s.openSidePanel);
+  const effectiveTheme = useThemeStore((s) => s.getEffectiveTheme());
   const { screenToFlowPosition } = useReactFlow();
 
   // --- Extracted hooks ---
@@ -290,6 +292,7 @@ function FlowCanvasInner() {
         nodeTypes={nodeTypes}
         edgeTypes={edgeTypes}
         defaultEdgeOptions={{ type: 'smart', animated: true }}
+        colorMode={effectiveTheme}
         fitView
         deleteKeyCode={['Backspace', 'Delete']}
         className="bg-gray-50"

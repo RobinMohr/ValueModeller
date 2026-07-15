@@ -1575,3 +1575,20 @@ This approach is reliable because:
 
 **Files modified:**
 - `src/components/layout/stream-stats-panel.tsx`
+
+## 2026-07-15T10:26 — Use React Flow built-in colorMode prop for dark mode
+
+**What changed:**
+- Added `colorMode={effectiveTheme}` prop to the `<ReactFlow>` component in `flow-canvas.tsx`, using the theme store's `getEffectiveTheme()` which returns `'light'` or `'dark'`
+- Removed ~35 lines of manual `.dark .react-flow__*` CSS overrides from `index.css` that were handling dark mode for controls, background, minimap, edges, and panels
+- Kept project-specific styles: cursor overrides, light-mode controls border/shadow, focus-visible accessibility indicators, sr-only utility, and prefers-reduced-motion rules
+
+**Impact:**
+- React Flow's native theming system now handles dark mode for all internal elements (edges, controls, minimap, background, selection box, connection lines) via CSS variables
+- Ensures complete dark mode coverage including selection rectangles and connection lines that manual CSS may have missed
+- Reduces CSS maintenance burden — no need to update custom dark overrides when React Flow adds new internal elements
+- Cleaner separation between library theming (handled by colorMode) and project-specific accessibility enhancements (kept in CSS)
+
+**Files modified:**
+- `src/components/canvas/flow-canvas.tsx`
+- `src/index.css`
