@@ -1,5 +1,33 @@
 # Release Notes — Value Modeller
 
+## 2026-07-15T16:05 — feat: Migration script (JSON files → Azure SQL)
+
+**Task:** `tasks/2_e0f1a2b3_migration-script-json-files-to-azure-sql.json` → state set to `developed`
+
+**Changes:**
+- Created `task-api/scripts/migrate-from-files.ts` — a one-time migration script that:
+  - Reads all `tasks/*.json` files (skips `0_task_template.json`, `README.md`, and `.lock` files)
+  - Validates each file against the Zod `taskSchema` (rejects files with invalid/missing fields)
+  - Upserts into Azure SQL `tasks` table via `MERGE` statement (inserts new, updates existing by ID)
+  - Loads connection settings from `local.settings.json` if env vars are not set
+  - Reports success/failure counts with detailed error log per file
+  - Gracefully closes the DB pool on completion
+- Updated `task-api/tsconfig.json` to include `scripts/**/*.ts` in compilation
+- Build verified: `npm run build` passes with 0 errors
+
+**Run with:**
+```bash
+npx ts-node task-api/scripts/migrate-from-files.ts
+```
+
+**Files created:**
+- `task-api/scripts/migrate-from-files.ts`
+
+**Files modified:**
+- `task-api/tsconfig.json`
+
+---
+
 ## 2026-07-15T16:03 — feat: Implement DELETE /api/tasks/:id endpoint
 
 **Task:** `tasks/2_d9e0f1a2_implement-delete-task-endpoint.json` → state set to `developed`
