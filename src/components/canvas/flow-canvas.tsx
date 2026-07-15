@@ -137,6 +137,7 @@ function FlowCanvasInner() {
   const nodes = useGraphStore((s) => s.nodes);
   const edges = useGraphStore((s) => s.edges);
   const onEdgesChange = useGraphStore((s) => s.onEdgesChange);
+  const onConnect = useGraphStore((s) => s.onConnect);
   const addNode = useGraphStore((s) => s.addNode);
   const getNodeById = useGraphStore((s) => s.getNodeById);
   const openSidePanel = useUiStore((s) => s.openSidePanel);
@@ -153,15 +154,13 @@ function FlowCanvasInner() {
   // Proximity connect: auto-create edges when dragging nodes near each other
   const handleProximityEdge = useCallback(
     (info: { sourceId: string; targetId: string; label: string }) => {
-      const { edges: currentEdges } = useGraphStore.getState();
-      const newEdge = {
-        id: `e${info.sourceId}-${info.targetId}`,
+      const storeOnConnect = useGraphStore.getState().onConnect;
+      storeOnConnect({
         source: info.sourceId,
         target: info.targetId,
-        type: 'smart' as const,
-        animated: true,
-      };
-      useGraphStore.setState({ edges: [...currentEdges, newEdge] });
+        sourceHandle: null,
+        targetHandle: null,
+      });
     },
     []
   );
@@ -210,18 +209,9 @@ function FlowCanvasInner() {
 
   const handleConnect = useCallback(
     (connection: Connection) => {
-      const { edges: currentEdges } = useGraphStore.getState();
-      const newEdge = {
-        ...connection,
-        id: `e${connection.source}-${connection.target}`,
-        type: 'smart' as const,
-        animated: true,
-      };
-      useGraphStore.setState({
-        edges: [...currentEdges, newEdge],
-      });
+      onConnect(connection);
     },
-    []
+    [onConnect]
   );
 
   // Close context menu on pane click

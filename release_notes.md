@@ -1,5 +1,20 @@
 # Release Notes — Value Modeller
 
+## 2026-07-15T11:54 — bugfix: Fix auto-fill bypass in flow-canvas handleConnect
+
+**Task:** `tasks/1_98830b27_fix-auto-fill-bypass-flow-canvas-handleconnect-doe.json` → state set to `developed`
+
+**Problem:** The "outputs become inputs" auto-fill feature was broken. `flow-canvas.tsx` defined a custom `handleConnect` callback that directly called `useGraphStore.setState({ edges: [...] })`, completely bypassing the store's `onConnect` method which handles auto-fill logic. The same issue existed in `handleProximityEdge`.
+
+**Fix applied:**
+- Added `onConnect` selector from `useGraphStore` in `FlowCanvasInner`
+- Replaced the custom `handleConnect` implementation with a direct call to the store's `onConnect`
+- Replaced `handleProximityEdge`'s direct `setState` call with a call to the store's `onConnect`
+
+**Result:** Connecting nodes (via drag or proximity) now correctly auto-fills the target node's Inputs/Suppliers from the source node's Outputs/Customers.
+
+---
+
 ## 2026-07-15T11:43 — improvement: Remove step metrics from general view
 
 **Task:** `tasks/2_remove-step-metrics-from-view.json` → state set to `developed`

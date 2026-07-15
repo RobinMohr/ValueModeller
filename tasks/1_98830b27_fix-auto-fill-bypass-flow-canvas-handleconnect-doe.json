@@ -1,0 +1,13 @@
+{
+  "title": "Fix auto-fill bypass: flow-canvas handleConnect does not call store onConnect",
+  "type": "",
+  "priority": 1,
+  "description": "CRITICAL BUG: The 'outputs become inputs' auto-fill feature is broken. The graph store's `onConnect` method (graph-store.ts lines 42-68) correctly auto-fills target node's inputs/suppliers from source node's outputs/customers when connecting nodes. However, `flow-canvas.tsx` defines its own `handleConnect` callback (line 211-222) that directly calls `useGraphStore.setState({ edges: [...currentEdges, newEdge] })` — completely bypassing the store's onConnect logic.\n\nThe same issue exists in the proximity connect path (`handleProximityEdge` callback, line ~160) which also directly sets state without triggering auto-fill.\n\nReproduction:\n1. Create two nodes — fill 'Outputs' on node A\n2. Connect node A to node B by dragging from source handle to target handle\n3. Click node B to open side panel\n4. EXPECTED: node B's 'Inputs' field should be auto-filled from node A's 'Outputs'\n5. ACTUAL: node B's 'Inputs' field remains empty\n\nFix: Replace the custom `handleConnect` in flow-canvas.tsx with a call to the graph store's `onConnect` method (which already handles both edge creation and auto-fill). Similarly update `handleProximityEdge` to use the store's onConnect or replicate the auto-fill logic.\n\nNote: Two user tasks (2_outputs-become-inputs.json and 2_bee36f51) are marked 'developed' but the feature does not work due to this wiring issue.",
+  "files": [
+    "src/components/canvas/flow-canvas.tsx",
+    "src/store/graph-store.ts"
+  ],
+  "state": "developed",
+  "origin": "ai",
+  "id": "98830b27"
+}

@@ -3,6 +3,7 @@
   "type": "improvement",
   "priority": 2,
   "description": "i want to be able to order the tasks by the last edited time or by the priority \nadd a mechanism on the tasks page for that",
-  "state": "in-progress",
-  "origin": "user"
+  "state": "todo",
+  "origin": "user",
+  "id": "e437f021"
 }
