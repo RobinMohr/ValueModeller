@@ -1,4 +1,4 @@
-import { useCallback } from 'react';
+import { useCallback, useState } from 'react';
 import { useGraphStore } from '../../store/graph-store';
 import { useUiStore } from '../../store/ui-store';
 import { Button } from '../ui/button';
@@ -50,12 +50,20 @@ export function SipocForm() {
     [selectedNodeId, updateNodeData]
   );
 
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+
   const handleDelete = useCallback(() => {
+    if (!showDeleteConfirm) {
+      setShowDeleteConfirm(true);
+      setTimeout(() => setShowDeleteConfirm(false), 3000);
+      return;
+    }
     if (selectedNodeId) {
       deleteNode(selectedNodeId);
       closeSidePanel();
     }
-  }, [selectedNodeId, deleteNode, closeSidePanel]);
+    setShowDeleteConfirm(false);
+  }, [showDeleteConfirm, selectedNodeId, deleteNode, closeSidePanel]);
 
   if (!node) {
     return (
@@ -224,9 +232,14 @@ export function SipocForm() {
         </div>
       </div>
 
-      <div className="p-4 border-t border-gray-200 dark:border-gray-700">
-        <Button variant="danger" size="sm" onClick={handleDelete} className="w-full">
-          Delete Step
+      <div className="p-4 border-t border-gray-200 dark:border-gray-700 flex justify-end">
+        <Button
+          variant={showDeleteConfirm ? 'danger' : 'ghost'}
+          size="sm"
+          onClick={handleDelete}
+          aria-label={showDeleteConfirm ? 'Confirm delete step' : 'Delete step'}
+        >
+          {showDeleteConfirm ? 'Confirm Delete?' : 'Delete Step'}
         </Button>
       </div>
     </div>

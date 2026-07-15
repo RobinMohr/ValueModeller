@@ -1,5 +1,17 @@
 # Release Notes — Value Modeller
 
+## 2026-07-15T11:06 — improvement: Make delete button less noticeable with confirmation
+
+**Task:** `tasks/2_update-delete-button.json` → state set to `developed`
+
+**Change:** Redesigned the "Delete Step" button in the SIPOC form side panel (`src/components/form/sipoc-form.tsx`):
+- Changed from full-width red `danger` variant to a subtle right-aligned `ghost` variant
+- Added a two-click confirmation pattern: first click shows "Confirm Delete?" in danger red, second click performs the deletion
+- Confirmation auto-resets after 3 seconds if the user doesn't confirm
+- Matches the same pattern used by "Clear Canvas" in the toolbar
+
+**Build:** ✅ Passes (`tsc -b && vite build` — 0 errors, 297 modules)
+
 ## 2026-07-15T11:05 — chore: Confirm auto-propagation of input/supplier on connect (already implemented)
 
 **Task:** `tasks/2_linking-two-tasks-should-know-input-and-supplier-a.json` → state set to `developed`
