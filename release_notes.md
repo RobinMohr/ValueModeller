@@ -1,5 +1,24 @@
 # Release Notes — Value Modeller
 
+
+## 2026-07-15T10:13 — Verified Dialog Accessibility (CreateStreamDialog & StreamMetadataForm)
+
+**What changed:**
+- Verified that all accessibility features described in the task are already correctly implemented:
+  - `role="dialog"` and `aria-modal="true"` on both dialog content divs
+  - `aria-labelledby` pointing to heading elements with matching IDs
+  - `useFocusTrap` hook providing: Tab/Shift+Tab wrapping, Escape key → close, initial focus on first focusable element, and focus restoration on close
+- No code changes were needed — the implementation already follows the WAI-ARIA dialog pattern
+
+**Impact:**
+- Confirms both dialogs are fully accessible: screen readers announce them as dialogs, keyboard users cannot Tab out, and Escape dismisses them
+
+**Files verified (no modifications):**
+- `src/components/landing/landing-page.tsx`
+- `src/components/layout/stream-metadata-form.tsx`
+- `src/hooks/use-focus-trap.ts`
+
+
 ## 2026-07-15T10:10 — Fix State Badge Labels in TecFactory Task Cards
 
 **What changed:**
