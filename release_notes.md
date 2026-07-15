@@ -1338,3 +1338,21 @@ npm run test:coverage # Coverage report
 - `src/components/layout/stream-metadata-form.tsx`
 - `src/components/canvas/guided-demo-panel.tsx`
 - `src/components/canvas/keyboard-shortcuts-panel.tsx`
+
+
+## 2026-07-15T09:53 — Extract FlowCanvasInner Sub-concerns into Custom Hooks
+
+**What changed:**
+- Created `src/hooks/use-canvas-context-menu.ts` — manages context menu state, right-click handling, and menu item generation
+- Created `src/hooks/use-canvas-clipboard.ts` — handles Ctrl+C/V/D (copy/paste/duplicate) and Ctrl+Z/Y (undo/redo) keyboard shortcuts
+- Created `src/hooks/use-helper-lines.ts` — manages snap-to-alignment helper lines during node dragging
+- Created `src/hooks/use-group-drag-detection.ts` — detects when nodes are dropped into/out of group nodes and updates membership
+- Refactored `src/components/canvas/flow-canvas.tsx` to compose these hooks instead of containing ~120 lines of interleaved concern logic
+
+**Impact:**
+- FlowCanvasInner now follows Single Responsibility Principle — each concern is isolated in its own hook
+- Improved testability: hooks can be unit tested independently
+- Improved readability: the component clearly shows its composition of behaviors
+- Improved maintainability: modifying one concern (e.g., clipboard shortcuts) no longer risks breaking others (e.g., helper lines)
+
+**Build:** Verified with `npm run build` — no errors.

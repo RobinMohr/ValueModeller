@@ -232,7 +232,7 @@ interface TaskFile {
   type: string;
   state: string;
   description: string;
-  files: string[];
+  files?: string[];
   origin: string;
 }
 
@@ -552,8 +552,9 @@ function commitAndPush(cwd: string): boolean {
  * The loop has already claimed the task and set its state to "in-progress".
  */
 function buildDevPromptForTask(task: TaskFile): string {
-  const filesList = task.files.length > 0
-    ? task.files.map((f) => `  - ${f}`).join("\n")
+  const files = task.files ?? [];
+  const filesList = files.length > 0
+    ? files.map((f) => `  - ${f}`).join("\n")
     : "  (no specific files listed — investigate based on description)";
 
   return `You are the Developer Implementation Agent. You have been ASSIGNED a specific task. Do NOT pick a task yourself — this task has already been selected and claimed for you.

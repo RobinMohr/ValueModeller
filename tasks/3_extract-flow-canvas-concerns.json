@@ -2,7 +2,7 @@
   "title": "Extract FlowCanvasInner sub-concerns into custom hooks",
   "priority": 3,
   "type": "improvement",
-  "state": "todo",
+  "state": "developed",
   "description": "SOLID VIOLATION (Single Responsibility): FlowCanvasInner in flow-canvas.tsx is ~300 lines handling 6+ distinct concerns: (1) context menu state/logic, (2) clipboard copy/paste, (3) helper lines snap-to-grid, (4) node-to-group drag detection, (5) keyboard shortcuts (undo/redo/duplicate), (6) connection validation. Each concern has its own state, effects, and callbacks interleaved. Fix by extracting into focused custom hooks: - useCanvasContextMenu() — contextMenu state, handleNodeContextMenu, getContextMenuItems, closeContextMenu - useCanvasClipboard() — clipboardRef, Ctrl+C/V/D handlers - useHelperLines() — helperLines state, logic within handleNodesChange - useGroupDragDetection() — group membership logic in handleNodeDragStop. This improves testability (hooks can be unit tested), readability (FlowCanvasInner becomes a composition of hooks), and reusability. The keyboard shortcut useEffect alone is 40 lines and mixes clipboard, undo/redo, and duplicate concerns. Benefit: future developers can modify one concern without risk of breaking others.",
   "files": [
     "src/components/canvas/flow-canvas.tsx",

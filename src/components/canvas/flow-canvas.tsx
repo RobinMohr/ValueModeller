@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState, type DragEvent } from 'react';
+import { useCallback, useMemo, useState, type DragEvent } from 'react';
 import {
   ReactFlow,
   ReactFlowProvider,
@@ -18,6 +18,10 @@ import { useGraphStore } from '../../store/graph-store';
 import { useUiStore } from '../../store/ui-store';
 import { useHistoryStore } from '../../store/history-store';
 import { useProximityConnect } from '../../hooks/use-proximity-connect';
+import { useCanvasContextMenu } from '../../hooks/use-canvas-context-menu';
+import { useCanvasClipboard } from '../../hooks/use-canvas-clipboard';
+import { useHelperLines } from '../../hooks/use-helper-lines';
+import { useGroupDragDetection } from '../../hooks/use-group-drag-detection';
 import { SipocNodeComponent } from './sipoc-node';
 import { LabeledEdge } from './labeled-edge';
 import { SmartEdge } from './smart-edge';
@@ -30,7 +34,6 @@ import { HelperLinesRenderer } from './helper-lines';
 import { GroupNodeComponent } from './group-node';
 import { Button } from '../ui/button';
 import { getLayoutedNodes } from '../../utils/auto-layout';
-import { getHelperLines } from '../../utils/helper-lines';
 import { wouldCreateCycle } from '../../utils/cycle-detection';
 import type { SipocNode } from '../../types/sipoc.types';
 
@@ -129,91 +132,21 @@ function ToolbarPanel() {
   );
 }
 
-interface ContextMenuState {
-  x: number;
-  y: number;
-  nodeId: string;
-}
-
 function FlowCanvasInner() {
   const nodes = useGraphStore((s) => s.nodes);
   const edges = useGraphStore((s) => s.edges);
-  const onNodesChange = useGraphStore((s) => s.onNodesChange);
   const onEdgesChange = useGraphStore((s) => s.onEdgesChange);
   const addNode = useGraphStore((s) => s.addNode);
-  const deleteNode = useGraphStore((s) => s.deleteNode);
-  const duplicateNodes = useGraphStore((s) => s.duplicateNodes);
   const getNodeById = useGraphStore((s) => s.getNodeById);
   const openSidePanel = useUiStore((s) => s.openSidePanel);
-  const closeSidePanel = useUiStore((s) => s.closeSidePanel);
-  const selectedNodeId = useUiStore((s) => s.selectedNodeId);
-  const undo = useHistoryStore((s) => s.undo);
-  const redo = useHistoryStore((s) => s.redo);
   const { screenToFlowPosition } = useReactFlow();
 
-  // Helper lines state (for snap-to-grid alignment)
-  const [helperLines, setHelperLines] = useState<{ horizontal: number | null; vertical: number | null }>({
-    horizontal: null,
-    vertical: null,
-  });
-
-  // Context menu state
-  const [contextMenu, setContextMenu] = useState<ContextMenuState | null>(null);
-
-  const handleNodeContextMenu = useCallback(
-    (event: React.MouseEvent, node: SipocNode) => {
-      event.preventDefault();
-      setContextMenu({ x: event.clientX, y: event.clientY, nodeId: node.id });
-    },
-    []
-  );
-
-  const closeContextMenu = useCallback(() => {
-    setContextMenu(null);
-  }, []);
-
-  const getContextMenuItems = useCallback(
-    (nodeId: string) => {
-      return [
-        {
-          label: 'Edit Details',
-          icon: '✏️',
-          action: () => openSidePanel(nodeId),
-        },
-        {
-          label: 'Duplicate',
-          icon: '📋',
-          action: () => duplicateNodes([nodeId]),
-        },
-        {
-          label: `Select All (${nodes.length})`,
-          icon: '☑️',
-          action: () => {
-            useGraphStore.setState({
-              nodes: nodes.map((n) => ({ ...n, selected: true })),
-            });
-          },
-        },
-        {
-          label: 'Delete',
-          icon: '🗑️',
-          action: () => {
-            if (selectedNodeId === nodeId) {
-              closeSidePanel();
-            }
-            deleteNode(nodeId);
-          },
-          variant: 'danger' as const,
-        },
-      ];
-    },
-    [nodes, openSidePanel, duplicateNodes, deleteNode, selectedNodeId, closeSidePanel]
-  );
-
-  // Close context menu on pane click or scroll
-  const handlePaneClick = useCallback(() => {
-    setContextMenu(null);
-  }, []);
+  // --- Extracted hooks ---
+  const { contextMenu, handleNodeContextMenu, closeContextMenu, getContextMenuItems } =
+    useCanvasContextMenu();
+  useCanvasClipboard();
+  const { helperLines, handleNodesChange, clearHelperLines } = useHelperLines();
+  const { handleGroupDetection } = useGroupDragDetection();
 
   // Proximity connect: auto-create edges when dragging nodes near each other
   const handleProximityEdge = useCallback(
@@ -239,63 +172,14 @@ function FlowCanvasInner() {
     handleProximityEdge
   );
 
-  // Wrap onNodeDragStop to also clear helper lines and detect group membership
+  // Compose onNodeDragStop: clear helper lines + proximity connect + group detection
   const handleNodeDragStop: OnNodeDrag<SipocNode> = useCallback(
     (event, node, draggedNodes) => {
-      setHelperLines({ horizontal: null, vertical: null });
+      clearHelperLines();
       proximityDragStop(event, node, draggedNodes);
-
-      // Skip group assignment for group nodes themselves
-      if (node.type === 'group') return;
-
-      // Check if the dragged node was dropped inside a group node
-      const allNodes = useGraphStore.getState().nodes;
-      const assignNodeToGroup = useGraphStore.getState().assignNodeToGroup;
-
-      // Get absolute position of the dragged node
-      const nodeAbsX = node.position.x;
-      const nodeAbsY = node.position.y;
-
-      // Find group nodes that contain this position
-      const groupNode = allNodes.find((n) => {
-        if (n.type !== 'group') return false;
-        if (n.id === node.id) return false;
-        // Already has this parent — skip reassignment
-        if ((node as Record<string, unknown>).parentId === n.id) return false;
-
-        const gx = n.position.x;
-        const gy = n.position.y;
-        const gw = (n.style?.width as number) ?? (n.measured?.width ?? 400);
-        const gh = (n.style?.height as number) ?? (n.measured?.height ?? 250);
-
-        return nodeAbsX >= gx && nodeAbsX <= gx + gw && nodeAbsY >= gy && nodeAbsY <= gy + gh;
-      });
-
-      const currentParent = (node as Record<string, unknown>).parentId as string | undefined;
-
-      if (groupNode && currentParent !== groupNode.id) {
-        // Assign to group
-        assignNodeToGroup(node.id, groupNode.id);
-      } else if (!groupNode && currentParent) {
-        // Removed from group — convert to absolute position
-        const parentNode = allNodes.find((n) => n.id === currentParent);
-        if (parentNode) {
-          // First update position to absolute, then remove parent
-          const absPosition = {
-            x: node.position.x + parentNode.position.x,
-            y: node.position.y + parentNode.position.y,
-          };
-          useGraphStore.setState({
-            nodes: allNodes.map((n) => {
-              if (n.id !== node.id) return n;
-              const { parentId, extent, ...rest } = n as Record<string, unknown>;
-              return { ...rest, position: absPosition } as SipocNode;
-            }),
-          });
-        }
-      }
+      handleGroupDetection(event, node, draggedNodes);
     },
-    [proximityDragStop]
+    [clearHelperLines, proximityDragStop, handleGroupDetection]
   );
 
   // Merge ghost edge with real edges for display
@@ -303,75 +187,6 @@ function FlowCanvasInner() {
     () => (ghostEdge ? [...edges, ghostEdge] : edges),
     [edges, ghostEdge]
   );
-
-  // Clipboard for copy/paste
-  const clipboardRef = useRef<string[]>([]);
-
-  useEffect(() => {
-    const handleKeyDown = (event: KeyboardEvent) => {
-      // Don't intercept when user is typing in an input/textarea
-      const target = event.target as HTMLElement;
-      if (
-        target.tagName === 'INPUT' ||
-        target.tagName === 'TEXTAREA' ||
-        target.isContentEditable
-      ) {
-        return;
-      }
-
-      const isCtrlOrMeta = event.ctrlKey || event.metaKey;
-
-      // Ctrl+Z — undo
-      if (isCtrlOrMeta && event.key === 'z' && !event.shiftKey) {
-        event.preventDefault();
-        undo();
-        return;
-      }
-
-      // Ctrl+Shift+Z or Ctrl+Y — redo
-      if (isCtrlOrMeta && ((event.key === 'z' && event.shiftKey) || event.key === 'y')) {
-        event.preventDefault();
-        redo();
-        return;
-      }
-
-      // Ctrl+C — copy selected nodes
-      if (isCtrlOrMeta && event.key === 'c') {
-        const selectedIds = useGraphStore
-          .getState()
-          .nodes.filter((n) => n.selected)
-          .map((n) => n.id);
-
-        if (selectedIds.length > 0) {
-          clipboardRef.current = selectedIds;
-        }
-      }
-
-      // Ctrl+V — paste copied nodes
-      if (isCtrlOrMeta && event.key === 'v') {
-        if (clipboardRef.current.length > 0) {
-          event.preventDefault();
-          duplicateNodes(clipboardRef.current);
-        }
-      }
-
-      // Ctrl+D — duplicate selected nodes (common shortcut in editors)
-      if (isCtrlOrMeta && event.key === 'd') {
-        const selectedIds = useGraphStore
-          .getState()
-          .nodes.filter((n) => n.selected)
-          .map((n) => n.id);
-
-        if (selectedIds.length > 0) {
-          event.preventDefault();
-          duplicateNodes(selectedIds);
-        }
-      }
-    };
-
-    document.addEventListener('keydown', handleKeyDown);
-    return () => document.removeEventListener('keydown', handleKeyDown);
-  }, [duplicateNodes, undo, redo]);
 
   // Connection validation: prevent cycles (value streams must be DAGs)
   const isValidConnection: IsValidConnection = useCallback(
@@ -415,59 +230,10 @@ function FlowCanvasInner() {
     [getNodeById]
   );
 
-  const handleNodesChange = useCallback(
-    (changes: import('@xyflow/react').NodeChange<SipocNode>[]) => {
-      const removedIds = changes
-        .filter((c): c is import('@xyflow/react').NodeRemoveChange => c.type === 'remove')
-        .map((c) => c.id);
-
-      if (removedIds.length > 0 && selectedNodeId && removedIds.includes(selectedNodeId)) {
-        closeSidePanel();
-      }
-
-      // Helper lines: detect position changes (dragging) and snap to alignment
-      const positionChanges = changes.filter(
-        (c): c is import('@xyflow/react').NodePositionChange =>
-          c.type === 'position' && c.dragging === true && c.position !== undefined
-      );
-
-      if (positionChanges.length === 1) {
-        const change = positionChanges[0];
-        const currentNodes = useGraphStore.getState().nodes;
-        const draggingNode = currentNodes.find((n) => n.id === change.id);
-
-        if (draggingNode && change.position) {
-          // Create a temporary node at the new position for helper line calculation
-          const tempNode = { ...draggingNode, position: change.position };
-          const lines = getHelperLines(tempNode, currentNodes);
-
-          setHelperLines({
-            horizontal: lines.horizontal,
-            vertical: lines.vertical,
-          });
-
-          // Apply snap if within threshold
-          if (lines.snapX !== null || lines.snapY !== null) {
-            change.position = {
-              x: lines.snapX ?? change.position.x,
-              y: lines.snapY ?? change.position.y,
-            };
-          }
-        }
-      } else if (positionChanges.length === 0) {
-        // Not dragging — check if drag ended
-        const hasNonDragging = changes.some(
-          (c) => c.type === 'position' && c.dragging === false
-        );
-        if (hasNonDragging) {
-          setHelperLines({ horizontal: null, vertical: null });
-        }
-      }
-
-      onNodesChange(changes);
-    },
-    [onNodesChange, selectedNodeId, closeSidePanel]
-  );
+  // Close context menu on pane click
+  const handlePaneClick = useCallback(() => {
+    closeContextMenu();
+  }, [closeContextMenu]);
 
   const handleNodeDoubleClick = useCallback(
     (_event: React.MouseEvent, node: SipocNode) => {
