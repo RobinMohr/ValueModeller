@@ -1,0 +1,9 @@
+{
+  "title": "make logs showable in the list view",
+  "type": "improvement",
+  "priority": 1,
+  "description": "make logs showable in the list view for the ai agents",
+  "state": "developed",
+  "origin": "user",
+  "id": "68f9f932"
+}

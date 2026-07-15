@@ -136,11 +136,14 @@ class TecFactory {
   removeAgentCard(agentId) {
     this.agents.delete(agentId);
     this.autoScroll.delete(agentId);
+    this.autoScroll.delete(`list-${agentId}`);
     const card = document.getElementById(`card-${agentId}`);
     if (card) card.remove();
     // Also remove from list view
     const row = document.getElementById(`row-${agentId}`);
     if (row) row.remove();
+    const logRow = document.getElementById(`row-logs-${agentId}`);
+    if (logRow) logRow.remove();
     // Show empty state if no agents left
     if (this.agents.size === 0) {
       const tbody = document.getElementById('agentsTableBody');
@@ -218,23 +221,44 @@ class TecFactory {
 
   appendOutput(agentId, entry) {
     const outputEl = document.getElementById(`output-${agentId}`);
-    if (!outputEl) return;
-    const emptyState = outputEl.querySelector('.empty-state');
-    if (emptyState) emptyState.remove();
+    const listOutputEl = document.getElementById(`list-output-${agentId}`);
 
-    const line = document.createElement('div');
-    line.className = 'output-line';
     const time = new Date(entry.timestamp).toLocaleTimeString('en-GB', { hour12: false, hour: '2-digit', minute: '2-digit', second: '2-digit' });
-    line.innerHTML = `<span class="output-timestamp">${time}</span><span class="output-text ${entry.stream}">${ansiToHtml(entry.text)}</span>`;
-    outputEl.appendChild(line);
-    if (this.autoScroll.get(agentId)) outputEl.scrollTop = outputEl.scrollHeight;
-    while (outputEl.children.length > 500) outputEl.removeChild(outputEl.firstChild);
+    const lineHtml = `<span class="output-timestamp">${time}</span><span class="output-text ${entry.stream}">${ansiToHtml(entry.text)}</span>`;
+
+    // Append to cards view output
+    if (outputEl) {
+      const emptyState = outputEl.querySelector('.empty-state');
+      if (emptyState) emptyState.remove();
+
+      const line = document.createElement('div');
+      line.className = 'output-line';
+      line.innerHTML = lineHtml;
+      outputEl.appendChild(line);
+      if (this.autoScroll.get(agentId)) outputEl.scrollTop = outputEl.scrollHeight;
+      while (outputEl.children.length > 500) outputEl.removeChild(outputEl.firstChild);
+    }
+
+    // Append to list view output
+    if (listOutputEl) {
+      const emptyState = listOutputEl.querySelector('.empty-state');
+      if (emptyState) emptyState.remove();
+
+      const line = document.createElement('div');
+      line.className = 'output-line';
+      line.innerHTML = lineHtml;
+      listOutputEl.appendChild(line);
+      if (this.autoScroll.get(`list-${agentId}`) !== false) listOutputEl.scrollTop = listOutputEl.scrollHeight;
+      while (listOutputEl.children.length > 500) listOutputEl.removeChild(listOutputEl.firstChild);
+    }
   }
 
   loadHistory(agentId, output) {
     const outputEl = document.getElementById(`output-${agentId}`);
-    if (!outputEl || output.length === 0) return;
-    outputEl.innerHTML = '';
+    const listOutputEl = document.getElementById(`list-output-${agentId}`);
+    if ((!outputEl && !listOutputEl) || output.length === 0) return;
+    if (outputEl) outputEl.innerHTML = '';
+    if (listOutputEl) listOutputEl.innerHTML = '';
     for (const entry of output) this.appendOutput(agentId, entry);
   }
 
@@ -304,6 +328,8 @@ class TecFactory {
   clearOutput(agentId) {
     const el = document.getElementById(`output-${agentId}`);
     if (el) el.innerHTML = '<div class="empty-state">Output cleared.</div>';
+    const listEl = document.getElementById(`list-output-${agentId}`);
+    if (listEl) listEl.innerHTML = '<div class="empty-state">Output cleared.</div>';
   }
 
   copyOutput(agentId) {
@@ -467,6 +493,9 @@ class TecFactory {
   }
 
   createAgentRow(agent) {
+    // Create a document fragment to hold both the data row and the log row
+    const fragment = document.createDocumentFragment();
+
     const tr = document.createElement('tr');
     tr.id = `row-${agent.id}`;
     tr.className = agent.status === 'running' ? 'row-running' : agent.status === 'error' ? 'row-error' : '';
@@ -493,6 +522,8 @@ class TecFactory {
       </td>
       <td>
         <div class="row-actions">
+          <button class="btn btn-collapse-list" id="list-collapse-${agent.id}" title="Show logs"
+                  onclick="monitor.toggleListLogs('${agent.id}')">&#9660;</button>
           <button class="btn btn-start" id="list-start-${agent.id}"
                   onclick="monitor.startAgent('${agent.id}')"
                   ${agent.status === 'running' ? 'disabled' : ''}>&#9654;</button>
@@ -505,12 +536,46 @@ class TecFactory {
       </td>
     `;
 
+    fragment.appendChild(tr);
+
+    // Create the expandable log row (hidden by default)
+    const logTr = document.createElement('tr');
+    logTr.id = `row-logs-${agent.id}`;
+    logTr.className = 'row-logs';
+    logTr.style.display = 'none';
+    logTr.innerHTML = `
+      <td colspan="6" class="row-logs-cell">
+        <div class="list-output" id="list-output-${agent.id}" tabindex="0">
+          <div class="empty-state">No output yet. Start the agent to see its stream.</div>
+        </div>
+      </td>
+    `;
+
+    // Set up scroll and keyboard events for the list output
+    const outputEl = logTr.querySelector('.list-output');
+    outputEl.addEventListener('scroll', () => {
+      const atBottom = outputEl.scrollHeight - outputEl.clientHeight <= outputEl.scrollTop + 50;
+      this.autoScroll.set(`list-${agent.id}`, atBottom);
+    });
+    outputEl.addEventListener('keydown', (e) => {
+      if ((e.ctrlKey || e.metaKey) && e.key === 'a') {
+        e.preventDefault();
+        const selection = window.getSelection();
+        const range = document.createRange();
+        range.selectNodeContents(outputEl);
+        selection.removeAllRanges();
+        selection.addRange(range);
+      }
+    });
+
+    fragment.appendChild(logTr);
+
     // Render initial activity state in list row
     if (agent.currentActivity) {
       this.updateListActivity(agent.id, agent.currentActivity);
     }
 
-    return tr;
+    return fragment;
   }
 
   updateListStatus(agentId, status) {
@@ -568,6 +633,26 @@ class TecFactory {
 
   startAgent(agentId) { this.send({ action: 'start', agentId }); }
   stopAgent(agentId) { this.showStopDialog(agentId); }
+
+  // ─── List View Log Toggle ────────────────────────────────────────────────────
+
+  toggleListLogs(agentId) {
+    const logRow = document.getElementById(`row-logs-${agentId}`);
+    const toggleBtn = document.getElementById(`list-collapse-${agentId}`);
+    if (!logRow) return;
+
+    const isVisible = logRow.style.display !== 'none';
+    if (isVisible) {
+      logRow.style.display = 'none';
+      if (toggleBtn) { toggleBtn.innerHTML = '&#9660;'; toggleBtn.title = 'Show logs'; }
+    } else {
+      logRow.style.display = 'table-row';
+      if (toggleBtn) { toggleBtn.innerHTML = '&#9650;'; toggleBtn.title = 'Hide logs'; }
+      // Auto-scroll to bottom when opening
+      const outputEl = document.getElementById(`list-output-${agentId}`);
+      if (outputEl) outputEl.scrollTop = outputEl.scrollHeight;
+    }
+  }
 
   showStopDialog(agentId) {
     const agent = this.agents.get(agentId);

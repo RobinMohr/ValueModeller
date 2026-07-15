@@ -1,5 +1,31 @@
 # Release Notes — Value Modeller
 
+## 2026-07-15T17:09 — feat: Expandable log output in TecFactory list view
+
+**Task:** `tasks/1_68f9f932_make-logs-showable-in-the-list-view.json` → state set to `developed`
+
+**What was implemented:**
+- Added an **expandable log output panel** beneath each agent row in the list view table.
+- Each agent row now has a **toggle button (▼/▲)** in the Actions column that shows/hides the log output for that agent.
+- Log output in the list view is rendered identically to the cards view: timestamped lines, ANSI color support, stderr highlighting, system message styling.
+- `appendOutput()` now **mirrors all log lines to both views simultaneously** — switching between list and cards view preserves all log data.
+- `loadHistory()` and `clearOutput()` also sync across both views.
+- List output panels support: auto-scroll, Ctrl+A select all (within panel), focus indicators, and a max height of 280px with scrollbar.
+- Removing an agent correctly cleans up both the data row and the log row.
+
+**Behavior:**
+- **Default:** Log panels are hidden (compact table view)
+- **Click ▼:** Expands a log output area below that agent's row
+- **Click ▲:** Collapses the log area back to the compact row
+
+**Files modified:**
+- `tecfactory/public/app.js` — `createAgentRow()` now returns a fragment with data row + log row, added `toggleListLogs()` method, `appendOutput()`/`loadHistory()`/`clearOutput()` mirror to list view, `removeAgentCard()` cleans up log rows
+- `tecfactory/public/style.css` — Added `.row-logs`, `.row-logs-cell`, `.list-output`, `.btn-collapse-list` styles
+
+**Build:** ✅ Passes (`tsc -b && vite build` — 0 errors, 299 modules)
+
+---
+
 ## 2026-07-15T16:44 — no-op: :D
 
 **Task:** `tasks/2_cb80830d_d.json` → state set to `developed`
