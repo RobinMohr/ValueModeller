@@ -12,8 +12,8 @@
  *   node dist/agent-loop.js --agent my-custom-agent --type custom --prompt "Do something"
  */
 import { resolve, join } from "node:path";
-import { readFile, readdir } from "node:fs/promises";
-import { readdirSync, readFileSync } from "node:fs";
+import { readFile, readdir, writeFile, unlink, open } from "node:fs/promises";
+import { readdirSync, readFileSync, writeFileSync, unlinkSync, existsSync } from "node:fs";
 import { execFileSync } from "node:child_process";
 import { KiroRunner } from "./kiro-runner.js";
 import { logAgentError } from "./error-logger.js";
@@ -210,7 +210,7 @@ async function cleanupOrphanedProcesses(): Promise<void> {
 async function hasWork(cwd: string): Promise<boolean> {
   try {
     const tasksDir = join(cwd, "tasks");
-    const files = readdirSync(tasksDir).filter((f) => f.endsWith(".json"));
+    const files = readdirSync(tasksDir).filter((f) => f.endsWith(".json") && !f.startsWith("0_"));
     for (const file of files) {
       const content = JSON.parse(readFileSync(join(tasksDir, file), "utf-8"));
       if (content.state === "todo") return true;
@@ -218,6 +218,176 @@ async function hasWork(cwd: string): Promise<boolean> {
     return false;
   } catch {
     return false;
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Task claiming — atomic lock-based task assignment
+// ---------------------------------------------------------------------------
+
+interface TaskFile {
+  filename: string;
+  title: string;
+  priority: number;
+  type: string;
+  state: string;
+  description: string;
+  files: string[];
+  origin: string;
+}
+
+/** Origin priority: user > user-assisted > ai. Lower = higher priority. */
+const ORIGIN_RANK: Record<string, number> = {
+  user: 0,
+  "user-assisted": 1,
+  ai: 2,
+};
+
+function getOriginRank(origin: string): number {
+  return ORIGIN_RANK[origin] ?? 99;
+}
+
+/**
+ * Atomically claim the highest-priority todo task.
+ *
+ * Strategy:
+ * 1. Read all task files, filter to state=todo, sort by priority then origin
+ * 2. For the best candidate, attempt to create a <task>.lock file using
+ *    exclusive mode (wx flag). This is atomic — if another process already
+ *    created it, the open() call fails.
+ * 3. If lock acquired, set the task state to "in-progress" and return it.
+ * 4. If lock fails (another agent claimed it), try the next candidate.
+ *
+ * Returns null if no claimable task exists.
+ */
+async function claimTask(cwd: string): Promise<TaskFile | null> {
+  const tasksDir = join(cwd, "tasks");
+
+  let files: string[];
+  try {
+    files = readdirSync(tasksDir).filter(
+      (f) => f.endsWith(".json") && !f.startsWith("0_")
+    );
+  } catch {
+    return null;
+  }
+
+  // Parse all todo tasks
+  const todoTasks: TaskFile[] = [];
+  for (const file of files) {
+    try {
+      const content = JSON.parse(readFileSync(join(tasksDir, file), "utf-8"));
+      if (content.state === "todo") {
+        todoTasks.push({ filename: file, ...content });
+      }
+    } catch {
+      /* skip unreadable files */
+    }
+  }
+
+  if (todoTasks.length === 0) return null;
+
+  // Sort: lowest priority number first, then origin rank (user > user-assisted > ai)
+  todoTasks.sort((a, b) => {
+    if (a.priority !== b.priority) return a.priority - b.priority;
+    return getOriginRank(a.origin) - getOriginRank(b.origin);
+  });
+
+  // Try to claim tasks in priority order
+  for (const task of todoTasks) {
+    const lockPath = join(tasksDir, `${task.filename}.lock`);
+
+    try {
+      // Atomic exclusive create — fails if file already exists
+      const handle = await open(lockPath, "wx");
+      await handle.write(
+        JSON.stringify({
+          claimedAt: new Date().toISOString(),
+          pid: process.pid,
+        })
+      );
+      await handle.close();
+
+      // Lock acquired! Now set state to in-progress
+      const taskPath = join(tasksDir, task.filename);
+      const taskContent = JSON.parse(readFileSync(taskPath, "utf-8"));
+      taskContent.state = "in-progress";
+      writeFileSync(taskPath, JSON.stringify(taskContent, null, 2) + "\n");
+
+      log(`  Claimed task: [P${task.priority}] "${task.title}" (${task.filename})`, "green");
+      return { ...task, state: "in-progress" };
+    } catch (err: unknown) {
+      // EEXIST means another process already has the lock — try next task
+      if ((err as NodeJS.ErrnoException).code === "EEXIST") {
+        log(`  Task "${task.title}" already claimed (lock exists). Skipping.`, "gray");
+        continue;
+      }
+      // Other error — skip this task
+      log(`  Failed to claim "${task.title}": ${(err as Error).message}`, "red");
+      continue;
+    }
+  }
+
+  return null; // All todo tasks are already claimed by other agents
+}
+
+/**
+ * Release the lock for a completed/failed task.
+ * Call this after the agent finishes (success or failure).
+ */
+function releaseTaskLock(cwd: string, taskFilename: string): void {
+  const lockPath = join(cwd, "tasks", `${taskFilename}.lock`);
+  try {
+    unlinkSync(lockPath);
+    log(`  Released lock for: ${taskFilename}`, "gray");
+  } catch {
+    /* lock already gone — fine */
+  }
+}
+
+/**
+ * Clean up any stale lock files from crashed previous runs.
+ * A lock is considered stale if the task state is not "in-progress"
+ * (meaning the agent finished but the lock wasn't cleaned up).
+ */
+function cleanupStaleLocks(cwd: string): void {
+  const tasksDir = join(cwd, "tasks");
+  try {
+    const files = readdirSync(tasksDir).filter((f) => f.endsWith(".lock"));
+    for (const lockFile of files) {
+      const taskFile = lockFile.replace(".lock", "");
+      const taskPath = join(tasksDir, taskFile);
+
+      try {
+        const content = JSON.parse(readFileSync(taskPath, "utf-8"));
+        // If the task isn't in-progress, the lock is stale
+        if (content.state !== "in-progress") {
+          unlinkSync(join(tasksDir, lockFile));
+          log(`  Cleaned stale lock: ${lockFile}`, "yellow");
+        } else {
+          // Check if the lock is older than the timeout (e.g., 20 minutes)
+          const lockContent = JSON.parse(
+            readFileSync(join(tasksDir, lockFile), "utf-8")
+          );
+          const claimedAt = new Date(lockContent.claimedAt).getTime();
+          const staleThresholdMs = 20 * 60 * 1000; // 20 minutes
+          if (Date.now() - claimedAt > staleThresholdMs) {
+            unlinkSync(join(tasksDir, lockFile));
+            // Also reset the task back to todo since the agent likely crashed
+            content.state = "todo";
+            writeFileSync(taskPath, JSON.stringify(content, null, 2) + "\n");
+            log(`  Cleaned expired lock (>20min): ${lockFile} — task reset to todo`, "yellow");
+          }
+        }
+      } catch {
+        // Task file doesn't exist or can't be read — remove orphaned lock
+        try {
+          unlinkSync(join(tasksDir, lockFile));
+        } catch { /* best effort */ }
+      }
+    }
+  } catch {
+    /* tasks dir doesn't exist or can't be read */
   }
 }
 
@@ -374,22 +544,74 @@ function commitAndPush(cwd: string): boolean {
 }
 
 // ---------------------------------------------------------------------------
+// Task-specific prompt builder for dev agent
+// ---------------------------------------------------------------------------
+
+/**
+ * Build a focused prompt that tells the dev agent exactly which task to implement.
+ * The loop has already claimed the task and set its state to "in-progress".
+ */
+function buildDevPromptForTask(task: TaskFile): string {
+  const filesList = task.files.length > 0
+    ? task.files.map((f) => `  - ${f}`).join("\n")
+    : "  (no specific files listed — investigate based on description)";
+
+  return `You are the Developer Implementation Agent. You have been ASSIGNED a specific task. Do NOT pick a task yourself — this task has already been selected and claimed for you.
+
+## YOUR ASSIGNED TASK
+
+**File:** tasks/${task.filename}
+**Title:** ${task.title}
+**Priority:** ${task.priority}
+**Type:** ${task.type}
+**Description:** ${task.description}
+
+**Relevant files:**
+${filesList}
+
+## INSTRUCTIONS
+
+The task state is already set to "in-progress". Do the following:
+
+1. Read the relevant source files to understand the current state.
+2. Implement the change described above. Follow coding standards (TypeScript strict, functional components, named exports, Tailwind CSS, Zustand).
+3. Run \`npm run build\` to verify no TypeScript or build errors.
+4. Set the task state to "developed" in tasks/${task.filename}.
+5. Append a timestamped entry to release_notes.md describing what you did.
+6. STOP. Do not pick another task. Exit immediately.
+
+## CRITICAL RULES
+
+- Do NOT read all tasks looking for work. Your task is assigned above.
+- Do NOT change the task's state to anything other than "developed" when done.
+- Do NOT skip this task and pick a different one.
+- If the task cannot be completed (e.g., missing dependencies, unclear requirements), set state to "todo" (to unclaim it) and explain why in release_notes.md.
+- Keep changes minimal and focused on THIS task only.`;
+}
+
+// ---------------------------------------------------------------------------
 // Run a single iteration
 // ---------------------------------------------------------------------------
 
 async function runIteration(
   cwd: string,
   config: AgentLoopConfig,
-  iteration: number
+  iteration: number,
+  claimedTask?: TaskFile | null
 ): Promise<boolean> {
   let runner: KiroRunner | null = null;
   let timeoutHandle: ReturnType<typeof setTimeout> | null = null;
   const outputLines: string[] = [];
 
-  const prompt =
-    config.type === "custom" && config.customPrompt
-      ? config.customPrompt
-      : PROMPTS[config.type];
+  // For dev agents with a claimed task, build a task-specific prompt
+  let prompt: string;
+  if (config.type === "dev" && claimedTask) {
+    prompt = buildDevPromptForTask(claimedTask);
+  } else if (config.type === "custom" && config.customPrompt) {
+    prompt = config.customPrompt;
+  } else {
+    prompt = PROMPTS[config.type];
+  }
 
   if (!prompt) {
     log(`  ERROR: No prompt defined for type '${config.type}'. Use --prompt for custom agents.`, "red");
@@ -565,11 +787,16 @@ async function main(): Promise<void> {
   });
 
   while (!stopping) {
-    // For dev agents, pre-check if there's work available
+    // For dev agents, claim a task atomically before spawning the agent
+    let claimedTask: TaskFile | null = null;
     if (config.type === "dev") {
-      if (!(await hasWork(cwd))) {
+      // Clean up any stale locks from crashed previous runs
+      cleanupStaleLocks(cwd);
+
+      claimedTask = await claimTask(cwd);
+      if (!claimedTask) {
         log(
-          `[${timestamp()}] No actionable tasks in tasks/. Waiting 60s...`,
+          `[${timestamp()}] No claimable tasks in tasks/. Waiting 60s...`,
           "yellow"
         );
         await sleep(60_000);
@@ -582,6 +809,8 @@ async function main(): Promise<void> {
     if (config.type === "dev") {
       if (!ensureDevelopBranch(cwd)) {
         log(`[${timestamp()}] Cannot switch to '${TARGET_BRANCH}' branch. Waiting 30s...`, "red");
+        // Release the lock since we can't proceed
+        if (claimedTask) releaseTaskLock(cwd, claimedTask.filename);
         await sleep(30_000);
         if (stopping) break;
         continue;
@@ -592,7 +821,7 @@ async function main(): Promise<void> {
     const startTime = Date.now();
     log(`[${timestamp()}] === Iteration ${iteration} ===`, "yellow");
 
-    const success = await runIteration(cwd, config, iteration);
+    const success = await runIteration(cwd, config, iteration, claimedTask);
 
     const duration = Math.round((Date.now() - startTime) / 1000);
     if (success) {
@@ -610,6 +839,11 @@ async function main(): Promise<void> {
         `[${timestamp()}] Iteration ${iteration} ended with issues. (Duration: ${duration}s)`,
         "red"
       );
+    }
+
+    // Release the task lock after the iteration completes (success or failure)
+    if (config.type === "dev" && claimedTask) {
+      releaseTaskLock(cwd, claimedTask.filename);
     }
 
     // Check max iterations
