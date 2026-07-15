@@ -490,53 +490,23 @@ function ensureDevelopBranch(cwd: string): boolean {
 }
 
 /**
- * Build a meaningful commit message from the tasks that were completed.
- * Looks for tasks with state 'in-progress' or recently changed to 'developed'.
+ * Build a meaningful commit message from the claimed task title.
+ * Uses the title of the task that was claimed for THIS iteration,
+ * avoiding false matches from previously-developed tasks that got
+ * re-staged due to line-ending changes (CRLF warnings).
  */
-function getCommitMessage(cwd: string): string {
-  try {
-    const tasksDir = join(cwd, "tasks");
-    const files = readdirSync(tasksDir).filter((f) => f.endsWith(".json"));
-
-    // Stage all first so we can check what's staged
-    const stagedFiles = execFileSync("git", ["diff", "--cached", "--name-only"], {
-      cwd,
-      encoding: "utf-8",
-      timeout: 10_000,
-    }).trim();
-
-    // Find tasks that were developed in this iteration
-    const developedTasks: string[] = [];
-    for (const file of files) {
-      try {
-        const content = JSON.parse(readFileSync(join(tasksDir, file), "utf-8"));
-        if (content.state === "developed" || content.state === "in-progress") {
-          if (stagedFiles.includes(`tasks/${file}`)) {
-            developedTasks.push(content.title || file.replace(".json", ""));
-          }
-        }
-      } catch {
-        /* skip unreadable task files */
-      }
-    }
-
-    if (developedTasks.length > 0) {
-      const taskTitles = developedTasks.join(", ");
-      return `feat: ${taskTitles}`;
-    }
-
-    // Fallback: use a generic message with timestamp
-    return `chore: dev agent changes (${new Date().toISOString().slice(0, 16)})`;
-  } catch {
-    return `chore: dev agent changes (${new Date().toISOString().slice(0, 16)})`;
+function getCommitMessage(taskTitle: string): string {
+  if (taskTitle) {
+    return `feat: ${taskTitle}`;
   }
+  return `chore: dev agent changes (${new Date().toISOString().slice(0, 16)})`;
 }
 
 /**
  * Stage all changes, commit with a meaningful message, and push to remote.
  * Returns true if successful, false otherwise.
  */
-function commitAndPush(cwd: string): boolean {
+function commitAndPush(cwd: string, taskTitle: string): boolean {
   try {
     // Check if there are any changes to commit
     const status = execFileSync("git", ["status", "--porcelain"], {
@@ -557,7 +527,7 @@ function commitAndPush(cwd: string): boolean {
     });
 
     // Build commit message from completed task
-    const commitMessage = getCommitMessage(cwd);
+    const commitMessage = getCommitMessage(taskTitle);
     log(`  Git: committing: "${commitMessage}"`, "cyan");
     execFileSync("git", ["commit", "-m", commitMessage], {
       cwd,
@@ -616,7 +586,7 @@ The task state is already set to "in-progress". Do the following:
 2. Implement the change described above. Follow coding standards (TypeScript strict, functional components, named exports, Tailwind CSS, Zustand).
 3. Run \`npm run build\` to verify no TypeScript or build errors.
 4. Set the task state to "developed" in tasks/${task.filename}.
-5. Append a timestamped entry to release_notes.md describing what you did.
+5. Append a timestamped entry to release_notes.md describing what you did. IMPORTANT: Insert the new entry AFTER the \`# Release Notes\` header line (line 1), not before it. The header must always remain the first line of the file.
 6. STOP. Do not pick another task. Exit immediately.
 
 ## CRITICAL RULES
@@ -624,6 +594,7 @@ The task state is already set to "in-progress". Do the following:
 - Do NOT read all tasks looking for work. Your task is assigned above.
 - Do NOT change the task's state to anything other than "developed" when done.
 - Do NOT skip this task and pick a different one.
+- If the work described in the task is ALREADY implemented in the codebase (e.g., a prior iteration fixed it), still set state to "developed", add a brief note to release_notes.md that the fix was already present, and exit. Do not waste time re-verifying every detail.
 - If the task cannot be completed (e.g., missing dependencies, unclear requirements), set state to "todo" (to unclaim it) and explain why in release_notes.md.
 - Keep changes minimal and focused on THIS task only.`;
 }
@@ -872,7 +843,7 @@ async function main(): Promise<void> {
       // For dev agents: verify task is "developed", then commit and push
       if (config.type === "dev" && claimedTask) {
         ensureTaskDeveloped(cwd, claimedTask.filename);
-        commitAndPush(cwd);
+        commitAndPush(cwd, claimedTask.title);
       }
     } else {
       log(

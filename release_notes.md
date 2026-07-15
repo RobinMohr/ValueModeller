@@ -1,5 +1,20 @@
 # Release Notes — Value Modeller
 
+## 2026-07-15T10:20 — Fix ACP Dev Loop Console Issues
+
+**What changed:**
+- Fixed commit message bug: `getCommitMessage()` now accepts the claimed task title directly instead of scanning all staged files. Previously, `git add .` would re-stage task files with CRLF line-ending changes from prior iterations, causing their titles to leak into the current commit message (e.g., showing 2 task titles when only 1 was worked on).
+- Fixed release_notes.md header duplication: Added explicit instruction in the dev agent prompt to insert entries AFTER the `# Release Notes` header line, preventing the recurring pattern where the agent inserts before line 1 then has to self-repair.
+- Added guidance for already-completed tasks: The prompt now tells the agent to quickly mark already-fixed tasks as "developed" without excessive re-verification, reducing wasted iterations.
+
+**Impact:**
+- Commit messages now correctly show only the current iteration's task title
+- Agent no longer wastes time fixing duplicated release_notes headers
+- Faster handling of tasks that were already resolved by prior iterations
+
+**Files modified:**
+- `scripts/src/agent-loop.ts`
+
 ## 2026-07-15T10:17 — Add prefers-reduced-motion support for animated edges
 
 **What changed:**
