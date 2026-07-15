@@ -3,8 +3,10 @@
   "title": "Implement GET /api/tasks/next endpoint",
   "priority": 1,
   "type": "improvement",
-  "state": "todo",
+  "state": "developed",
   "description": "Returns the single most important task with state='todo'. Sort order: priority ASC, then origin weight (user=1, user-assisted=2, ai=3) ASC, then created_at ASC as tiebreaker. Returns 204 No Content if no todo tasks exist. This is the key endpoint AI agents call to pick up their next work item.",
-  "files": ["task-api/src/functions/get-next-task.ts"],
+  "files": [
+    "task-api/src/functions/get-next-task.ts"
+  ],
   "origin": "user-assisted"
 }

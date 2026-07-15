@@ -1,5 +1,25 @@
 # Release Notes — Value Modeller
 
+## 2026-07-15T15:56 — feat: Implement GET /api/tasks/next endpoint
+
+**Task:** `tasks/1_f5a6b7c8_implement-get-next-task-endpoint.json` → state set to `developed`
+
+**What was implemented:**
+- Created `task-api/src/functions/get-next-task.ts` — an Azure Functions v4 HTTP-triggered function that returns the single most important task with `state='todo'`.
+- **Sort order:** `priority ASC` → origin weight (`user`=1, `user-assisted`=2, `ai`=3) ASC → `created_at ASC` (oldest first as tiebreaker).
+- **Returns 204 No Content** if no todo tasks exist in the database.
+- **Requires API key auth** via `x-api-key` header (uses `requireAuth` middleware).
+- Parses the `files` JSON column into a string array in the response body.
+- Uses `queryOne<TaskRow>` from the DB client for efficient single-row retrieval (`SELECT TOP 1`).
+- Full error handling with 500 response on database failures.
+
+**Files created:**
+- `task-api/src/functions/get-next-task.ts`
+
+**Build:** ✅ task-api `tsc` passes (0 errors)
+
+---
+
 ## 2026-07-15T15:54 — feat: Implement API key auth middleware
 
 **Task:** `tasks/1_d3e4f5a6_implement-api-key-auth-middleware.json` → state set to `developed`
