@@ -1,0 +1,9 @@
+{
+  "title": "list view for agents",
+  "type": "feature",
+  "priority": 2,
+  "description": "i want the tecfactory to have a list view for the agents (also bein the new default) like it is in the value modeller for the value streams",
+  "state": "developed",
+  "origin": "user",
+  "id": "b5d96b8b"
+}

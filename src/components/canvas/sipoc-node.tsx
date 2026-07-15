@@ -126,13 +126,6 @@ export const SipocNodeComponent = memo(function SipocNodeComponent({
           {data.label || 'Untitled Step'}
         </div>
 
-        {/* Process description */}
-        {data.processDescription && (
-          <p className="text-xs text-gray-500 dark:text-gray-400 leading-relaxed whitespace-pre-line">
-            {data.processDescription}
-          </p>
-        )}
-
         {/* Full SIPOC content sections */}
         {hasContent && (
           <div className="flex flex-col gap-2 mt-1 pt-2 border-t border-gray-100 dark:border-gray-700">
@@ -147,6 +140,12 @@ export const SipocNodeComponent = memo(function SipocNodeComponent({
               content={data.inputs}
               colorClass="text-green-600"
               darkColorClass="dark:text-green-400"
+            />
+            <SipocSection
+              label="Process"
+              content={data.processDescription}
+              colorClass="text-cyan-600"
+              darkColorClass="dark:text-cyan-400"
             />
             <SipocSection
               label="Outputs"

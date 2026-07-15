@@ -22,6 +22,7 @@ class TecFactory {
     this.agents = new Map();
     this.autoScroll = new Map();
     this.collapsedAgents = new Set(JSON.parse(sessionStorage.getItem('tf_collapsed') || '[]'));
+    this.viewMode = sessionStorage.getItem('tf_agent_view') || 'list'; // 'list' or 'cards'
     this.connect();
   }
 
@@ -103,6 +104,8 @@ class TecFactory {
       this.send({ action: 'getOutput', agentId: agent.id });
     }
     this.updateGlobalCollapseButtons();
+    this.renderListView();
+    this.applyViewMode();
   }
 
   async refreshAgents() {
@@ -120,6 +123,14 @@ class TecFactory {
     this.autoScroll.set(agent.id, true);
     const grid = document.getElementById('agentsGrid');
     grid.appendChild(this.createAgentCard(agent));
+    // Also add to list view
+    const tbody = document.getElementById('agentsTableBody');
+    if (tbody) {
+      // Remove empty-state row if present
+      const emptyRow = tbody.querySelector('.agents-list-empty');
+      if (emptyRow) emptyRow.closest('tr').remove();
+      tbody.appendChild(this.createAgentRow(agent));
+    }
   }
 
   removeAgentCard(agentId) {
@@ -127,6 +138,14 @@ class TecFactory {
     this.autoScroll.delete(agentId);
     const card = document.getElementById(`card-${agentId}`);
     if (card) card.remove();
+    // Also remove from list view
+    const row = document.getElementById(`row-${agentId}`);
+    if (row) row.remove();
+    // Show empty state if no agents left
+    if (this.agents.size === 0) {
+      const tbody = document.getElementById('agentsTableBody');
+      if (tbody) tbody.innerHTML = `<tr><td colspan="6" class="agents-list-empty">No agents configured. Click "+ New Agent" to create one.</td></tr>`;
+    }
   }
 
   createAgentCard(agent) {
@@ -223,12 +242,16 @@ class TecFactory {
     const card = document.getElementById(`card-${agentId}`);
     if (!card) return;
     card.className = `agent-card ${status}`;
+    if (this.collapsedAgents.has(agentId)) card.classList.add('collapsed');
     const badge = document.getElementById(`badge-${agentId}`);
     if (badge) { badge.className = `agent-status-badge ${status}`; badge.innerHTML = `${statusIcon(status)} ${status}`; }
     const startBtn = document.getElementById(`start-${agentId}`);
     const stopBtn = document.getElementById(`stop-${agentId}`);
     if (startBtn) startBtn.disabled = status === 'running';
     if (stopBtn) stopBtn.disabled = status !== 'running';
+
+    // Update list view row status
+    this.updateListStatus(agentId, status);
 
     // Clear activity when stopped
     if (status !== 'running') {
@@ -243,6 +266,7 @@ class TecFactory {
     if (!activity || !activity.type || activity.type === 'idle') {
       activityEl.style.display = 'none';
       activityEl.innerHTML = '';
+      this.updateListActivity(agentId, null);
       return;
     }
 
@@ -272,6 +296,9 @@ class TecFactory {
     activityEl.style.display = 'flex';
     activityEl.className = `agent-activity ${activityClass}`;
     activityEl.innerHTML = `<span class="activity-icon">${icon}</span><span class="activity-text">${label}${taskText}</span>`;
+
+    // Sync to list view
+    this.updateListActivity(agentId, activity);
   }
 
   clearOutput(agentId) {
@@ -388,6 +415,155 @@ class TecFactory {
 
     if (collapseBtn) collapseBtn.style.display = allCollapsed ? 'none' : 'inline-flex';
     if (expandBtn) expandBtn.style.display = allCollapsed ? 'inline-flex' : 'none';
+  }
+
+  // ─── View Mode (List / Cards) ───────────────────────────────────────────────
+
+  setViewMode(mode) {
+    this.viewMode = mode;
+    sessionStorage.setItem('tf_agent_view', mode);
+    this.applyViewMode();
+  }
+
+  applyViewMode() {
+    const listView = document.getElementById('agentsListView');
+    const cardsView = document.getElementById('agentsGrid');
+    const collapseBtn = document.getElementById('collapseAllBtn');
+    const expandBtn = document.getElementById('expandAllBtn');
+    const toggleBtns = document.querySelectorAll('.view-toggle-btn');
+
+    toggleBtns.forEach(btn => {
+      const isActive = btn.dataset.view === this.viewMode;
+      btn.classList.toggle('active', isActive);
+      btn.setAttribute('aria-checked', isActive ? 'true' : 'false');
+    });
+
+    if (this.viewMode === 'list') {
+      listView.style.display = 'block';
+      cardsView.style.display = 'none';
+      // Hide collapse/expand buttons in list mode (not relevant)
+      if (collapseBtn) collapseBtn.style.display = 'none';
+      if (expandBtn) expandBtn.style.display = 'none';
+    } else {
+      listView.style.display = 'none';
+      cardsView.style.display = 'grid';
+      this.updateGlobalCollapseButtons();
+    }
+  }
+
+  renderListView() {
+    const tbody = document.getElementById('agentsTableBody');
+    if (!tbody) return;
+    tbody.innerHTML = '';
+
+    if (this.agents.size === 0) {
+      tbody.innerHTML = `<tr><td colspan="6" class="agents-list-empty">No agents configured. Click "+ New Agent" to create one.</td></tr>`;
+      return;
+    }
+
+    for (const [, agent] of this.agents) {
+      tbody.appendChild(this.createAgentRow(agent));
+    }
+  }
+
+  createAgentRow(agent) {
+    const tr = document.createElement('tr');
+    tr.id = `row-${agent.id}`;
+    tr.className = agent.status === 'running' ? 'row-running' : agent.status === 'error' ? 'row-error' : '';
+
+    const typeBadge = agentManager.getTypeBadgeHtml(agent.type);
+    const configSummary = agentManager.getConfigSummary(agent);
+
+    tr.innerHTML = `
+      <td>
+        <div class="agent-name-cell">
+          <span class="agent-name">${esc(agent.name)}</span>
+          ${agent.description ? `<span class="agent-desc">${esc(agent.description)}</span>` : ''}
+        </div>
+      </td>
+      <td>${typeBadge}</td>
+      <td>
+        <span class="agent-status-badge ${agent.status}" id="list-badge-${agent.id}">
+          ${statusIcon(agent.status)} ${agent.status}
+        </span>
+      </td>
+      <td><span class="config-text">${configSummary}</span></td>
+      <td>
+        <div class="row-activity" id="list-activity-${agent.id}"></div>
+      </td>
+      <td>
+        <div class="row-actions">
+          <button class="btn btn-start" id="list-start-${agent.id}"
+                  onclick="monitor.startAgent('${agent.id}')"
+                  ${agent.status === 'running' ? 'disabled' : ''}>&#9654;</button>
+          <button class="btn btn-stop" id="list-stop-${agent.id}"
+                  onclick="monitor.stopAgent('${agent.id}')"
+                  ${agent.status !== 'running' ? 'disabled' : ''}>&#9632;</button>
+          <button class="btn-icon" title="Edit" onclick="agentManager.editAgent('${agent.id}')">&#9998;</button>
+          <button class="btn-icon btn-icon-danger" title="Delete" onclick="agentManager.deleteAgent('${agent.id}', '${esc(agent.name)}')">&#128465;</button>
+        </div>
+      </td>
+    `;
+
+    // Render initial activity state in list row
+    if (agent.currentActivity) {
+      this.updateListActivity(agent.id, agent.currentActivity);
+    }
+
+    return tr;
+  }
+
+  updateListStatus(agentId, status) {
+    const row = document.getElementById(`row-${agentId}`);
+    if (!row) return;
+    row.className = status === 'running' ? 'row-running' : status === 'error' ? 'row-error' : '';
+    const badge = document.getElementById(`list-badge-${agentId}`);
+    if (badge) { badge.className = `agent-status-badge ${status}`; badge.innerHTML = `${statusIcon(status)} ${status}`; }
+    const startBtn = document.getElementById(`list-start-${agentId}`);
+    const stopBtn = document.getElementById(`list-stop-${agentId}`);
+    if (startBtn) startBtn.disabled = status === 'running';
+    if (stopBtn) stopBtn.disabled = status !== 'running';
+
+    if (status !== 'running') {
+      this.updateListActivity(agentId, null);
+    }
+  }
+
+  updateListActivity(agentId, activity) {
+    const activityEl = document.getElementById(`list-activity-${agentId}`);
+    if (!activityEl) return;
+
+    if (!activity || !activity.type || activity.type === 'idle') {
+      activityEl.innerHTML = '';
+      activityEl.className = 'row-activity';
+      return;
+    }
+
+    const icons = {
+      working: '&#128736;',
+      testing: '&#128270;',
+      researching: '&#128218;',
+      'creating-tasks': '&#9999;',
+      waiting: '&#9203;',
+      active: '&#9889;'
+    };
+
+    const labels = {
+      working: 'Working on',
+      testing: 'Testing',
+      researching: 'Researching',
+      'creating-tasks': 'Writing',
+      waiting: 'Waiting',
+      active: 'Active'
+    };
+
+    const icon = icons[activity.type] || '&#9889;';
+    const label = labels[activity.type] || activity.type;
+    const taskText = activity.task ? `: ${esc(activity.task)}` : '';
+    const activityClass = activity.type === 'waiting' ? 'activity-waiting' : 'activity-working';
+
+    activityEl.className = `row-activity ${activityClass}`;
+    activityEl.innerHTML = `<span class="activity-icon">${icon}</span><span class="activity-text">${label}${taskText}</span>`;
   }
 
   startAgent(agentId) { this.send({ action: 'start', agentId }); }

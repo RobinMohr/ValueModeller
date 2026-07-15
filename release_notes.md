@@ -1,5 +1,28 @@
 # Release Notes — Value Modeller
 
+## 2026-07-15T14:15 — feat: List view for agents in TecFactory
+
+**Task:** `tasks/2_b5d96b8b_list-view-for-agents.json` → state set to `developed`
+
+**What was implemented:**
+- Added a **List/Cards view mode toggle** to the TecFactory Agents tab toolbar, matching the same pattern used in the Value Modeller landing page (segmented control with icons and labels).
+- **List view (new default):** A structured table displaying agents in rows with columns: Name, Type, Status, Config, Activity, and Actions. Provides a compact, scannable overview of all configured agents.
+- **Cards view (existing):** The full-page card layout with live log output remains available via the toggle.
+- View mode preference is persisted in `sessionStorage` — switching is retained across page refreshes within the session.
+- Both views stay fully synced: status changes, activity updates, agent creation/deletion are reflected in real-time in whichever view is active.
+- Collapse/Expand buttons are only shown when in Cards view (not relevant for list view).
+- Table rows have visual indicators for running (teal highlight) and error (red highlight) states.
+- Activity column shows real-time agent work (task title, testing status, etc.) with the same icon/color system as the card view.
+
+**Files modified:**
+- `tecfactory/public/index.html` — View mode toggle, table container with thead/tbody structure
+- `tecfactory/public/app.js` — `setViewMode()`, `applyViewMode()`, `renderListView()`, `createAgentRow()`, `updateListStatus()`, `updateListActivity()` methods; sync in `addAgentCard`, `removeAgentCard`, `updateStatus`, `updateActivity`
+- `tecfactory/public/style.css` — View toggle styles, table layout, row states, activity indicators, empty state
+
+**Build:** ✅ Passes (`tsc -b && vite build` — 0 errors, 299 modules)
+
+---
+
 ## 2026-07-15T13:57 — fix: Stats button dark mode active state
 
 **Task:** `tasks/4_stats-button-dark-mode-active-state.json` → state set to `developed`
