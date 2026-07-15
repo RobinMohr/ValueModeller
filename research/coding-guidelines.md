@@ -701,3 +701,633 @@ This automatically themes edges, controls, minimap, background, selection box, a
 - https://reactflow.dev/examples/styling/dark-mode (Relevance: HIGH)
 
 ---
+
+
+## 7. Accessibility — Focus Traps, ARIA Dialogs, Keyboard Navigation
+
+**Relevance: HIGH** — Multiple tasks: focus trapping in dialogs, ARIA dialog semantics, keyboard navigation between nodes
+
+### WCAG Standards for Modals/Panels
+
+| Criterion | Requirement |
+|-----------|-------------|
+| 2.1.1 Keyboard | All modal functionality operable via keyboard alone |
+| 2.1.2 No Keyboard Trap | Users must exit via Escape key or close button |
+| 2.4.3 Focus Order | Focus sequence inside modal must be logical |
+| 4.1.2 Name, Role, Value | Modal exposes role and state via ARIA |
+
+### Required ARIA Attributes for Dialogs
+
+```html
+<div role="dialog" aria-modal="true"
+     aria-labelledby="modal-title"
+     aria-describedby="modal-desc">
+  <h2 id="modal-title">Title</h2>
+  <p id="modal-desc">Description</p>
+  <!-- ... content ... -->
+</div>
+```
+
+- Use `role="alertdialog"` for confirmation dialogs requiring user action
+- Use `role="complementary"` for side panels (like the SIPOC form panel)
+
+### Focus Trap Implementation Pattern (React)
+
+```typescript
+import { useEffect, useRef, useCallback } from 'react';
+
+function useFocusTrap(isOpen: boolean, onClose: () => void) {
+  const containerRef = useRef<HTMLDivElement>(null);
+  const triggerRef = useRef<HTMLElement | null>(null);
+
+  const getFocusableElements = useCallback(() => {
+    if (!containerRef.current) return [];
+    return containerRef.current.querySelectorAll(
+      'a[href], button:not([disabled]), textarea, input, select, [tabindex]:not([tabindex="-1"])'
+    );
+  }, []);
+
+  useEffect(() => {
+    if (!isOpen) return;
+
+    // Store trigger for focus restoration
+    triggerRef.current = document.activeElement as HTMLElement;
+
+    const focusable = getFocusableElements();
+    if (focusable.length > 0) (focusable[0] as HTMLElement).focus();
+
+    function handleKeyDown(e: KeyboardEvent) {
+      if (e.key === 'Escape') { onClose(); return; }
+      if (e.key !== 'Tab') return;
+
+      const elements = getFocusableElements();
+      const first = elements[0] as HTMLElement;
+      const last = elements[elements.length - 1] as HTMLElement;
+
+      if (e.shiftKey && document.activeElement === first) {
+        e.preventDefault();
+        last.focus();
+      } else if (!e.shiftKey && document.activeElement === last) {
+        e.preventDefault();
+        first.focus();
+      }
+    }
+
+    document.addEventListener('keydown', handleKeyDown);
+    return () => {
+      document.removeEventListener('keydown', handleKeyDown);
+      triggerRef.current?.focus(); // Restore focus
+    };
+  }, [isOpen, onClose, getFocusableElements]);
+
+  return containerRef;
+}
+```
+
+### The `inert` Attribute (Modern Alternative)
+
+Instead of manually managing `aria-hidden` and `tabindex` on background content:
+
+```typescript
+// When modal opens
+document.getElementById('app-root')!.inert = true;
+
+// When modal closes
+document.getElementById('app-root')!.inert = false;
+```
+
+Supported in all major browsers (2024+). Disables interaction AND hides from assistive technology in one declaration.
+
+### Keyboard Navigation Checklist
+
+- **Tab / Shift+Tab** — Cycles through focusable elements; loops at boundaries
+- **Escape** — Closes modal/panel, returns focus to trigger
+- **Enter / Space** — Activates buttons and interactive elements
+- **Arrow keys** — Navigate between related items (nodes, tabs)
+
+### Visible Focus Indicators (WCAG 2.4.7 + 2.4.13)
+
+```css
+:focus-visible {
+  outline: 3px solid #1a73e8;
+  outline-offset: 2px;
+  border-radius: 3px;
+}
+```
+
+In Tailwind:
+```html
+<button class="focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2">
+```
+
+Never remove focus outlines without providing a high-contrast alternative.
+
+### Common Issues & Fixes
+
+| Issue | Cause | Fix |
+|-------|-------|-----|
+| Focus escapes modal | Dynamic content adds elements after trap init | Re-query focusable elements in keydown handler |
+| Screen reader reads background | Background not inert | Apply `inert` attribute to app root |
+| Focus doesn't return on close | Trigger ref lost | Store `document.activeElement` before opening |
+| No visible focus indicator | CSS resets remove outlines | Add `:focus-visible` styles |
+
+**Sources:**
+- https://www.uxpin.com/studio/blog/how-to-build-accessible-modals-with-focus-traps/ (Relevance: HIGH)
+- https://clhenrick.io/blog/react-a11y-modal-dialog/ (Relevance: HIGH)
+- https://www.w3.org/WAI/WCAG22/Techniques/css/C39 (Relevance: MEDIUM)
+- https://techoral.com/react/react-accessibility.html (Relevance: MEDIUM)
+
+---
+
+
+## 8. Prefers-Reduced-Motion — Accessible Animations
+
+**Relevance: HIGH** — Task `3_47be87f3` specifically requires adding prefers-reduced-motion support for animated edges
+
+### Tailwind CSS Modifiers
+
+Tailwind provides two built-in modifiers:
+
+- **`motion-safe:`** — Only applies styles when user has NOT requested reduced motion
+- **`motion-reduce:`** — Only applies styles when user HAS requested reduced motion
+
+```html
+<!-- Animation only runs if user allows motion -->
+<div class="motion-safe:animate-pulse motion-reduce:animate-none">
+
+<!-- Transition only if motion is safe -->
+<div class="motion-safe:transition-all motion-safe:duration-300 motion-reduce:transition-none">
+
+<!-- Alternative static state for reduced-motion users -->
+<div class="motion-safe:animate-slowpan motion-reduce:bg-center">
+```
+
+### The Right Mental Model
+
+**Don't start with animations and disable them.** Start WITHOUT animations and enable them conditionally:
+
+```css
+/* ❌ Bad: animations on by default, disable for reduced motion */
+.animated-edge { transition: all 300ms; }
+@media (prefers-reduced-motion: reduce) { .animated-edge { transition: none; } }
+
+/* ✅ Good: no animation by default, enable for users who allow it */
+.animated-edge { /* no transition */ }
+@media (prefers-reduced-motion: no-preference) {
+  .animated-edge { transition: all 300ms; }
+}
+```
+
+In Tailwind, use `motion-safe:` prefix (equivalent to `no-preference`):
+
+```html
+<div class="motion-safe:transition-all motion-safe:duration-300">
+```
+
+### React Hook: `usePrefersReducedMotion`
+
+For JS-driven animations (React Spring, animated SVG edges, etc.):
+
+```typescript
+function usePrefersReducedMotion(): boolean {
+  const QUERY = '(prefers-reduced-motion: no-preference)';
+  const [prefersReducedMotion, setPrefersReducedMotion] = useState(true);
+
+  useEffect(() => {
+    const mediaQueryList = window.matchMedia(QUERY);
+    setPrefersReducedMotion(!mediaQueryList.matches);
+
+    const listener = (event: MediaQueryListEvent) => {
+      setPrefersReducedMotion(!event.matches);
+    };
+
+    mediaQueryList.addEventListener('change', listener);
+    return () => mediaQueryList.removeEventListener('change', listener);
+  }, []);
+
+  return prefersReducedMotion;
+}
+```
+
+Usage with animated edges:
+
+```tsx
+function AnimatedEdge({ ... }) {
+  const prefersReducedMotion = usePrefersReducedMotion();
+
+  // Skip animation entirely for reduced-motion users
+  const animationDuration = prefersReducedMotion ? 0 : 300;
+  const dashAnimation = prefersReducedMotion ? 'none' : 'dashdraw 0.5s linear infinite';
+
+  return <path style={{ animationDuration: `${animationDuration}ms`, animation: dashAnimation }} />;
+}
+```
+
+### What to Disable vs. Keep
+
+| Animation Type | Reduce? | Why |
+|----------------|---------|-----|
+| Large movement (parallax, slide-ins) | Yes | Triggers vestibular issues |
+| Edge flow animations (dashed line moving) | Yes | Continuous motion, distracting |
+| Opacity fades | No (usually safe) | No spatial movement |
+| Color transitions | No (usually safe) | No spatial movement |
+| Scale/bounce | Yes | Spatial motion |
+| Spinner/loading | Replace | Use static indicator or reduced animation |
+
+### Testing
+
+In Chrome DevTools: Ctrl+Shift+P → type "reduce" → select "Emulate CSS prefers-reduced-motion: reduce"
+
+**Sources:**
+- https://www.joshwcomeau.com/react/prefers-reduced-motion/ (Relevance: HIGH)
+- https://epicweb.dev/tips/motion-safe-and-motion-reduce-modifiers (Relevance: HIGH)
+- https://www.w3.org/WAI/WCAG22/Techniques/css/C39 (Relevance: HIGH)
+- https://tailwindcss.com/docs/transition-duration (Relevance: MEDIUM)
+
+---
+
+
+## 9. React Router v7 — Patterns for This Project
+
+**Relevance: HIGH** — Project uses `react-router-dom` v7.18; routing is core to multi-stream navigation
+
+### Library Mode (Current Project Pattern)
+
+The project uses React Router v7 in **library mode** — `BrowserRouter` + `Routes` + `Route` with JSX route definitions. This is the simpler approach (vs. data router/framework mode) and appropriate for this SPA.
+
+### Key Patterns for Value Modeller
+
+#### Nested Layouts with Outlet
+
+```tsx
+// Layout provides shell; Outlet renders child route
+function AppLayout() {
+  return (
+    <div className="flex h-screen">
+      <Header />
+      <main className="flex-1">
+        <Outlet />  {/* Child route renders here */}
+      </main>
+    </div>
+  );
+}
+
+// Route definition
+<Route path="/" element={<AppLayout />}>
+  <Route index element={<LandingPage />} />
+  <Route path="stream/:streamId" element={<CanvasEditor />} />
+  <Route path="*" element={<NotFound />} />
+</Route>
+```
+
+#### URL Parameters with `useParams`
+
+```tsx
+function CanvasEditor() {
+  const { streamId } = useParams<{ streamId: string }>();
+  // Load stream data based on streamId
+}
+```
+
+#### Programmatic Navigation
+
+```tsx
+const navigate = useNavigate();
+
+// Navigate to stream
+navigate(`/stream/${streamId}`);
+
+// Go back
+navigate(-1);
+
+// Replace current entry (no new history entry)
+navigate('/streams', { replace: true });
+```
+
+#### Search Params for Shareable UI State
+
+Use URL search params for state that should survive refresh and be shareable:
+
+```tsx
+const [searchParams, setSearchParams] = useSearchParams();
+const filter = searchParams.get('filter') || 'all';
+const view = searchParams.get('view') || 'card';
+
+// Update without navigation
+setSearchParams({ filter: 'active', view: 'table' });
+```
+
+**Good for URL:** filters, pagination, sort order, view mode
+**Bad for URL:** selected node, panel open/closed, draft text
+
+#### Code Splitting with React.lazy
+
+```tsx
+const CanvasEditor = lazy(() => import('./pages/CanvasEditor'));
+const LandingPage = lazy(() => import('./pages/LandingPage'));
+
+<Suspense fallback={<LoadingSkeleton />}>
+  <Routes>
+    <Route path="/" element={<LandingPage />} />
+    <Route path="/stream/:streamId" element={<CanvasEditor />} />
+  </Routes>
+</Suspense>
+```
+
+### Testing Routes
+
+```tsx
+import { MemoryRouter } from 'react-router-dom';
+
+// Wrap in MemoryRouter for tests
+render(
+  <MemoryRouter initialEntries={['/stream/abc123']}>
+    <App />
+  </MemoryRouter>
+);
+```
+
+### Common Pitfalls
+
+| Pitfall | Fix |
+|---------|-----|
+| Using `<a href>` instead of `<Link>` | Causes full page reload; use `<Link to="...">` |
+| Server returns 404 on refresh | Configure server to serve index.html for all routes |
+| Back button goes to unexpected state | Use `replace: true` for state changes that shouldn't create history |
+| Stale data after navigation | Re-fetch data when params change (use key on route or effect deps) |
+
+**Sources:**
+- https://thelinuxcode.com/react-router-dom-on-npm-a-2026-field-guide-for-predictable-routing/ (Relevance: HIGH)
+- https://micropyramid.com/blog/react-router-for-navigation/ (Relevance: MEDIUM)
+- https://reactrouter.com/en/main (Relevance: HIGH)
+
+---
+
+
+## 10. SOLID Principles in React — Custom Hook & Component Composition
+
+**Relevance: HIGH** — Project has many custom hooks; tasks require extracting logic (e.g., `3_ec3fe23c` extracts sub-concerns into hooks)
+
+### Single Responsibility Principle (SRP)
+
+Each component/hook should have **one reason to change**.
+
+**Pattern:** Split "god components" into:
+- **Custom hooks** for data fetching and state logic
+- **Utility functions** for business logic (filtering, transformation)
+- **Presentational components** for pure UI rendering
+- **Container components** for composition
+
+```typescript
+// ❌ Bad: one component does everything
+function FlowCanvas() {
+  // 200 lines mixing: event handlers, state, layout, rendering, persistence
+}
+
+// ✅ Good: concerns extracted into focused hooks
+function FlowCanvas() {
+  const { nodes, edges, onNodesChange, onEdgesChange } = useGraphStore(selector);
+  const { handleConnect } = useConnectionLogic();
+  const { contextMenu, onContextMenu } = useCanvasContextMenu();
+  const { helperLines, onNodeDrag } = useHelperLines();
+  const { clipboard, onCopy, onPaste } = useCanvasClipboard();
+
+  return <ReactFlow ... />;
+}
+```
+
+### Open/Closed Principle (OCP)
+
+Components should be **open for extension** but **closed for modification**.
+
+**Pattern:** Use composition and props instead of internal conditionals:
+
+```typescript
+// ❌ Bad: modify component for every new node type
+function NodeComponent({ type }) {
+  if (type === 'sipoc') return <SipocView />;
+  if (type === 'group') return <GroupView />;
+  // Must edit this file for every new type
+}
+
+// ✅ Good: use React Flow's nodeTypes registry
+const nodeTypes = {
+  sipoc: SipocNodeComponent,
+  group: GroupNodeComponent,
+  // Add new types without modifying existing code
+};
+<ReactFlow nodeTypes={nodeTypes} ... />
+```
+
+### Dependency Inversion Principle (DIP)
+
+High-level components depend on abstractions (props/hooks), not concrete implementations.
+
+**Pattern:** Pass dependencies via props or hooks:
+
+```typescript
+// ❌ Bad: component tightly coupled to specific store
+function NodeCard() {
+  const data = useGraphStore(s => s.getNodeById('hardcoded-id'));
+}
+
+// ✅ Good: component receives data via props
+function NodeCard({ nodeData }: { nodeData: SipocNodeData }) {
+  // Pure presentational — works with any data source
+}
+```
+
+### Interface Segregation Principle (ISP)
+
+Don't force components to depend on props they don't use.
+
+**Pattern:** Use `children` composition instead of bloated prop interfaces:
+
+```typescript
+// ❌ Bad: monolithic prop interface
+<Panel showClose showMinimize title="..." onClose={...} onMinimize={...} theme="..." />
+
+// ✅ Good: compose only what's needed
+<Panel title="SIPOC Details">
+  <CloseButton onClick={onClose} />
+  {children}
+</Panel>
+```
+
+### Custom Hook Composition Rules
+
+1. **One concern per hook** — `useHelperLines`, `useCanvasClipboard`, `useProximityConnect`
+2. **Pure at the top level** — hooks must be called unconditionally (Rules of Hooks)
+3. **Return stable references** — use `useCallback` for returned functions
+4. **Accept configuration via params** — make hooks reusable across contexts
+5. **Clean up side effects** — always return cleanup functions from `useEffect`
+6. **Compose hooks in container** — the flow canvas composes 5-6 hooks; each is testable alone
+
+### Extracting Hooks from Components (Refactoring Pattern)
+
+When a component grows beyond ~150 lines:
+
+1. Identify clusters of related state + effects
+2. Extract each cluster into a `useXxx` hook
+3. The hook returns only the values/handlers the component needs
+4. The component becomes a thin render layer composing hooks
+
+```typescript
+// Before: 300-line component with mixed concerns
+// After:
+function FlowCanvas() {
+  const graph = useGraphStore(graphSelector);
+  const contextMenu = useCanvasContextMenu();
+  const clipboard = useCanvasClipboard();
+  const helperLines = useHelperLines();
+  const groupDrag = useGroupDragDetection();
+
+  return (
+    <ReactFlow
+      onContextMenu={contextMenu.onContextMenu}
+      onNodeDrag={helperLines.onNodeDrag}
+      {...graph}
+    >
+      {contextMenu.isOpen && <ContextMenu {...contextMenu} />}
+      {helperLines.visible && <HelperLines {...helperLines} />}
+    </ReactFlow>
+  );
+}
+```
+
+**Sources:**
+- https://elvisduru.com/blog/applying-solid-principles-in-react-a-practical-guide (Relevance: HIGH)
+- https://certificates.dev/blog/writing-custom-hooks-in-react-patterns-pitfalls-and-when-to-reach-for-one (Relevance: HIGH)
+- https://feature-sliced.design/blog/react-hooks-architecture (Relevance: MEDIUM)
+
+---
+
+
+## 11. React.memo, useCallback, useMemo — When They Help vs. Hurt
+
+**Relevance: HIGH** — SmartEdge memoization task, performance optimization tasks, React Flow requires memoized handlers
+
+### When to Use Each
+
+| Tool | What it Memoizes | Use When |
+|------|-----------------|----------|
+| `React.memo` | Component output | Expensive render; parent re-renders often without changing this child's props |
+| `useMemo` | Computed value | Expensive calculation (filter/sort/transform large data); stable object reference needed |
+| `useCallback` | Function reference | Function passed to memoized child; function in effect dependency array |
+
+### Rules for This Project
+
+**Always memoize:**
+- Custom React Flow node components (`React.memo`)
+- Custom React Flow edge components (`React.memo`)
+- All React Flow event handlers (`useCallback`) — `onNodesChange`, `onEdgesChange`, `onConnect`, `onNodeClick`, etc.
+- Objects/arrays passed as props to React Flow (`useMemo`) — `defaultEdgeOptions`, `snapGrid`, `nodeTypes`, `edgeTypes`
+
+**Don't bother memoizing:**
+- Simple leaf components with cheap renders
+- Values that are already primitives (strings, numbers, booleans)
+- Functions that aren't passed as props to memoized children
+- Calculations that take < 1ms
+
+### Pattern: Memoized Custom Edge Component
+
+```tsx
+import { memo } from 'react';
+import type { EdgeProps } from '@xyflow/react';
+
+// ✅ Memoize edge components — they re-render on every node drag without this
+const SmartEdge = memo(function SmartEdge({ id, source, target, ...props }: EdgeProps) {
+  // ❌ Don't subscribe to nodes array here!
+  // const nodes = useGraphStore(s => s.nodes); // Causes re-render on every drag
+
+  // ✅ Use imperative access instead
+  const { getNodes } = useReactFlow();
+
+  const path = useMemo(() => {
+    const nodes = getNodes();
+    return computeSmartPath(source, target, nodes);
+  }, [source, target, getNodes]);
+
+  return <BaseEdge path={path} {...props} />;
+});
+```
+
+### Pattern: Stable nodeTypes / edgeTypes
+
+```tsx
+// ✅ Define OUTSIDE component or in useMemo — prevents React Flow from re-registering
+const nodeTypes = { sipoc: SipocNodeComponent, group: GroupNodeComponent };
+const edgeTypes = { smart: SmartEdge, labeled: LabeledEdge };
+
+function FlowCanvas() {
+  // ❌ DON'T define inside render — creates new object every render
+  // const nodeTypes = { sipoc: SipocNode };
+
+  return <ReactFlow nodeTypes={nodeTypes} edgeTypes={edgeTypes} ... />;
+}
+```
+
+### Pattern: Stable Event Handlers
+
+```tsx
+function FlowCanvas() {
+  // ✅ Memoize handlers — React Flow compares by reference
+  const handleNodeClick = useCallback((_event: React.MouseEvent, node: Node) => {
+    selectNode(node.id);
+  }, [selectNode]);
+
+  const handlePaneClick = useCallback(() => {
+    deselectNode();
+  }, [deselectNode]);
+
+  return <ReactFlow onNodeClick={handleNodeClick} onPaneClick={handlePaneClick} ... />;
+}
+```
+
+### Anti-Patterns to Avoid
+
+| Anti-Pattern | Why it's Bad | Fix |
+|--------------|-------------|-----|
+| `memo` on every component | Adds comparison overhead with zero benefit | Only memo components with expensive renders or frequent parent re-renders |
+| Inline object/array as prop to memoized child | New reference every render defeats `memo` | Extract to `useMemo` or module-level constant |
+| `useCallback` with unstable deps | Re-creates function anyway | Use functional state updates (`setState(prev => ...)`) to minimize deps |
+| `useMemo` for cheap operations | Cache overhead > computation cost | Only memoize when computation is measurably expensive |
+| Memoizing inside map loops | Hook rules violation | Extract mapped item to separate memoized component |
+
+### Measuring Performance
+
+Before optimizing, profile first:
+1. React DevTools Profiler — identify which components re-render and why
+2. Chrome Performance tab — find long tasks during interaction
+3. `console.count('SmartEdge render')` — quick check for render frequency
+
+**Sources:**
+- https://www.debugbear.com/blog/react-usememo-usecallback (Relevance: HIGH)
+- https://kentcdodds.com/blog/usememo-and-usecallback (Relevance: HIGH)
+- https://reactflow.dev/learn/advanced-use/performance (Relevance: HIGH)
+- https://freecodecamp.org/news/how-to-avoid-overusing-usecallback-and-usememo-in-react (Relevance: MEDIUM)
+
+---
+
+
+## 12. Quick Reference — Guidelines Mapped to Active Tasks
+
+| Task Category | Relevant Sections | Key Takeaway |
+|---------------|-------------------|--------------|
+| Dark mode fixes (5+ tasks) | §6 Dark Mode | Always pair light classes with `dark:` variants; use React Flow `colorMode` prop |
+| SmartEdge performance | §1 React Flow, §11 Memoization | Use `useReactFlow().getNodes()` for imperative access; wrap with `React.memo` |
+| Focus trap / ARIA dialog | §7 Accessibility | Use `useFocusTrap` hook; apply `inert` to background; restore focus on close |
+| Keyboard navigation | §7 Accessibility | Arrow keys between nodes; Tab through focusable elements; visible focus rings |
+| prefers-reduced-motion | §8 Reduced Motion | `motion-safe:` prefix for Tailwind animations; `usePrefersReducedMotion` hook for JS |
+| Undo/redo | §4 Zundo | `temporal` middleware with `partialize`, `limit: 50`, debounced `handleSet` |
+| Unit tests (frontend) | §5 Vitest + RTL | `getByRole` first; `userEvent` over `fireEvent`; mock ResizeObserver for React Flow |
+| Unit tests (TecFactory) | §5 Vitest + Supertest | AAA pattern; ESM `.test.mjs` files; isolate tests with cleanup |
+| Custom hook extraction | §10 SOLID/Hooks | One concern per hook; return stable refs; compose in container component |
+| Auto-layout | §2 Dagre | Reset graph before layout; use actual node dimensions; `fitView()` after |
+| Export/Import | §3 Zustand, §9 Router | JSON file download/upload; persist with error handling; keep URLs shareable |
+| Node grouping / swimlanes | §1 React Flow (Sub-Flows) | Parent before children in array; `extent: 'parent'`; relative positioning |
+| Route navigation | §9 React Router v7 | Use `<Link>` not `<a>`; lazy load routes; `useParams` for stream ID |
+
+---
+
+*End of document. Research covers the primary technology concerns identified from the codebase, specifications, and task queue.*

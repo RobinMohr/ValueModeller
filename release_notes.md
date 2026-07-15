@@ -1,5 +1,19 @@
 # Release Notes — Value Modeller
 
+## 2026-07-15T12:40 — bugfix: Fix ACP agents Git CRLF warning messages
+
+**Task:** `tasks/2_b97409fc_fix-acp-agents-warning-messages.json` → state set to `developed`
+
+**What was fixed:**
+- Suppressed the `warning: LF will be replaced by CRLF` messages that appeared in agent output during `git add` operations.
+- Added `-c core.safecrlf=false` to the git add command in `scripts/src/agent-loop.ts` — this disables the safety check that produces the CRLF conversion warnings.
+- Added `stdio: 'pipe'` to prevent any remaining stderr output from being inherited by the parent process, keeping agent output clean.
+- The `.gitattributes` file already correctly enforces `eol=lf` for all text files; the warnings were harmless but noisy in agent logs.
+
+**Files modified:** `scripts/src/agent-loop.ts`
+
+---
+
 ## 2026-07-15T12:34 — improvement: Add larger, realistic SDLC demo value stream
 
 **Task:** `tasks/2_564052fd_create-mock-data.json` → state set to `developed`
