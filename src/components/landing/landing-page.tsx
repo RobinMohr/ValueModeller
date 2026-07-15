@@ -15,7 +15,7 @@ export function LandingPage() {
   const deleteStream = useValueStreamStore((s) => s.deleteStream);
   const navigate = useNavigate();
 
-  const [viewMode, setViewMode] = useState<ViewMode>('cards');
+  const [viewMode, setViewMode] = useState<ViewMode>('table');
   const [showCreateDialog, setShowCreateDialog] = useState(false);
   const [newStreamName, setNewStreamName] = useState('');
   const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null);

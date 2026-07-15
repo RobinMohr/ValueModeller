@@ -1525,3 +1525,19 @@ This approach is reliable because:
 
 **Files modified:**
 - `src/components/canvas/node-search-panel.tsx`
+
+
+## 2026-07-15T10:19 — Make table view the default for value stream landing page
+
+**What changed:**
+- Changed the default `viewMode` state from `'cards'` to `'table'` in `landing-page.tsx`
+- When users visit the landing page, they now see the table view by default (structured columns: Name, Processes, Teams, Apps, Segments, Updated, Actions)
+- The cards/grid view remains available via the view mode toggle — users can switch to it at any time
+
+**Impact:**
+- Table view provides a denser, more scannable overview of value streams — better for users managing multiple streams
+- Cards view is still fully functional as an opt-in alternative for visual browsing
+- No behavioral changes to either view — only the initial default selection changed
+
+**Files modified:**
+- `src/components/landing/landing-page.tsx`
