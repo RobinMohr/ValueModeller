@@ -1,0 +1,10 @@
+{
+  "id": "a2b3c4d5",
+  "title": "Update AI agents to use Task API instead of local files",
+  "priority": 3,
+  "type": "improvement",
+  "state": "todo",
+  "description": "Update agent configurations and any agent scripts that read/write tasks/*.json to instead call the Task API endpoints. Agents should call GET /api/tasks/next to pick up work, PUT /api/tasks/:id to mark in-progress/developed, and POST /api/tasks to create new tasks. Pass x-api-key header from environment.",
+  "files": [".kiro/agents/", "scripts/"],
+  "origin": "user-assisted"
+}

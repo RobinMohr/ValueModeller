@@ -1,0 +1,10 @@
+{
+  "id": "e0f1a2b3",
+  "title": "Write migration script: JSON files to Azure SQL",
+  "priority": 2,
+  "type": "improvement",
+  "state": "todo",
+  "description": "One-time script that reads all tasks/*.json files (skipping 0_task_template.json and README.md), validates them, and bulk-inserts into the Azure SQL tasks table. Handles duplicates gracefully (skip or upsert). Reports success/failure count. Run with: npx ts-node task-api/scripts/migrate-from-files.ts",
+  "files": ["task-api/scripts/migrate-from-files.ts", "tasks/"],
+  "origin": "user-assisted"
+}

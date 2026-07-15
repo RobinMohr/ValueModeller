@@ -1,0 +1,12 @@
+{
+  "id": "a0e1b2c3",
+  "title": "Scaffold Azure Functions Task API project",
+  "priority": 1,
+  "type": "improvement",
+  "state": "developed",
+  "description": "Create the task-api/ folder with Azure Functions v4 programming model (TypeScript). Includes package.json, tsconfig.json, host.json, local.settings.json template, and folder structure: src/functions/, src/db/, src/middleware/, src/validation/, src/types/. Use mssql and zod as dependencies.",
+  "files": [
+    "task-api/"
+  ],
+  "origin": "user-assisted"
+}

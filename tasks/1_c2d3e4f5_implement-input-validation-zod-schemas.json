@@ -1,0 +1,10 @@
+{
+  "id": "c2d3e4f5",
+  "title": "Implement input validation with Zod schemas",
+  "priority": 1,
+  "type": "improvement",
+  "state": "todo",
+  "description": "Define Zod schemas matching the task table: id (8-char hex), title (max 200), priority (1-4), type (improvement|problem|idea), state (todo|in-progress|developed), description, files (string array), origin (user|ai|user-assisted). Provide createTaskSchema (no id, auto-generated) and updateTaskSchema (partial, all optional except id).",
+  "files": ["task-api/src/validation/task-schema.ts"],
+  "origin": "user-assisted"
+}

@@ -1,5 +1,36 @@
 # Release Notes — Value Modeller
 
+## 2026-07-15T15:44 — feat: Scaffold Azure Functions Task API project
+
+**Task:** `tasks/1_a0e1b2c3_scaffold-azure-functions-task-api-project.json` → state set to `developed`
+
+**What was implemented:**
+- Created the `task-api/` folder with Azure Functions v4 programming model (TypeScript)
+- **Folder structure:** `src/functions/`, `src/db/`, `src/middleware/`, `src/validation/`, `src/types/` (with `.gitkeep` files for Git tracking)
+- **package.json** — Dependencies: `@azure/functions` ^4.5.1, `mssql` ^11.0.1, `zod` ^3.23.8; DevDependencies: `typescript` ^5.5.4, `@types/node` ^20.14.0, `azure-functions-core-tools` ^4.x, `rimraf` ^6.x
+- **tsconfig.json** — TypeScript strict mode, Node16 module resolution, ES2022 target, source maps enabled
+- **host.json** — Azure Functions v2.0 runtime, Application Insights sampling, extension bundle v4.x
+- **local.settings.json** — Template with SQL Server connection string placeholders, CORS wildcard, node worker runtime
+- **src/index.ts** — Minimal entry point calling `app.setup({})` for Azure Functions v4 auto-discovery
+
+**Files created:**
+- `task-api/package.json`
+- `task-api/tsconfig.json`
+- `task-api/host.json`
+- `task-api/local.settings.json`
+- `task-api/src/index.ts`
+- `task-api/src/functions/.gitkeep`
+- `task-api/src/db/.gitkeep`
+- `task-api/src/middleware/.gitkeep`
+- `task-api/src/validation/.gitkeep`
+- `task-api/src/types/.gitkeep`
+
+**Build:** ✅ task-api `tsc` passes (0 errors)
+**Build:** ✅ Frontend `tsc -b && vite build` passes (0 errors, 299 modules)
+
+---
+
+
 ## 2026-07-15T14:15 — feat: List view for agents in TecFactory
 
 **Task:** `tasks/2_b5d96b8b_list-view-for-agents.json` → state set to `developed`

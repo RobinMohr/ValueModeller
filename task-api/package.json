@@ -1,0 +1,27 @@
+{
+  "name": "value-modeller-task-api",
+  "version": "1.0.0",
+  "description": "Azure Functions Task API for Value Modeller — CRUD operations for value stream tasks",
+  "main": "dist/src/functions/*.js",
+  "scripts": {
+    "build": "tsc",
+    "watch": "tsc -w",
+    "clean": "rimraf dist",
+    "prestart": "npm run build",
+    "start": "func start"
+  },
+  "dependencies": {
+    "@azure/functions": "^4.5.1",
+    "mssql": "^11.0.1",
+    "zod": "^3.23.8"
+  },
+  "devDependencies": {
+    "@types/node": "^20.14.0",
+    "azure-functions-core-tools": "^4.0.6280",
+    "rimraf": "^6.0.1",
+    "typescript": "^5.5.4"
+  },
+  "engines": {
+    "node": ">=20.0.0"
+  }
+}

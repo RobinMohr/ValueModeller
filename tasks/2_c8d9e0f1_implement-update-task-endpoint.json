@@ -1,0 +1,10 @@
+{
+  "id": "c8d9e0f1",
+  "title": "Implement PUT /api/tasks/:id endpoint",
+  "priority": 2,
+  "type": "improvement",
+  "state": "todo",
+  "description": "Updates an existing task by ID. Validates input with Zod updateTaskSchema (all fields optional). Auto-sets updated_at to current UTC time. Returns 404 if task not found, 200 with updated task object on success.",
+  "files": ["task-api/src/functions/update-task.ts"],
+  "origin": "user-assisted"
+}

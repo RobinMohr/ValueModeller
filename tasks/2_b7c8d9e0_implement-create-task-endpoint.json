@@ -1,0 +1,10 @@
+{
+  "id": "b7c8d9e0",
+  "title": "Implement POST /api/tasks endpoint",
+  "priority": 2,
+  "type": "improvement",
+  "state": "todo",
+  "description": "Creates a new task. Auto-generates an 8-char hex ID (crypto.randomBytes(4).toString('hex')). Validates input with Zod createTaskSchema. Sets created_at and updated_at to current UTC time. Returns 201 with the created task object.",
+  "files": ["task-api/src/functions/create-task.ts"],
+  "origin": "user-assisted"
+}
