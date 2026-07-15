@@ -1431,3 +1431,20 @@ This approach is reliable because:
 
 **Build:** ✅ Passes (`tsc -b && vite build` — 0 errors, 298 modules)
 **Tests:** ✅ All 58 TecFactory tests pass
+
+
+## 2026-07-15T10:12 — Verify StreamMetadataForm dark mode (already complete)
+
+**Task:** `tasks/2_fix-streammetadataform-modal-missing-all-dark-mode.json`
+
+**What happened:**
+- Investigated `src/components/layout/stream-metadata-form.tsx` and found that all dark mode styles are already present and correct.
+- Every element cited in the task description already has proper `dark:` variants: modal container (`dark:bg-gray-800`), header text (`dark:text-gray-100`), labels (`dark:text-gray-300`), inputs/textareas (`dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100`), close button (`dark:hover:text-gray-300`), borders (`dark:border-gray-700`), and hint text (`dark:text-gray-500`).
+- This was fixed in a prior iteration (the "ARIA Dialog Semantics & Focus Trapping" entry from 2026-07-15T09:50 touched this file and the dark mode feature entry from 2026-07-14T17:52 added comprehensive dark mode support).
+
+**Impact:** No code changes needed — task marked as developed (already complete).
+
+**Files verified (no modifications):**
+- `src/components/layout/stream-metadata-form.tsx`
+
+**Build:** ✅ Passes (`tsc -b && vite build` — 0 errors, 298 modules)
