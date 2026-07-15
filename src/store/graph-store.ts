@@ -50,6 +50,32 @@ export const useGraphStore = create<GraphStore>()(
     },
 
     onConnect: (connection: Connection) => {
+      const nodes = get().nodes;
+      const sourceNode = nodes.find((n) => n.id === connection.source);
+      const targetNode = nodes.find((n) => n.id === connection.target);
+
+      // Auto-fill target's inputs/suppliers from source's outputs/customers
+      if (sourceNode && targetNode) {
+        const updates: Partial<SipocNodeData> = {};
+
+        if (!targetNode.data.inputs && sourceNode.data.outputs) {
+          updates.inputs = sourceNode.data.outputs;
+        }
+        if (!targetNode.data.suppliers && sourceNode.data.customers) {
+          updates.suppliers = sourceNode.data.customers;
+        }
+
+        if (Object.keys(updates).length > 0) {
+          const updatedNodes = nodes.map((node) =>
+            node.id === connection.target
+              ? { ...node, data: { ...node.data, ...updates } }
+              : node
+          );
+          set({ nodes: updatedNodes, edges: addEdge(connection, get().edges) });
+          return;
+        }
+      }
+
       set({ edges: addEdge(connection, get().edges) });
     },
 

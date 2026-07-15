@@ -1,5 +1,16 @@
 # Release Notes — Value Modeller
 
+## 2026-07-15T10:49 — Outputs become inputs (auto-fill on connect)
+
+**What changed:**
+- Modified the `onConnect` handler in `src/store/graph-store.ts` to auto-fill the target node's `inputs` and `suppliers` fields when connecting two nodes.
+- When a connection is drawn from node A to node B: if B's `inputs` field is empty, it is populated with A's `outputs`; if B's `suppliers` field is empty, it is populated with A's `customers`.
+- Existing values are never overwritten — auto-fill only applies to empty fields.
+
+**Impact:** Faster modeling workflow — users no longer need to manually re-type output/customer data when chaining process steps.
+
+---
+
 ## 2026-07-15T10:46 — Single click to edit steps
 
 **What changed:**
