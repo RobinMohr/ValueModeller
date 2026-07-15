@@ -1,5 +1,18 @@
 # Release Notes — Value Modeller
 
+## 2026-07-15T10:10 — Fix State Badge Labels in TecFactory Task Cards
+
+**What changed:**
+- Added a `stateLabels` map in `tecfactory/public/app.js` (similar to the existing `originLabels` pattern)
+- Task card state badges now display human-readable labels: `todo` → "To Do", `in-progress` → "In Progress", `developed` → "Developed", `done` → "Done"
+
+**Impact:**
+- Task board state badges are now user-friendly instead of showing raw slug values
+- Consistent formatting with other badges (origin, type) on the task cards
+
+**Files modified:**
+- `tecfactory/public/app.js`
+
 ## 2026-07-14T15:03 — Consistent Edge Styles & Animated Flow
 
 **What changed:**

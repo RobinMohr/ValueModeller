@@ -646,8 +646,10 @@ class TaskManager {
       const origin = task.origin || 'user';
       const originIcons = { user: '&#128100;', ai: '&#129302;', 'user-assisted': '&#129309;' };
       const originLabels = { user: 'User', ai: 'AI', 'user-assisted': 'Assisted' };
+      const stateLabels = { todo: 'To Do', 'in-progress': 'In Progress', developed: 'Developed', done: 'Done' };
       const originIcon = originIcons[origin] || originIcons.user;
       const originLabel = originLabels[origin] || origin;
+      const stateLabel = stateLabels[task.state] || task.state || 'To Do';
 
       return `
       <div class="task-card" data-state="${task.state || 'todo'}">
@@ -659,7 +661,7 @@ class TaskManager {
             <h3 class="task-title">${esc(task.title)}</h3>
           </div>
           <div class="task-card-right">
-            <span class="task-state-badge state-${task.state || 'todo'}">${task.state || 'todo'}</span>
+            <span class="task-state-badge state-${task.state || 'todo'}">${stateLabel}</span>
             <button class="btn-icon" title="Edit" onclick="taskManager.editTask('${task._filename}')">&#9998;</button>
             <button class="btn-icon btn-icon-danger" title="Delete" onclick="taskManager.deleteTask('${task._filename}', '${esc(task.title)}')">&#128465;</button>
           </div>
