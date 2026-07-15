@@ -1,5 +1,55 @@
 # Release Notes — Value Modeller
 
+## 2026-07-15T11:27 — feature: Information Collector Agent
+
+**Task:** `tasks/1_information-collector-agent.json` → state set to `developed`
+
+**What was implemented:**
+- Created a new **Information Collector** agent type for TecFactory that searches the internet for information based on a user-provided research prompt and writes structured findings to a specified output file.
+- **Kiro agent definition** (`.kiro/agents/information-collector-agent.json` + `.md`):
+  - Uses tools: `read`, `write`, `glob`, `grep`, `web_search`, `web_fetch`, `knowledge`
+  - Detailed instructions for multi-query internet research, relevance evaluation (HIGH/MEDIUM/LOW), and structured Markdown output with source attribution
+  - Merge strategy for updating existing files (keeps relevant, removes outdated, adds new)
+  - Write access restricted to the specified output file only
+- **Server-side (tecfactory/server.js):**
+  - Added `information-collector` to the valid agent types list and `/api/agent-types` endpoint
+  - `POST /api/agents` and `PUT /api/agents/:id` now accept `searchPrompt` and `outputFile` config fields
+  - `startAgent()` builds a dynamic prompt for information-collector agents from `searchPrompt` + `outputFile`, passed via `--prompt` to the agent loop
+  - Added `parseInformationCollectorActivity()` for real-time activity tracking (searching, reading sources, writing, evaluating)
+  - Activity updates broadcast via WebSocket for information-collector agents
+- **Agent loop (scripts/src/agent-loop.ts):**
+  - Added `"information-collector"` to the `AgentType` union type
+  - Added to `PROMPTS` record (uses dynamic prompt from `--prompt` flag, like custom)
+  - Updated prompt selection logic to handle the new type
+  - Added cyan color for terminal output
+- **UI (tecfactory/public/):**
+  - Added "Information Collector" option to the agent type dropdown
+  - Added `searchPrompt` textarea and `outputFile` input fields (shown/hidden based on type selection)
+  - Form validation requires both fields for information-collector type
+  - Edit form populates existing values from agent config
+  - Added `INFO` type badge with cyan color styling
+
+**How to use:**
+1. Open TecFactory → Agents tab → "New Agent"
+2. Select type "Information Collector"
+3. Enter a research prompt (e.g., "Best practices for React performance optimization in 2026")
+4. Enter an output file path (e.g., "research/react-perf.md")
+5. Click "Create Agent" then Start
+
+**Files created:**
+- `.kiro/agents/information-collector-agent.json`
+- `.kiro/agents/information-collector-agent.md`
+
+**Files modified:**
+- `tecfactory/server.js` — agent types, CRUD endpoints, activity tracking, prompt building
+- `tecfactory/public/index.html` — type dropdown option, form fields
+- `tecfactory/public/app.js` — form logic, type badge, edit population
+- `tecfactory/public/style.css` — INFO badge color (cyan)
+- `scripts/src/agent-loop.ts` — AgentType union, PROMPTS record, typeColors
+
+**Build:** ✅ Frontend passes (`tsc -b && vite build` — 0 errors, 297 modules)
+**Build:** ✅ Scripts passes (`tsc` — 0 errors)
+
 ## 2026-07-15T11:21 — improvement: Create unit tests for the Value Modeller
 
 **Task:** `tasks/2_create-unit-tests-for-the-value-modeller.json` → state set to `developed`

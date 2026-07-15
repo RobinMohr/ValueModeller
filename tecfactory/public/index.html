@@ -204,6 +204,7 @@
             <option value="dev">Developer — Implements tasks from the backlog</option>
             <option value="qa">QA / Research — Tests the app and researches improvements</option>
             <option value="task-order">Task Prioritization — Re-orders task priorities</option>
+            <option value="information-collector">Information Collector — Searches internet and writes findings</option>
             <option value="custom">Custom — Run any agent with a custom prompt</option>
           </select>
         </div>
@@ -235,6 +236,16 @@
         <div class="form-group" id="customPromptGroup" style="display:none;">
           <label for="agentCustomPrompt">Custom Prompt *</label>
           <textarea id="agentCustomPrompt" rows="5" placeholder="Instructions for the agent..."></textarea>
+        </div>
+        <div class="form-group" id="searchPromptGroup" style="display:none;">
+          <label for="agentSearchPrompt">Research Prompt *</label>
+          <textarea id="agentSearchPrompt" rows="3" placeholder="What information should the agent search for? e.g., 'Best practices for React performance optimization in 2026'"></textarea>
+          <span class="form-hint">The agent will use this as its search query and research objective</span>
+        </div>
+        <div class="form-group" id="outputFileGroup" style="display:none;">
+          <label for="agentOutputFile">Output File *</label>
+          <input type="text" id="agentOutputFile" placeholder="research/my-findings.md">
+          <span class="form-hint">File path (relative to project root) where findings will be written</span>
         </div>
         <div class="form-actions">
           <button type="button" class="btn btn-clear" onclick="agentManager.hideForm()">Cancel</button>

@@ -589,13 +589,13 @@ app.get('/api/agents/:id', (req, res) => {
 // POST /api/agents — create a new agent
 app.post('/api/agents', (req, res) => {
   try {
-    const { name, type, agent, description, intervalSeconds, timeoutSeconds, maxIterations, customPrompt } = req.body;
+    const { name, type, agent, description, intervalSeconds, timeoutSeconds, maxIterations, customPrompt, searchPrompt, outputFile } = req.body;
 
     if (!name || !type || !agent) {
       return res.status(400).json({ error: 'name, type, and agent are required' });
     }
 
-    const validTypes = ['dev', 'qa', 'task-order', 'custom'];
+    const validTypes = ['dev', 'qa', 'task-order', 'custom', 'information-collector'];
     if (!validTypes.includes(type)) {
       return res.status(400).json({ error: `type must be one of: ${validTypes.join(', ')}` });
     }
@@ -617,7 +617,9 @@ app.post('/api/agents', (req, res) => {
       intervalSeconds: intervalSeconds ?? 0,
       timeoutSeconds: timeoutSeconds ?? 900,
       maxIterations: maxIterations ?? 0,
-      ...(type === 'custom' && customPrompt ? { customPrompt } : {})
+      ...(type === 'custom' && customPrompt ? { customPrompt } : {}),
+      ...(type === 'information-collector' && searchPrompt ? { searchPrompt } : {}),
+      ...(type === 'information-collector' && outputFile ? { outputFile } : {}),
     };
 
     configs.push(newAgent);
@@ -652,7 +654,7 @@ app.put('/api/agents/:id', (req, res) => {
       return res.status(409).json({ error: 'Cannot update a running agent. Stop it first.' });
     }
 
-    const { name, type, agent, description, intervalSeconds, timeoutSeconds, maxIterations, customPrompt } = req.body;
+    const { name, type, agent, description, intervalSeconds, timeoutSeconds, maxIterations, customPrompt, searchPrompt, outputFile } = req.body;
 
     const updated = {
       ...configs[idx],
@@ -664,11 +666,17 @@ app.put('/api/agents/:id', (req, res) => {
       ...(timeoutSeconds !== undefined ? { timeoutSeconds } : {}),
       ...(maxIterations !== undefined ? { maxIterations } : {}),
       ...(customPrompt !== undefined ? { customPrompt } : {}),
+      ...(searchPrompt !== undefined ? { searchPrompt } : {}),
+      ...(outputFile !== undefined ? { outputFile } : {}),
     };
 
-    // Remove customPrompt if type is not custom
+    // Remove type-specific fields if type changed
     if (updated.type !== 'custom') {
       delete updated.customPrompt;
+    }
+    if (updated.type !== 'information-collector') {
+      delete updated.searchPrompt;
+      delete updated.outputFile;
     }
 
     configs[idx] = updated;
@@ -725,6 +733,7 @@ app.get('/api/agent-types', (req, res) => {
     { id: 'dev', name: 'Developer', description: 'Implements tasks from the backlog one at a time', defaultAgent: 'developer-agent', defaultTimeout: 900, defaultInterval: 0 },
     { id: 'qa', name: 'QA / Research', description: 'Tests the app and researches improvements', defaultAgent: 'qa-improvement-agent', defaultTimeout: 600, defaultInterval: 30 },
     { id: 'task-order', name: 'Task Prioritization', description: 'Re-evaluates and re-orders task priorities', defaultAgent: 'task-order-agent', defaultTimeout: 300, defaultInterval: 0 },
+    { id: 'information-collector', name: 'Information Collector', description: 'Searches the internet for information and writes findings to a file', defaultAgent: 'information-collector-agent', defaultTimeout: 600, defaultInterval: 0 },
     { id: 'custom', name: 'Custom', description: 'Run any agent with a custom prompt', defaultAgent: '', defaultTimeout: 600, defaultInterval: 0 }
   ]);
 });
@@ -796,6 +805,34 @@ function parseQaAgentActivity(outputLines) {
 }
 
 /**
+ * Parses information collector agent output to determine current activity state.
+ */
+function parseInformationCollectorActivity(outputLines, config) {
+  if (!outputLines || outputLines.length === 0) return { type: 'active', task: `Researching: ${config.searchPrompt || 'unknown topic'}` };
+
+  const recent = outputLines.slice(-20);
+
+  for (let i = recent.length - 1; i >= 0; i--) {
+    const text = (recent[i].text || '').toLowerCase();
+
+    if (text.includes('web_search') || text.includes('searching')) {
+      return { type: 'researching', task: 'Searching the internet' };
+    }
+    if (text.includes('web_fetch') || text.includes('fetching')) {
+      return { type: 'researching', task: 'Reading source content' };
+    }
+    if (text.includes('writing') || text.includes('updating') || text.includes('write')) {
+      return { type: 'working', task: `Writing to ${config.outputFile || 'output file'}` };
+    }
+    if (text.includes('evaluating') || text.includes('relevance')) {
+      return { type: 'working', task: 'Evaluating relevance' };
+    }
+  }
+
+  return { type: 'active', task: `Researching: ${(config.searchPrompt || 'unknown topic').substring(0, 50)}` };
+}
+
+/**
  * Updates and broadcasts the current activity for an agent.
  */
 function updateAgentActivity(agentId) {
@@ -821,6 +858,8 @@ function updateAgentActivity(agentId) {
   } else if (config.type === 'task-order') {
     // Task-order agent is always just "re-prioritizing"
     newActivity = { type: 'working', task: 'Re-prioritizing tasks' };
+  } else if (config.type === 'information-collector') {
+    newActivity = parseInformationCollectorActivity(agent.output, config);
   }
 
   // Only broadcast if activity changed
@@ -958,6 +997,28 @@ function startAgent(agentId) {
     args.push('--prompt', config.customPrompt);
   }
 
+  // For information-collector agents, build a dynamic prompt from searchPrompt and outputFile
+  if (config.type === 'information-collector') {
+    const searchPrompt = config.searchPrompt || 'general research';
+    const outputFile = config.outputFile || 'research-output.md';
+    const dynamicPrompt = `You are the Information Collector Agent. Research the following topic and write findings to the specified file.
+
+RESEARCH PROMPT: ${searchPrompt}
+
+OUTPUT FILE: ${outputFile}
+
+Instructions:
+1. If the output file already exists, read it first to understand existing content.
+2. Search the internet using web_search with multiple query variations related to the research prompt.
+3. Use web_fetch to get detailed content from the most promising results (top 5-10 URLs).
+4. Evaluate each finding for relevance (HIGH = directly answers the prompt, MEDIUM = useful context, LOW = discard).
+5. Write/update the output file in Markdown format with structured findings including source URLs, key points, and relevance ratings.
+6. If the file already exists, merge new findings with existing ones — keep the most relevant, update outdated info, add new discoveries.
+7. Always include a "Last Updated" timestamp at the top.
+8. ONLY write to the specified output file. Do NOT modify any other files.`;
+    args.push('--prompt', dynamicPrompt);
+  }
+
   try {
     // NOTE: Do NOT use shell: true here. When shell is true, paths with spaces
     // in args get split by the shell, causing "Cannot find module" errors.
@@ -996,8 +1057,8 @@ function startAgent(agentId) {
       }
       broadcast({ type: 'output', agentId, entry });
 
-      // Update activity for QA agents based on output content
-      if (config.type === 'qa') {
+      // Update activity for QA and information-collector agents based on output content
+      if (config.type === 'qa' || config.type === 'information-collector') {
         updateAgentActivity(agentId);
       }
     };

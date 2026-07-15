@@ -228,6 +228,7 @@ main {
 .agent-type-badge.type-qa { background: rgba(99, 102, 241, 0.2); color: #a5b4fc; }
 .agent-type-badge.type-task-order { background: rgba(245, 158, 11, 0.2); color: #fcd34d; }
 .agent-type-badge.type-custom { background: rgba(168, 85, 247, 0.2); color: #c4b5fd; }
+.agent-type-badge.type-information-collector { background: rgba(6, 182, 212, 0.2); color: #67e8f9; }
 
 .agent-description {
   font-size: 0.8rem;

@@ -22,7 +22,7 @@ import { logAgentError } from "./error-logger.js";
 // Types
 // ---------------------------------------------------------------------------
 
-export type AgentType = "dev" | "qa" | "task-order" | "custom";
+export type AgentType = "dev" | "qa" | "task-order" | "custom" | "information-collector";
 
 export interface AgentLoopConfig {
   agent: string;
@@ -114,6 +114,8 @@ Output a brief summary of changes made (or 'No changes needed').
 Do NOT create new tasks. Do NOT implement anything. Only re-prioritize existing todo tasks.`,
 
   custom: "", // Will use customPrompt from config
+
+  "information-collector": "", // Will use dynamic prompt built from searchPrompt + outputFile passed via --prompt
 };
 
 // ---------------------------------------------------------------------------
@@ -617,7 +619,7 @@ async function runIteration(
   let prompt: string;
   if (config.type === "dev" && claimedTask) {
     prompt = buildDevPromptForTask(claimedTask);
-  } else if (config.type === "custom" && config.customPrompt) {
+  } else if ((config.type === "custom" || config.type === "information-collector") && config.customPrompt) {
     prompt = config.customPrompt;
   } else {
     prompt = PROMPTS[config.type];
@@ -772,6 +774,7 @@ async function main(): Promise<void> {
     qa: "cyan",
     "task-order": "yellow",
     custom: "gray",
+    "information-collector": "cyan",
   };
   const color = typeColors[config.type] || "cyan";
 

@@ -459,7 +459,7 @@ class AgentManager {
   }
 
   getTypeBadgeHtml(type) {
-    const typeLabels = { dev: 'DEV', qa: 'QA', 'task-order': 'PRIO', custom: 'CUSTOM' };
+    const typeLabels = { dev: 'DEV', qa: 'QA', 'task-order': 'PRIO', custom: 'CUSTOM', 'information-collector': 'INFO' };
     const label = typeLabels[type] || type.toUpperCase();
     return `<span class="agent-type-badge type-${type}">${label}</span>`;
   }
@@ -511,6 +511,8 @@ class AgentManager {
       document.getElementById('agentTimeout').value = agent.timeoutSeconds ?? 900;
       document.getElementById('agentMaxIterations').value = agent.maxIterations ?? 0;
       document.getElementById('agentCustomPrompt').value = agent.customPrompt || '';
+      document.getElementById('agentSearchPrompt').value = agent.searchPrompt || '';
+      document.getElementById('agentOutputFile').value = agent.outputFile || '';
 
       this.onTypeChange();
       document.getElementById('agentFormOverlay').style.display = 'flex';
@@ -527,10 +529,16 @@ class AgentManager {
   onTypeChange() {
     const type = document.getElementById('agentType').value;
     const customGroup = document.getElementById('customPromptGroup');
+    const searchPromptGroup = document.getElementById('searchPromptGroup');
+    const outputFileGroup = document.getElementById('outputFileGroup');
     const agentNameInput = document.getElementById('agentAgentName');
 
     // Show/hide custom prompt field
     customGroup.style.display = type === 'custom' ? 'flex' : 'none';
+
+    // Show/hide information-collector fields
+    searchPromptGroup.style.display = type === 'information-collector' ? 'flex' : 'none';
+    outputFileGroup.style.display = type === 'information-collector' ? 'flex' : 'none';
 
     // Auto-fill agent name from type defaults (only if creating new)
     if (!this.editingId) {
@@ -561,6 +569,19 @@ class AgentManager {
       payload.customPrompt = document.getElementById('agentCustomPrompt').value.trim();
       if (!payload.customPrompt) {
         alert('Custom prompt is required for custom agent type.');
+        return;
+      }
+    }
+
+    if (type === 'information-collector') {
+      payload.searchPrompt = document.getElementById('agentSearchPrompt').value.trim();
+      payload.outputFile = document.getElementById('agentOutputFile').value.trim();
+      if (!payload.searchPrompt) {
+        alert('Research prompt is required for the Information Collector agent.');
+        return;
+      }
+      if (!payload.outputFile) {
+        alert('Output file path is required for the Information Collector agent.');
         return;
       }
     }
