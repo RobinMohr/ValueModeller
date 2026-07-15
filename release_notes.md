@@ -1,5 +1,19 @@
 # Release Notes — Value Modeller
 
+## 2026-07-15T10:17 — Add prefers-reduced-motion support for animated edges
+
+**What changed:**
+- Added a `@media (prefers-reduced-motion: reduce)` CSS rule in `src/index.css` that disables animation and stroke-dasharray on `.react-flow__edge.animated path`
+- Users with reduced motion preferences enabled in their OS/browser settings will no longer see animated edge dash patterns
+
+**Impact:**
+- Addresses WCAG 2.1 SC 2.3.3 (Animation from Interactions) compliance
+- Improves performance for motion-sensitive users by eliminating stroke-dasharray animation overhead
+- Zero runtime cost — pure CSS solution that respects user preferences without JavaScript changes
+
+**Files modified:**
+- `src/index.css`
+
 
 ## 2026-07-15T10:13 — Verified Dialog Accessibility (CreateStreamDialog & StreamMetadataForm)
 

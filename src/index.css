@@ -100,3 +100,12 @@ body {
   clip: auto;
   white-space: nowrap;
 }
+
+
+/* Accessibility: respect prefers-reduced-motion for animated edges */
+@media (prefers-reduced-motion: reduce) {
+  .react-flow__edge.animated path {
+    animation: none !important;
+    stroke-dasharray: none !important;
+  }
+}
