@@ -688,7 +688,7 @@ describe('Tasks REST API', () => {
       // Assert
       expect(response.status).toBe(201);
       expect(response.body.title).toBe('UNIT TEST temporary task');
-      expect(response.body._filename).toMatch(/^4_unit-test-temporary-task\.json$/);
+      expect(response.body._filename).toMatch(/^4_[a-f0-9]{8}_unit-test-temporary-task\.json$/);
 
       // Cleanup — delete the created task
       const filepath = join(dirname(__dirname), '..', 'tasks', response.body._filename);
@@ -981,5 +981,284 @@ describe('Agents REST API', () => {
       expect(response.status).toBe(404);
       expect(response.body.error).toBe('Agent not found');
     });
+  });
+});
+
+
+
+// ─── Tests for generateTaskId ────────────────────────────────────────────────
+
+describe('generateTaskId', () => {
+  let generateTaskId;
+
+  beforeAll(async () => {
+    const mod = await import('../server.js');
+    generateTaskId = mod.generateTaskId;
+  });
+
+  it('should return an 8-character hex string', () => {
+    // Arrange — no setup needed
+
+    // Act
+    const id = generateTaskId();
+
+    // Assert
+    expect(id).toMatch(/^[a-f0-9]{8}$/);
+  });
+
+  it('should generate unique IDs on consecutive calls', () => {
+    // Arrange — generate multiple IDs
+
+    // Act
+    const ids = new Set();
+    for (let i = 0; i < 100; i++) {
+      ids.add(generateTaskId());
+    }
+
+    // Assert — all 100 should be unique
+    expect(ids.size).toBe(100);
+  });
+
+  it('should return a string type', () => {
+    // Arrange — no setup needed
+
+    // Act
+    const id = generateTaskId();
+
+    // Assert
+    expect(typeof id).toBe('string');
+  });
+});
+
+// ─── Tests for PUT /api/tasks/:filename ──────────────────────────────────────
+
+describe('Tasks REST API — PUT', () => {
+  let request;
+  let app;
+
+  beforeAll(async () => {
+    const supertest = await import('supertest');
+    request = supertest.default;
+    const mod = await import('../server.js');
+    app = mod.app;
+  });
+
+  describe('PUT /api/tasks/:filename', () => {
+    it('should return 404 for a non-existent task', async () => {
+      // Arrange
+      const body = { title: 'Updated task', priority: 2 };
+
+      // Act
+      const response = await request(app)
+        .put('/api/tasks/non-existent-task.json')
+        .send(body);
+
+      // Assert
+      expect(response.status).toBe(404);
+      expect(response.body.error).toBe('Task not found');
+    });
+
+    it('should update an existing task and return 200', async () => {
+      // Arrange — create a task first
+      const createResponse = await request(app)
+        .post('/api/tasks')
+        .send({ title: 'PUT test task', priority: 3, type: 'idea', state: 'todo', origin: 'ai' });
+      expect(createResponse.status).toBe(201);
+      const filename = createResponse.body._filename;
+
+      // Act — update the task
+      const response = await request(app)
+        .put(`/api/tasks/${filename}`)
+        .send({ title: 'PUT test task updated', priority: 2, type: 'improvement', state: 'in-progress', origin: 'ai' });
+
+      // Assert
+      expect(response.status).toBe(200);
+      expect(response.body.title).toBe('PUT test task updated');
+      expect(response.body.priority).toBe(2);
+      expect(response.body.state).toBe('in-progress');
+
+      // Cleanup — delete the task (may have been renamed)
+      const deleteFilename = response.body._filename;
+      await request(app).delete(`/api/tasks/${deleteFilename}`);
+    });
+
+    it('should rename the file when priority changes', async () => {
+      // Arrange — create a task with priority 4
+      const createResponse = await request(app)
+        .post('/api/tasks')
+        .send({ title: 'Rename test task', priority: 4, type: 'idea', state: 'todo', origin: 'ai' });
+      expect(createResponse.status).toBe(201);
+      const originalFilename = createResponse.body._filename;
+      expect(originalFilename).toMatch(/^4_/);
+
+      // Act — update priority to 1
+      const response = await request(app)
+        .put(`/api/tasks/${originalFilename}`)
+        .send({ title: 'Rename test task', priority: 1, type: 'idea', state: 'todo', origin: 'ai' });
+
+      // Assert — filename should now start with 1_
+      expect(response.status).toBe(200);
+      expect(response.body._filename).toMatch(/^1_/);
+      expect(response.body._filename).not.toBe(originalFilename);
+
+      // Cleanup
+      await request(app).delete(`/api/tasks/${response.body._filename}`);
+    });
+  });
+});
+
+// ─── Tests for Task Security (path traversal on tasks) ───────────────────────
+
+describe('Tasks REST API — Security', () => {
+  let request;
+  let app;
+
+  beforeAll(async () => {
+    const supertest = await import('supertest');
+    request = supertest.default;
+    const mod = await import('../server.js');
+    app = mod.app;
+  });
+
+  it('should return 404 for path traversal in GET /api/tasks/:filename', async () => {
+    // Arrange — attempt path traversal
+    const filename = '..%2F..%2Fpackage.json';
+
+    // Act
+    const response = await request(app).get(`/api/tasks/${filename}`);
+
+    // Assert — should not serve files outside tasks directory
+    expect(response.status).toBe(404);
+  });
+
+  it('should return 404 for path traversal in DELETE /api/tasks/:filename', async () => {
+    // Arrange
+    const filename = '..%2Fserver.js';
+
+    // Act
+    const response = await request(app).delete(`/api/tasks/${filename}`);
+
+    // Assert
+    expect(response.status).toBe(404);
+  });
+});
+
+// ─── Tests for WebSocket broadcast function ──────────────────────────────────
+
+describe('broadcast', () => {
+  let broadcast;
+
+  beforeAll(async () => {
+    const mod = await import('../server.js');
+    broadcast = mod.broadcast;
+  });
+
+  it('should be a function', () => {
+    // Assert
+    expect(typeof broadcast).toBe('function');
+  });
+
+  it('should not throw when no clients are connected', () => {
+    // Arrange
+    const message = { type: 'test', data: 'hello' };
+
+    // Act & Assert — should not throw
+    expect(() => broadcast(message)).not.toThrow();
+  });
+
+  it('should handle complex message objects', () => {
+    // Arrange
+    const message = {
+      type: 'task-created',
+      task: { title: 'Test', priority: 2, nested: { deep: true } }
+    };
+
+    // Act & Assert
+    expect(() => broadcast(message)).not.toThrow();
+  });
+});
+
+// ─── Tests for static file serving ──────────────────────────────────────────
+
+describe('Static File Serving', () => {
+  let request;
+  let app;
+
+  beforeAll(async () => {
+    const supertest = await import('supertest');
+    request = supertest.default;
+    const mod = await import('../server.js');
+    app = mod.app;
+  });
+
+  it('should serve index.html at the root path', async () => {
+    // Arrange — no setup needed
+
+    // Act
+    const response = await request(app).get('/');
+
+    // Assert
+    expect(response.status).toBe(200);
+    expect(response.headers['content-type']).toMatch(/html/);
+  });
+
+  it('should serve CSS files', async () => {
+    // Arrange — no setup needed
+
+    // Act
+    const response = await request(app).get('/style.css');
+
+    // Assert
+    expect(response.status).toBe(200);
+    expect(response.headers['content-type']).toMatch(/css/);
+  });
+
+  it('should serve JavaScript files', async () => {
+    // Arrange — no setup needed
+
+    // Act
+    const response = await request(app).get('/app.js');
+
+    // Assert
+    expect(response.status).toBe(200);
+    expect(response.headers['content-type']).toMatch(/javascript/);
+  });
+
+  it('should return 404 for non-existent static files', async () => {
+    // Arrange — no setup needed
+
+    // Act
+    const response = await request(app).get('/non-existent-file.xyz');
+
+    // Assert
+    // Express static returns 404 for missing files
+    expect(response.status).toBe(404);
+  });
+});
+
+// ─── Tests for TASKS_DIR export ──────────────────────────────────────────────
+
+describe('TASKS_DIR', () => {
+  let TASKS_DIR;
+
+  beforeAll(async () => {
+    const mod = await import('../server.js');
+    TASKS_DIR = mod.TASKS_DIR;
+  });
+
+  it('should be a string path', () => {
+    // Assert
+    expect(typeof TASKS_DIR).toBe('string');
+  });
+
+  it('should end with tasks directory name', () => {
+    // Assert
+    expect(TASKS_DIR).toMatch(/tasks$/);
+  });
+
+  it('should be an absolute path', () => {
+    // Assert — on Windows it starts with drive letter, on Unix with /
+    const isAbsolute = TASKS_DIR.startsWith('/') || /^[A-Z]:/i.test(TASKS_DIR);
+    expect(isAbsolute).toBe(true);
   });
 });

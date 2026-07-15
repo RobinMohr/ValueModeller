@@ -19,6 +19,7 @@ export function LandingPage() {
   const [showCreateDialog, setShowCreateDialog] = useState(false);
   const [newStreamName, setNewStreamName] = useState('');
   const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null);
+  const [expandedStreamId, setExpandedStreamId] = useState<string | null>(null);
 
   const handleCreate = useCallback(() => {
     if (!newStreamName.trim()) return;
@@ -32,8 +33,9 @@ export function LandingPage() {
     (id: string) => {
       deleteStream(id);
       setDeleteConfirmId(null);
+      if (expandedStreamId === id) setExpandedStreamId(null);
     },
-    [deleteStream]
+    [deleteStream, expandedStreamId]
   );
 
   const handleOpen = useCallback(
@@ -41,6 +43,13 @@ export function LandingPage() {
       navigate(`/stream/${id}`);
     },
     [navigate]
+  );
+
+  const handleToggleDetails = useCallback(
+    (id: string) => {
+      setExpandedStreamId((prev) => (prev === id ? null : id));
+    },
+    []
   );
 
   return (
@@ -79,17 +88,21 @@ export function LandingPage() {
           <CardsView
             streams={streams}
             deleteConfirmId={deleteConfirmId}
+            expandedStreamId={expandedStreamId}
             onOpen={handleOpen}
             onDelete={handleDelete}
             onDeleteConfirm={setDeleteConfirmId}
+            onToggleDetails={handleToggleDetails}
           />
         ) : (
           <TableView
             streams={streams}
             deleteConfirmId={deleteConfirmId}
+            expandedStreamId={expandedStreamId}
             onOpen={handleOpen}
             onDelete={handleDelete}
             onDeleteConfirm={setDeleteConfirmId}
+            onToggleDetails={handleToggleDetails}
           />
         )}
       </main>
@@ -185,94 +198,124 @@ function EmptyState({ onCreateClick }: EmptyStateProps) {
 interface StreamListViewProps {
   streams: ValueStream[];
   deleteConfirmId: string | null;
+  expandedStreamId: string | null;
   onOpen: (id: string) => void;
   onDelete: (id: string) => void;
   onDeleteConfirm: (id: string | null) => void;
+  onToggleDetails: (id: string) => void;
 }
 
-function CardsView({ streams, deleteConfirmId, onOpen, onDelete, onDeleteConfirm }: StreamListViewProps) {
+function CardsView({ streams, deleteConfirmId, expandedStreamId, onOpen, onDelete, onDeleteConfirm, onToggleDetails }: StreamListViewProps) {
   return (
     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-      {streams.map((stream) => (
-        <div
-          key={stream.id}
-          className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 shadow-sm hover:shadow-md transition-shadow overflow-hidden"
-        >
-          {/* Card header */}
+      {streams.map((stream) => {
+        const isExpanded = expandedStreamId === stream.id;
+        return (
           <div
-            className="p-5 cursor-pointer"
-            onClick={() => onOpen(stream.id)}
-            role="button"
-            tabIndex={0}
-            aria-label={`Open ${stream.name}`}
-            onKeyDown={(e) => { if (e.key === 'Enter') onOpen(stream.id); }}
+            key={stream.id}
+            className={cn(
+              'bg-white dark:bg-gray-800 rounded-xl border shadow-sm hover:shadow-md transition-shadow overflow-hidden',
+              isExpanded
+                ? 'border-primary-300 dark:border-primary-700'
+                : 'border-gray-200 dark:border-gray-700'
+            )}
           >
-            <div className="flex items-start justify-between">
-              <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100 truncate flex-1">
-                {stream.name}
-              </h3>
-              <span className="ml-2 inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-primary-50 dark:bg-primary-900/30 text-primary-700 dark:text-primary-300">
-                {stream.nodes.length} {stream.nodes.length === 1 ? 'step' : 'steps'}
-              </span>
+            {/* Card header — clicking toggles detail view */}
+            <div
+              className="p-5 cursor-pointer"
+              onClick={() => onToggleDetails(stream.id)}
+              role="button"
+              tabIndex={0}
+              aria-label={`${isExpanded ? 'Collapse' : 'Expand'} details for ${stream.name}`}
+              aria-expanded={isExpanded}
+              onKeyDown={(e) => { if (e.key === 'Enter') onToggleDetails(stream.id); }}
+            >
+              <div className="flex items-start justify-between">
+                <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100 truncate flex-1">
+                  {stream.name}
+                </h3>
+                <div className="flex items-center gap-2">
+                  <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-primary-50 dark:bg-primary-900/30 text-primary-700 dark:text-primary-300">
+                    {stream.nodes.length} {stream.nodes.length === 1 ? 'step' : 'steps'}
+                  </span>
+                  <svg
+                    className={cn(
+                      'w-4 h-4 text-gray-400 dark:text-gray-500 transition-transform',
+                      isExpanded && 'rotate-180'
+                    )}
+                    fill="none" stroke="currentColor" viewBox="0 0 24 24"
+                  >
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                  </svg>
+                </div>
+              </div>
+
+              {stream.description && (
+                <p className={cn(
+                  'mt-2 text-sm text-gray-600 dark:text-gray-400',
+                  !isExpanded && 'line-clamp-2'
+                )}>
+                  {stream.description}
+                </p>
+              )}
+
+              {/* Metadata pills */}
+              <div className="mt-3 flex flex-wrap gap-1.5">
+                {stream.involvedTeams && (
+                  <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs bg-blue-50 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300">
+                    {stream.involvedTeams.split('\n').filter(Boolean).length} teams
+                  </span>
+                )}
+                {stream.applications && (
+                  <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs bg-purple-50 dark:bg-purple-900/30 text-purple-700 dark:text-purple-300">
+                    {stream.applications.split('\n').filter(Boolean).length} apps
+                  </span>
+                )}
+                {stream.customerSegments && (
+                  <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs bg-green-50 dark:bg-green-900/30 text-green-700 dark:text-green-300">
+                    {stream.customerSegments.split('\n').filter(Boolean).length} segments
+                  </span>
+                )}
+              </div>
+
+              {/* Timestamps */}
+              <div className="mt-3 text-xs text-gray-400 dark:text-gray-500">
+                Updated {new Date(stream.updatedAt).toLocaleDateString()}
+              </div>
             </div>
 
-            {stream.description && (
-              <p className="mt-2 text-sm text-gray-600 dark:text-gray-400 line-clamp-2">
-                {stream.description}
-              </p>
+            {/* Expanded Detail Panel */}
+            {isExpanded && (
+              <StreamDetailPanel stream={stream} />
             )}
 
-            {/* Metadata pills */}
-            <div className="mt-3 flex flex-wrap gap-1.5">
-              {stream.involvedTeams && (
-                <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs bg-blue-50 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300">
-                  {stream.involvedTeams.split('\n').filter(Boolean).length} teams
-                </span>
-              )}
-              {stream.applications && (
-                <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs bg-purple-50 dark:bg-purple-900/30 text-purple-700 dark:text-purple-300">
-                  {stream.applications.split('\n').filter(Boolean).length} apps
-                </span>
-              )}
-              {stream.customerSegments && (
-                <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs bg-green-50 dark:bg-green-900/30 text-green-700 dark:text-green-300">
-                  {stream.customerSegments.split('\n').filter(Boolean).length} segments
-                </span>
-              )}
-            </div>
-
-            {/* Timestamps */}
-            <div className="mt-3 text-xs text-gray-400 dark:text-gray-500">
-              Updated {new Date(stream.updatedAt).toLocaleDateString()}
+            {/* Card actions */}
+            <div className="px-5 py-3 bg-gray-50 dark:bg-gray-800/50 border-t border-gray-100 dark:border-gray-700 flex items-center justify-between">
+              <Button
+                onClick={() => onOpen(stream.id)}
+                size="sm"
+                variant="secondary"
+              >
+                Open →
+              </Button>
+              <DeleteAction
+                streamId={stream.id}
+                streamName={stream.name}
+                isConfirming={deleteConfirmId === stream.id}
+                onDelete={onDelete}
+                onConfirm={onDeleteConfirm}
+              />
             </div>
           </div>
-
-          {/* Card actions */}
-          <div className="px-5 py-3 bg-gray-50 dark:bg-gray-800/50 border-t border-gray-100 dark:border-gray-700 flex items-center justify-between">
-            <Button
-              onClick={() => onOpen(stream.id)}
-              size="sm"
-              variant="secondary"
-            >
-              Open
-            </Button>
-            <DeleteAction
-              streamId={stream.id}
-              streamName={stream.name}
-              isConfirming={deleteConfirmId === stream.id}
-              onDelete={onDelete}
-              onConfirm={onDeleteConfirm}
-            />
-          </div>
-        </div>
-      ))}
+        );
+      })}
     </div>
   );
 }
 
 /* ---------- Table View ---------- */
 
-function TableView({ streams, deleteConfirmId, onOpen, onDelete, onDeleteConfirm }: StreamListViewProps) {
+function TableView({ streams, deleteConfirmId, expandedStreamId, onOpen, onDelete, onDeleteConfirm, onToggleDetails }: StreamListViewProps) {
   return (
     <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 shadow-sm overflow-hidden">
       <div className="overflow-x-auto">
@@ -307,80 +350,270 @@ function TableView({ streams, deleteConfirmId, onOpen, onDelete, onDeleteConfirm
               const teamCount = stream.involvedTeams ? stream.involvedTeams.split('\n').filter(Boolean).length : 0;
               const appCount = stream.applications ? stream.applications.split('\n').filter(Boolean).length : 0;
               const segmentCount = stream.customerSegments ? stream.customerSegments.split('\n').filter(Boolean).length : 0;
+              const isExpanded = expandedStreamId === stream.id;
 
               return (
-                <tr
+                <TableRow
                   key={stream.id}
-                  className="hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors cursor-pointer"
-                  onClick={() => onOpen(stream.id)}
-                >
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    <div className="flex flex-col">
-                      <span className="text-sm font-medium text-gray-900 dark:text-gray-100">{stream.name}</span>
-                      {stream.description && (
-                        <span className="text-xs text-gray-500 dark:text-gray-400 truncate max-w-xs">{stream.description}</span>
-                      )}
-                    </div>
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-primary-50 dark:bg-primary-900/30 text-primary-700 dark:text-primary-300">
-                      {stream.nodes.length}
-                    </span>
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    {teamCount > 0 ? (
-                      <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs bg-blue-50 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300">
-                        {teamCount}
-                      </span>
-                    ) : (
-                      <span className="text-xs text-gray-400 dark:text-gray-500">—</span>
-                    )}
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    {appCount > 0 ? (
-                      <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs bg-purple-50 dark:bg-purple-900/30 text-purple-700 dark:text-purple-300">
-                        {appCount}
-                      </span>
-                    ) : (
-                      <span className="text-xs text-gray-400 dark:text-gray-500">—</span>
-                    )}
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    {segmentCount > 0 ? (
-                      <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs bg-green-50 dark:bg-green-900/30 text-green-700 dark:text-green-300">
-                        {segmentCount}
-                      </span>
-                    ) : (
-                      <span className="text-xs text-gray-400 dark:text-gray-500">—</span>
-                    )}
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-xs text-gray-500 dark:text-gray-400">
-                    {new Date(stream.updatedAt).toLocaleDateString()}
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-right" onClick={(e) => e.stopPropagation()}>
-                    <div className="flex items-center justify-end gap-2">
-                      <Button
-                        onClick={() => onOpen(stream.id)}
-                        size="sm"
-                        variant="secondary"
-                      >
-                        Open
-                      </Button>
-                      <DeleteAction
-                        streamId={stream.id}
-                        streamName={stream.name}
-                        isConfirming={deleteConfirmId === stream.id}
-                        onDelete={onDelete}
-                        onConfirm={onDeleteConfirm}
-                      />
-                    </div>
-                  </td>
-                </tr>
+                  stream={stream}
+                  teamCount={teamCount}
+                  appCount={appCount}
+                  segmentCount={segmentCount}
+                  isExpanded={isExpanded}
+                  deleteConfirmId={deleteConfirmId}
+                  onOpen={onOpen}
+                  onDelete={onDelete}
+                  onDeleteConfirm={onDeleteConfirm}
+                  onToggleDetails={onToggleDetails}
+                />
               );
             })}
           </tbody>
         </table>
       </div>
+    </div>
+  );
+}
+
+/* ---------- Table Row (with expandable detail) ---------- */
+
+interface TableRowProps {
+  stream: ValueStream;
+  teamCount: number;
+  appCount: number;
+  segmentCount: number;
+  isExpanded: boolean;
+  deleteConfirmId: string | null;
+  onOpen: (id: string) => void;
+  onDelete: (id: string) => void;
+  onDeleteConfirm: (id: string | null) => void;
+  onToggleDetails: (id: string) => void;
+}
+
+function TableRow({ stream, teamCount, appCount, segmentCount, isExpanded, deleteConfirmId, onOpen, onDelete, onDeleteConfirm, onToggleDetails }: TableRowProps) {
+  return (
+    <>
+      <tr
+        className={cn(
+          'transition-colors cursor-pointer',
+          isExpanded
+            ? 'bg-primary-50/50 dark:bg-primary-900/10'
+            : 'hover:bg-gray-50 dark:hover:bg-gray-700/50'
+        )}
+        onClick={() => onToggleDetails(stream.id)}
+        aria-expanded={isExpanded}
+      >
+        <td className="px-6 py-4 whitespace-nowrap">
+          <div className="flex items-center gap-2">
+            <svg
+              className={cn(
+                'w-4 h-4 text-gray-400 dark:text-gray-500 transition-transform flex-shrink-0',
+                isExpanded && 'rotate-180'
+              )}
+              fill="none" stroke="currentColor" viewBox="0 0 24 24"
+            >
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+            </svg>
+            <div className="flex flex-col">
+              <span className="text-sm font-medium text-gray-900 dark:text-gray-100">{stream.name}</span>
+              {stream.description && (
+                <span className="text-xs text-gray-500 dark:text-gray-400 truncate max-w-xs">{stream.description}</span>
+              )}
+            </div>
+          </div>
+        </td>
+        <td className="px-6 py-4 whitespace-nowrap">
+          <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-primary-50 dark:bg-primary-900/30 text-primary-700 dark:text-primary-300">
+            {stream.nodes.length}
+          </span>
+        </td>
+        <td className="px-6 py-4 whitespace-nowrap">
+          {teamCount > 0 ? (
+            <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs bg-blue-50 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300">
+              {teamCount}
+            </span>
+          ) : (
+            <span className="text-xs text-gray-400 dark:text-gray-500">—</span>
+          )}
+        </td>
+        <td className="px-6 py-4 whitespace-nowrap">
+          {appCount > 0 ? (
+            <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs bg-purple-50 dark:bg-purple-900/30 text-purple-700 dark:text-purple-300">
+              {appCount}
+            </span>
+          ) : (
+            <span className="text-xs text-gray-400 dark:text-gray-500">—</span>
+          )}
+        </td>
+        <td className="px-6 py-4 whitespace-nowrap">
+          {segmentCount > 0 ? (
+            <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs bg-green-50 dark:bg-green-900/30 text-green-700 dark:text-green-300">
+              {segmentCount}
+            </span>
+          ) : (
+            <span className="text-xs text-gray-400 dark:text-gray-500">—</span>
+          )}
+        </td>
+        <td className="px-6 py-4 whitespace-nowrap text-xs text-gray-500 dark:text-gray-400">
+          {new Date(stream.updatedAt).toLocaleDateString()}
+        </td>
+        <td className="px-6 py-4 whitespace-nowrap text-right" onClick={(e) => e.stopPropagation()}>
+          <div className="flex items-center justify-end gap-2">
+            <Button
+              onClick={() => onOpen(stream.id)}
+              size="sm"
+              variant="secondary"
+            >
+              Open →
+            </Button>
+            <DeleteAction
+              streamId={stream.id}
+              streamName={stream.name}
+              isConfirming={deleteConfirmId === stream.id}
+              onDelete={onDelete}
+              onConfirm={onDeleteConfirm}
+            />
+          </div>
+        </td>
+      </tr>
+      {isExpanded && (
+        <tr>
+          <td colSpan={7} className="px-0 py-0">
+            <StreamDetailPanel stream={stream} />
+          </td>
+        </tr>
+      )}
+    </>
+  );
+}
+
+/* ---------- Stream Detail Panel (expandable) ---------- */
+
+interface StreamDetailPanelProps {
+  stream: ValueStream;
+}
+
+function StreamDetailPanel({ stream }: StreamDetailPanelProps) {
+  const teams = stream.involvedTeams ? stream.involvedTeams.split('\n').filter(Boolean) : [];
+  const apps = stream.applications ? stream.applications.split('\n').filter(Boolean) : [];
+  const segments = stream.customerSegments ? stream.customerSegments.split('\n').filter(Boolean) : [];
+  const issues = stream.knownIssues ? stream.knownIssues.split('\n').filter(Boolean) : [];
+  const values = stream.createdValues ? stream.createdValues.split('\n').filter(Boolean) : [];
+
+  const hasContent = stream.description || teams.length > 0 || apps.length > 0 || segments.length > 0 || issues.length > 0 || values.length > 0;
+
+  return (
+    <div className="px-6 py-4 bg-gray-50/50 dark:bg-gray-900/30 border-t border-gray-100 dark:border-gray-700">
+      {!hasContent ? (
+        <p className="text-sm text-gray-400 dark:text-gray-500 italic">No details available. Open the stream to add metadata.</p>
+      ) : (
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          {/* Description */}
+          {stream.description && (
+            <div className="sm:col-span-2">
+              <DetailSection label="Description">
+                <p className="text-sm text-gray-700 dark:text-gray-300">{stream.description}</p>
+              </DetailSection>
+            </div>
+          )}
+
+          {/* Created Values */}
+          {values.length > 0 && (
+            <DetailSection label="Created Values">
+              <DetailList items={values} color="emerald" />
+            </DetailSection>
+          )}
+
+          {/* Customer Segments */}
+          {segments.length > 0 && (
+            <DetailSection label="Customer Segments">
+              <DetailList items={segments} color="green" />
+            </DetailSection>
+          )}
+
+          {/* Teams */}
+          {teams.length > 0 && (
+            <DetailSection label="Involved Teams">
+              <DetailList items={teams} color="blue" />
+            </DetailSection>
+          )}
+
+          {/* Applications */}
+          {apps.length > 0 && (
+            <DetailSection label="Applications">
+              <DetailList items={apps} color="purple" />
+            </DetailSection>
+          )}
+
+          {/* Known Issues */}
+          {issues.length > 0 && (
+            <div className="sm:col-span-2">
+              <DetailSection label="Known Issues">
+                <ul className="space-y-1">
+                  {issues.map((issue, i) => (
+                    <li key={i} className="flex items-start gap-2 text-sm text-gray-700 dark:text-gray-300">
+                      <span className="text-red-400 dark:text-red-500 mt-0.5">•</span>
+                      <span>{issue}</span>
+                    </li>
+                  ))}
+                </ul>
+              </DetailSection>
+            </div>
+          )}
+
+          {/* Timestamps & Stats */}
+          <div className="sm:col-span-2 flex flex-wrap gap-4 pt-2 border-t border-gray-200 dark:border-gray-700 text-xs text-gray-500 dark:text-gray-400">
+            <span>{stream.nodes.length} {stream.nodes.length === 1 ? 'step' : 'steps'} · {stream.edges.length} {stream.edges.length === 1 ? 'connection' : 'connections'}</span>
+            <span>Created {new Date(stream.createdAt).toLocaleDateString()}</span>
+            <span>Last updated {new Date(stream.updatedAt).toLocaleDateString()} at {new Date(stream.updatedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+/* ---------- Detail Section ---------- */
+
+interface DetailSectionProps {
+  label: string;
+  children: React.ReactNode;
+}
+
+function DetailSection({ label, children }: DetailSectionProps) {
+  return (
+    <div>
+      <h4 className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-1.5">{label}</h4>
+      {children}
+    </div>
+  );
+}
+
+/* ---------- Detail List (pills) ---------- */
+
+interface DetailListProps {
+  items: string[];
+  color: 'blue' | 'purple' | 'green' | 'emerald';
+}
+
+const detailListColors: Record<DetailListProps['color'], string> = {
+  blue: 'bg-blue-50 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300',
+  purple: 'bg-purple-50 dark:bg-purple-900/30 text-purple-700 dark:text-purple-300',
+  green: 'bg-green-50 dark:bg-green-900/30 text-green-700 dark:text-green-300',
+  emerald: 'bg-emerald-50 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-300',
+};
+
+function DetailList({ items, color }: DetailListProps) {
+  return (
+    <div className="flex flex-wrap gap-1.5">
+      {items.map((item, i) => (
+        <span
+          key={i}
+          className={cn('inline-flex items-center px-2 py-0.5 rounded-full text-xs', detailListColors[color])}
+        >
+          {item}
+        </span>
+      ))}
     </div>
   );
 }

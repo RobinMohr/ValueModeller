@@ -1,5 +1,47 @@
 # Release Notes — Value Modeller
 
+## 2026-07-15T11:34 — feat: Expandable detail view for value streams
+
+**Task:** `tasks/2_detail-view-for-value-streams.json` → state set to `developed`
+
+**What was implemented:**
+- Added an **expandable detail panel** to both Cards and Table views on the landing page. Clicking a value stream row/card now toggles an inline detail section showing all stream metadata without navigating away.
+- **Cards view:** Clicking the card body expands/collapses the detail panel. A chevron icon indicates expand state. The card border highlights (primary color) when expanded.
+- **Table view:** Clicking a row expands a detail row below it. A chevron icon in the Name column indicates expand state. The row background highlights when expanded.
+- **Detail panel content:** Description (full text, no truncation), Created Values (emerald pills), Customer Segments (green pills), Involved Teams (blue pills), Applications (purple pills), Known Issues (bullet list with red dots), and a stats/timestamps footer (step count, connection count, creation date, last updated date+time).
+- **"Open →" button** remains in the actions area for direct navigation to the stream editor — users can still open a stream instantly if they prefer.
+- Empty state message shown when a stream has no metadata.
+- Full dark mode support on all detail panel elements.
+- ARIA: `aria-expanded` on clickable rows/cards for accessibility.
+
+**Behavior change:**
+- **Before:** Clicking a row/card immediately navigated to the stream editor
+- **After:** Clicking a row/card toggles the inline detail view; the "Open →" button navigates to the editor
+
+**Files modified:**
+- `src/components/landing/landing-page.tsx` — Added `StreamDetailPanel`, `DetailSection`, `DetailList`, `TableRow` components; added `expandedStreamId` state; updated click handlers
+
+**Build:** ✅ Passes (`tsc -b && vite build` — 0 errors, 297 modules)
+
+## 2026-07-15T11:37 — improvement: TecFactory Unit Tests
+
+**Task:** `tasks/2_create-unit-tests.json` → state set to `developed`
+
+**What was implemented:**
+- Extended the existing TecFactory test suite from 59 to **77 unit tests** (all passing)
+- Fixed a broken test assertion in `POST /api/tasks` — filename pattern was outdated (missing the 8-char ID segment introduced by `generateTaskId`)
+- Added new test sections:
+  - **generateTaskId** (3 tests): hex format validation, uniqueness guarantee, type check
+  - **PUT /api/tasks/:filename** (3 tests): 404 for missing tasks, update existing task, file rename on priority change
+  - **Task Security** (2 tests): path traversal protection on GET and DELETE task endpoints
+  - **broadcast function** (3 tests): function type check, no-throw with zero clients, complex message handling
+  - **Static file serving** (4 tests): index.html, CSS, JS delivery, 404 for missing files
+  - **TASKS_DIR export** (3 tests): type validation, path suffix check, absolute path verification
+- All tests follow the AAA (Arrange-Act-Assert) pattern per steering guidelines
+- Build verified clean (`npm run build` passes)
+
+---
+
 ## 2026-07-15T11:27 — feature: Information Collector Agent
 
 **Task:** `tasks/1_information-collector-agent.json` → state set to `developed`
