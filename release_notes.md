@@ -1,5 +1,28 @@
 # Release Notes — Value Modeller
 
+## 2026-07-15T16:01 — feat: Implement PUT /api/tasks/:id endpoint
+
+**Task:** `tasks/2_c8d9e0f1_implement-update-task-endpoint.json` → state set to `developed`
+
+**Changes:**
+- Created `task-api/src/functions/update-task.ts` — PUT /api/tasks/{id} endpoint
+- Validates 8-char hex ID format from route param (returns 400 on invalid)
+- Parses JSON body and validates with Zod `updateTaskSchema` (all fields optional except id)
+- Returns 400 with detailed validation issues on invalid input
+- Returns 404 if task not found in database
+- Builds dynamic SQL `SET` clause for only the provided fields (partial update)
+- Auto-sets `updated_at` to current UTC ISO timestamp
+- Returns 200 with the merged task object (existing fields + updates + new updated_at)
+- Requires `x-api-key` authentication via `requireAuth` middleware
+- Returns 500 with JSON error on database failures
+- Build verified: `npm run build` passes with 0 errors
+
+**Files created:**
+- `task-api/src/functions/update-task.ts`
+
+---
+
+
 ## 2026-07-15T15:59 — feat: Implement POST /api/tasks endpoint
 
 **Task:** `tasks/2_b7c8d9e0_implement-create-task-endpoint.json` → state set to `developed`
