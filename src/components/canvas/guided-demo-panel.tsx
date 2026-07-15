@@ -246,7 +246,7 @@ export function GuidedDemoPanel() {
 
   if (!isActive) {
     return (
-      <Panel position="top-right" className="mr-2 mt-2">
+      <Panel position="top-right" className="mt-2 mr-2">
         <Button
           onClick={startDemo}
           size="sm"

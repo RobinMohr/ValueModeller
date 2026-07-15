@@ -1,5 +1,21 @@
 # Release Notes — Value Modeller
 
+## 2026-07-15T12:03 — improvement: Fix State field formatting in TecFactory task editing form
+
+**Task:** `tasks/2_b5a4ad41_fix-state-formatting-in-editing-a-task.json` → state set to `developed`
+
+**What was fixed:**
+- The `.form-row` CSS grid in `tecfactory/public/style.css` used `grid-template-columns: 1fr 1fr auto` which gave the third field (State) an `auto` width instead of an equal `1fr` share, making it visually inconsistent with Priority and Type fields.
+- Changed to `grid-template-columns: repeat(auto-fit, minmax(140px, 1fr))` so all fields in the row (Priority, Type, State) get equal proportional width and the layout is responsive.
+- Removed the now-unnecessary `.form-row .form-group:last-child select { min-width: 140px; }` rule since the responsive grid approach handles minimum sizing.
+
+**Files modified:**
+- `tecfactory/public/style.css` — Updated `.form-row` grid-template-columns
+
+**Build:** ✅ Passes (`tsc -b && vite build` — 0 errors, 297 modules)
+
+---
+
 ## 2026-07-15T12:00 — improvement: Task sorting by priority or last edited time
 
 **Task:** `tasks/2_e437f021_order-the-tasks-by-the-last-edited-time-or-by-the-.json` → state set to `developed`

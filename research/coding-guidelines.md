@@ -1,6 +1,6 @@
 # Research: Coding Guidelines & Standard Practices for Value Modeller
 
-**Last Updated:** 2026-07-15T11:57:34+02:00
+**Last Updated:** 2026-07-15T12:00:50+02:00
 
 ---
 
@@ -45,17 +45,59 @@ Important: When updating node data, always create a new object reference:
 return { ...node, data: { ...node.data, ...newData } };
 ```
 
+### Context Menu Pattern (from official example)
+
+```tsx
+const onNodeContextMenu = useCallback(
+  (event, node) => {
+    event.preventDefault();
+    const pane = ref.current.getBoundingClientRect();
+    setMenu({
+      id: node.id,
+      top: event.clientY < pane.height - 200 && event.clientY,
+      left: event.clientX < pane.width - 200 && event.clientX,
+      right: event.clientX >= pane.width - 200 && pane.width - event.clientX,
+      bottom: event.clientY >= pane.height - 200 && pane.height - event.clientY,
+    });
+  },
+  [setMenu],
+);
+
+// Close on pane click
+const onPaneClick = useCallback(() => setMenu(null), [setMenu]);
+```
+
+Key points:
+- Use `onNodeContextMenu` prop on `<ReactFlow>`
+- Prevent native context menu with `event.preventDefault()`
+- Calculate position relative to pane bounds to avoid off-screen menus
+- Close menu on `onPaneClick`
+
+### Copy/Paste Pattern
+
+- React Flow has an official "Copy and Paste" example (Pro feature)
+- Key implementation steps:
+  1. Listen for Ctrl+C/V keyboard events (use `useKeyPress` hook or global listener)
+  2. On copy: store selected nodes + internal edges in a clipboard buffer (React state or ref)
+  3. On paste: deep-clone nodes with new IDs, offset positions by ~50px, remap edge source/target to new IDs
+  4. Use `crypto.randomUUID()` for new IDs (project already uses `generateId()`)
+  5. Add cloned nodes/edges to the store
+
 ### Accessibility in React Flow (v12+)
 
 - Built-in keyboard controls: Enter/Space to select a node, arrow keys to move, Delete to remove, Escape to cancel
 - React Flow supports `aria-label` configuration via `AriaLabelConfig` type
 - For screen readers: nodes are rendered as focusable elements with ARIA descriptions
 - Custom nodes should include proper ARIA attributes for interactive elements within them
+- The `colorMode` prop handles internal dark/light styling automatically
 
 **Sources:**
 - https://reactflow.dev/learn/advanced-use/performance (Relevance: HIGH)
 - https://reactflow.dev/learn/advanced-use/state-management (Relevance: HIGH)
-- https://www.synergycodes.com/blog/guide-to-optimize-react-flow-project-performance (Relevance: HIGH)
+- https://reactflow.dev/examples/interaction/context-menu (Relevance: HIGH)
+- https://reactflow.dev/examples/interaction/copy-paste (Relevance: HIGH)
+- https://reactflow.dev/examples/interaction/undo-redo (Relevance: HIGH)
+- https://www.synergycodes.com/webbook/guide-to-optimize-react-flow-project-performance (Relevance: HIGH)
 - https://www.synergycodes.com/blog/building-usable-and-accessible-diagrams-with-react-flow (Relevance: MEDIUM)
 
 ---
@@ -100,7 +142,6 @@ const safeStorage: StateStorage = {
       localStorage.setItem(name, value);
     } catch (e) {
       if (e instanceof DOMException && e.name === 'QuotaExceededError') {
-        // Notify user, attempt cleanup, or fallback
         console.warn('localStorage quota exceeded');
       }
     }
@@ -125,12 +166,100 @@ const safeStorage: StateStorage = {
 **Sources:**
 - https://zustand.docs.pmnd.rs/learn/guides/testing (Relevance: HIGH)
 - https://docs.bswen.com/blog/2026-04-07-fix-quotaexceedederror-localstorage/ (Relevance: HIGH)
-- https://gist.github.com/ctrlShiftBryan/633b2e99cb0f62fbdde1c41858950283 (Relevance: MEDIUM)
 - https://beyondthecode.medium.com/zustand-middleware-the-architectural-core-of-scalable-state-management-d8d1053489ac (Relevance: MEDIUM)
 
 ---
 
-## 3. Testing with Vitest + React Testing Library
+## 3. Undo/Redo with Zundo Middleware
+
+**Relevance: HIGH** — Active task for undo/redo support; project already has a history-store.ts
+
+### Zundo Library (< 700 bytes)
+
+The recommended approach for Zustand undo/redo. Package: `zundo` (v2.3.0+, supports Zustand v5).
+
+```typescript
+import { create } from 'zustand';
+import { temporal } from 'zundo';
+
+interface GraphState {
+  nodes: SipocNode[];
+  edges: SipocEdge[];
+  // ... actions
+}
+
+const useGraphStore = create<GraphState>()(
+  temporal(
+    (set) => ({
+      nodes: [],
+      edges: [],
+      // ... actions
+    }),
+    {
+      // Only track node/edge data changes, not UI state
+      partialize: (state) => ({
+        nodes: state.nodes,
+        edges: state.edges,
+      }),
+      // Limit history to prevent memory bloat
+      limit: 50,
+      // Debounce rapid changes (e.g., during drag)
+      handleSet: (handleSet) =>
+        throttle(handleSet, 500),
+      // Only store when something actually changed
+      equality: (pastState, currentState) =>
+        shallow(pastState, currentState),
+    }
+  ),
+);
+
+// Access undo/redo
+const { undo, redo, clear } = useGraphStore.temporal.getState();
+```
+
+### Key API
+
+| Function | Description |
+|----------|-------------|
+| `undo(steps?)` | Go back N states (default 1) |
+| `redo(steps?)` | Go forward N states (default 1) |
+| `clear()` | Remove all history |
+| `pause()` / `resume()` | Temporarily stop/start tracking |
+| `isTracking` | Boolean flag for tracking state |
+
+### Integration with Persist
+
+When using both `persist` and `temporal`, wrap them correctly:
+```typescript
+const useStore = create<State>()(
+  persist(
+    temporal(
+      (set) => ({ /* store */ }),
+      { /* temporal options */ }
+    ),
+    { name: 'storage-key' }
+  )
+);
+```
+
+### Best Practices for This Project
+
+1. **Partialize** — Only track `nodes` and `edges`, not UI state (selectedNodeId, isPanelOpen)
+2. **Throttle** — Use `handleSet` with 500ms throttle to avoid storing every pixel of a drag
+3. **Limit** — Set `limit: 50` to cap memory usage
+4. **Pause during bulk operations** — Call `pause()` before auto-layout, `resume()` after
+5. **Keyboard shortcuts** — Ctrl+Z for undo, Ctrl+Shift+Z (or Ctrl+Y) for redo
+
+**Sources:**
+- https://github.com/charkour/zundo (Relevance: HIGH)
+- https://www.npmjs.com/package/zundo (Relevance: HIGH)
+- https://reactflow.dev/examples/interaction/undo-redo (Relevance: HIGH)
+
+
+
+---
+
+## 4. Testing with Vitest + React Testing Library
 
 **Relevance: HIGH** — Multiple tasks for unit tests; existing tests use Vitest with jsdom
 
@@ -150,7 +279,6 @@ const safeStorage: StateStorage = {
 
 ```typescript
 import { describe, it, expect, beforeEach } from 'vitest';
-import { act } from '@testing-library/react';
 import { useGraphStore } from '../store/graph-store';
 
 describe('GraphStore', () => {
@@ -178,6 +306,41 @@ describe('GraphStore', () => {
 
 **Key principle:** Zustand stores can be tested directly via `getState()` and `setState()` without rendering React components — this is faster and more focused than using `renderHook`.
 
+### Testing TecFactory (Express + Supertest + Vitest ESM)
+
+```javascript
+// TecFactory uses ESM (.mjs test files)
+import { describe, it, expect, beforeAll, afterAll } from 'vitest';
+
+describe('Tasks REST API', () => {
+  let request, app;
+
+  beforeAll(async () => {
+    const supertest = await import('supertest');
+    const mod = await import('../server.js');
+    request = supertest.default;
+    app = mod.app;
+  });
+
+  it('should return tasks list', async () => {
+    // Arrange — nothing needed for GET
+
+    // Act
+    const response = await request(app).get('/api/tasks');
+
+    // Assert
+    expect(response.status).toBe(200);
+    expect(Array.isArray(response.body)).toBe(true);
+  });
+});
+```
+
+Key patterns for Express + ESM testing:
+- Export `app` separately from `server.listen()` so Supertest can use it without starting HTTP
+- Use dynamic `import()` in `beforeAll` for ESM compatibility
+- Use `.mjs` extension for test files in ESM projects
+- Clean up temp files in `afterAll` for tests that create data
+
 ### React Testing Library Query Priority
 
 1. `getByRole` — Best for accessibility (buttons, inputs, headings)
@@ -187,22 +350,6 @@ describe('GraphStore', () => {
 5. `getByDisplayValue` — Filled form fields
 6. `getByTestId` — Last resort
 
-### Testing Custom Hooks
-
-```typescript
-import { renderHook, act } from '@testing-library/react';
-
-it('should update state when action is called', () => {
-  const { result } = renderHook(() => useMyHook());
-
-  act(() => {
-    result.current.someAction();
-  });
-
-  expect(result.current.someValue).toBe(expected);
-});
-```
-
 ### Best Practices
 
 - **Use `userEvent.setup()`** over `fireEvent` for realistic user interaction simulation
@@ -211,16 +358,18 @@ it('should update state when action is called', () => {
 - **One logical assertion per test** — multiple `expect()` calls verifying one concept is fine
 - **Clean up** — Vitest with globals handles React Testing Library cleanup automatically
 - **Avoid snapshot abuse** — prefer explicit assertions over brittle snapshots
+- **AAA principle** — Always structure tests as Arrange → Act → Assert with comments
 
 **Sources:**
-- https://oneuptime.com/blog/post/2026-01-15-unit-test-react-vitest-testing-library/view (Relevance: HIGH)
 - https://zustand.docs.pmnd.rs/learn/guides/testing (Relevance: HIGH)
-- https://gist.github.com/mustafadalga/475769fcb77b08a813bf5dae0a145027 (Relevance: MEDIUM)
-- https://www.thisdot.co/blog/how-to-test-react-custom-hooks-and-components-with-vitest (Relevance: MEDIUM)
+- https://oneuptime.com/blog/post/2026-01-15-unit-test-react-vitest-testing-library/view (Relevance: HIGH)
+- https://medium.com/@samueldeveloper/react-testing-library-vitest-the-mistakes-that-haunt-developers (Relevance: HIGH)
+- https://moldstud.com/articles/p-getting-started-with-supertest-a-comprehensive-guide-to-unit-testing-for-expressjs (Relevance: MEDIUM)
+- https://www.nucamp.co/blog/testing-in-2026-jest-react-testing-library-and-full-stack-testing-strategies (Relevance: MEDIUM)
 
 ---
 
-## 4. Accessibility (WCAG 2.1 AA)
+## 5. Accessibility (WCAG 2.1 AA)
 
 **Relevance: HIGH** — Multiple accessibility tasks in queue; project steering mandates a11y compliance
 
@@ -275,7 +424,6 @@ function useFocusTrap(containerRef: RefObject<HTMLElement>, isOpen: boolean) {
     animation: none !important;
     stroke-dasharray: none !important;
   }
-  /* Also disable transitions on side panels */
   .transition-transform {
     transition: none !important;
   }
@@ -289,212 +437,20 @@ function useFocusTrap(containerRef: RefObject<HTMLElement>, isOpen: boolean) {
 - `Tab` should cycle through interactive elements within a selected node
 - Custom graph keyboard nav (as in `use-graph-keyboard-nav.ts`) should be documented with visible hints
 
+### WCAG 2.1 AA Key Requirements for SPAs
+
+| Criterion | Requirement | Implementation |
+|-----------|-------------|----------------|
+| 2.1.1 Keyboard | All functionality available via keyboard | Tab navigation, Enter/Space activation |
+| 2.4.3 Focus Order | Focus order preserves meaning | Logical tab order in forms and panels |
+| 2.4.7 Focus Visible | Focus indicator always visible | Tailwind `focus:ring-*` classes |
+| 4.1.2 Name, Role, Value | Custom controls have ARIA labels | `aria-label`, `role` attributes |
+| 1.4.3 Contrast | 4.5:1 ratio for text | Verified in both light/dark modes |
+| 2.5.1 Pointer Gestures | No multipoint gestures required | Single-click alternatives for all actions |
+
 **Sources:**
-- https://www.uxpin.com/studio/blog/how-to-build-accessible-modals-with-focus-traps/ (Relevance: HIGH)
+- https://www.uxpin.com/studio/blog/wcag-211-keyboard-accessibility-explained/ (Relevance: HIGH)
 - https://www.synergycodes.com/blog/building-usable-and-accessible-diagrams-with-react-flow (Relevance: HIGH)
 - https://www.allaccessible.org/blog/react-accessibility-best-practices-guide (Relevance: MEDIUM)
-- https://clhenrick.io/blog/react-a11y-modal-dialog/ (Relevance: MEDIUM)
-
----
-
-## 5. Tailwind CSS — Dark Mode & Styling Patterns
-
-**Relevance: HIGH** — Many tasks involve fixing missing dark mode styles
-
-### Dark Mode Strategy (class-based, already used)
-
-```javascript
-// tailwind.config.js
-module.exports = {
-  darkMode: 'class', // Toggle via class on <html> or root element
-  // ...
-}
-```
-
-### Checklist for Dark Mode Consistency
-
-Every component with visible styling must have both light and dark variants:
-
-| Element | Light | Dark |
-|---------|-------|------|
-| Background | `bg-white` | `dark:bg-gray-800` or `dark:bg-gray-900` |
-| Text | `text-gray-900` | `dark:text-gray-100` |
-| Secondary text | `text-gray-600` | `dark:text-gray-400` |
-| Borders | `border-gray-200` | `dark:border-gray-600` or `dark:border-gray-700` |
-| Inputs | `bg-white border-gray-300` | `dark:bg-gray-700 dark:border-gray-600` |
-| Hover states | `hover:bg-gray-100` | `dark:hover:bg-gray-700` |
-| Focus rings | `focus:ring-blue-500` | `dark:focus:ring-blue-400` |
-
-### Common Mistakes (found in this project)
-
-1. Adding light mode classes but forgetting `dark:` counterparts on the same element
-2. Hardcoding colors like `text-gray-700` without dark variant — invisible on dark backgrounds
-3. Missing dark mode on headings/labels in form sections
-4. Not applying `dark:` to dynamically generated elements (e.g., React Flow MiniMap)
-
-### React Flow + Dark Mode
-
-React Flow v12 has a `colorMode` prop that handles internal styling:
-```tsx
-<ReactFlow colorMode={isDark ? 'dark' : 'light'} ... />
-```
-This is cleaner than manually overriding `.react-flow` CSS classes with Tailwind.
-
-**Sources:**
-- https://magicui.design/blog/tailwind-dark-mode (Relevance: HIGH)
-- https://blog.vibecoder.me/dark-mode-implementation-web-app (Relevance: MEDIUM)
-- https://tailkits.com/blog/dark-text-styling-tailwind/ (Relevance: MEDIUM)
-
----
-
-## 6. TypeScript — Strict Mode Patterns
-
-**Relevance: MEDIUM** — Project uses TypeScript strict mode; relevant for future features
-
-### Discriminated Unions for Component Props
-
-Useful for components that behave differently based on a mode/variant:
-
-```typescript
-type NodeType = 'sipoc' | 'group';
-
-// Discriminated union for node-specific props
-type NodeProps =
-  | { type: 'sipoc'; data: SipocNodeData }
-  | { type: 'group'; data: GroupNodeData };
-
-// TypeScript narrows automatically in switch/if:
-function renderNode(props: NodeProps) {
-  if (props.type === 'sipoc') {
-    // props.data is SipocNodeData here
-  }
-}
-```
-
-### Type Narrowing Best Practices
-
-- Use `satisfies` operator for type-safe object literals while preserving narrow types
-- Prefer `interface` for object shapes (extendable), `type` for unions/aliases
-- Use `as const` for literal arrays that shouldn't widen
-- Avoid `any` — use `unknown` + type guards for truly unknown data
-
-### React Flow TypeScript Patterns
-
-```typescript
-import type { Node, Edge, NodeProps } from '@xyflow/react';
-
-// Type your nodes generically
-type SipocNode = Node<SipocNodeData, 'sipoc'>;
-
-// Custom node component with proper typing
-function SipocNodeComponent({ data, id }: NodeProps<SipocNode>) {
-  // data is fully typed as SipocNodeData
-}
-```
-
-**Sources:**
-- https://oneuptime.com/blog/post/2026-01-15-typescript-discriminated-unions-react-props/view (Relevance: MEDIUM)
-- https://betterstack.com/community/guides/scaling-nodejs/discriminated-unions/ (Relevance: MEDIUM)
-- https://generalistprogrammer.com/tutorials/typescript-discriminated-unions-complete-guide (Relevance: MEDIUM)
-
----
-
-## 7. Project-Specific Patterns (Observed from Codebase)
-
-**Relevance: HIGH** — These patterns are already established and should be followed for consistency
-
-### File Organization
-
-```
-src/components/{domain}/    # Grouped by feature (canvas, form, landing, layout, ui)
-src/store/{domain}-store.ts # One store per domain
-src/hooks/use-{name}.ts     # Custom hooks prefixed with "use-"
-src/utils/{name}.ts         # Pure utility functions
-src/types/{domain}.types.ts # Type definitions
-src/tests/{name}.test.ts    # Test files co-located in tests/ directory
-```
-
-### Naming Conventions
-
-| Item | Convention | Example |
-|------|-----------|---------|
-| Files | kebab-case | `graph-store.ts`, `sipoc-form.tsx` |
-| Components | PascalCase | `SipocNode`, `FlowCanvas` |
-| Hooks | camelCase with `use` prefix | `useHelperLines`, `useFocusTrap` |
-| Stores | camelCase with `use` prefix | `useGraphStore`, `useUIStore` |
-| Types | PascalCase | `SipocNodeData`, `GraphState` |
-| Event handlers | `handle` prefix | `handleNodeClick`, `handleSave` |
-
-### ID Generation
-
-Always use `crypto.randomUUID()` (via `generateId()` utility in `src/utils/id.ts`).
-
-### State Update Pattern (Immutable)
-
-```typescript
-// Always create new references for React to detect changes:
-set({
-  nodes: get().nodes.map((node) =>
-    node.id === targetId
-      ? { ...node, data: { ...node.data, ...updates } }
-      : node
-  ),
-});
-```
-
-### Auto-Save Subscription Pattern
-
-```typescript
-// Debounced subscription for persistence
-useStore.subscribe(
-  (state) => ({ relevantData }),
-  ({ relevantData }) => {
-    if (saveTimeout) clearTimeout(saveTimeout);
-    saveTimeout = setTimeout(() => {
-      persistenceStore.save(relevantData);
-    }, 500);
-  },
-  { equalityFn: shallowCompare }
-);
-```
-
----
-
-## 8. Future Considerations (Based on Task Queue)
-
-Based on the current task queue, these guidelines will become increasingly relevant:
-
-| Future Feature | Relevant Guidelines |
-|---------------|-------------------|
-| Node context menu (right-click) | React Flow's context menu pattern; `onNodeContextMenu` handler |
-| Copy/paste nodes (Ctrl+C/V) | Clipboard API; deep-clone node data with new IDs |
-| Undo/redo | History store pattern; command pattern with immutable snapshots |
-| Export/import JSON | Validate schema on import; sanitize user-uploaded JSON |
-| Node grouping/swimlanes | React Flow sub-flows; `parentId` + `extent: 'parent'` pattern |
-| Smart edge routing | Pathfinding algorithms; memoize expensive calculations |
-| Proximity connect | Distance-based calculations; `useCallback` for performance |
-| Unit test expansion | Cover stores first (pure logic), then utils, then components |
-| Dark mode fixes | Systematic audit of all components for `dark:` variants |
-| ARIA dialog semantics | Focus trap hook; `role="dialog"` + `aria-modal` on all modals |
-
----
-
-## 9. Reference Links (All Sources)
-
-| Topic | URL | Relevance |
-|-------|-----|-----------|
-| React Flow Performance | https://reactflow.dev/learn/advanced-use/performance | HIGH |
-| React Flow State Management | https://reactflow.dev/learn/advanced-use/state-management | HIGH |
-| React Flow Accessibility | https://www.synergycodes.com/blog/building-usable-and-accessible-diagrams-with-react-flow | HIGH |
-| Synergy Codes RF Performance Guide | https://www.synergycodes.com/blog/guide-to-optimize-react-flow-project-performance | HIGH |
-| Zustand Testing Guide | https://zustand.docs.pmnd.rs/learn/guides/testing | HIGH |
-| Vitest + RTL Guide | https://oneuptime.com/blog/post/2026-01-15-unit-test-react-vitest-testing-library/view | HIGH |
-| localStorage Error Handling | https://docs.bswen.com/blog/2026-04-07-fix-quotaexceedederror-localstorage/ | HIGH |
-| Accessible Modals & Focus Traps | https://www.uxpin.com/studio/blog/how-to-build-accessible-modals-with-focus-traps/ | HIGH |
-| React Accessibility SPA Guide | https://www.allaccessible.org/blog/react-accessibility-best-practices-guide | MEDIUM |
-| Tailwind Dark Mode | https://magicui.design/blog/tailwind-dark-mode | MEDIUM |
-| TypeScript Discriminated Unions | https://betterstack.com/community/guides/scaling-nodejs/discriminated-unions/ | MEDIUM |
-| Zustand Middleware Patterns | https://beyondthecode.medium.com/zustand-middleware-the-architectural-core-of-scalable-state-management-d8d1053489ac | MEDIUM |
-| React Testing Custom Hooks | https://www.thisdot.co/blog/how-to-test-react-custom-hooks-and-components-with-vitest | MEDIUM |
-| React a11y Modal Dialog | https://clhenrick.io/blog/react-a11y-modal-dialog/ | MEDIUM |
-| Dark Mode Implementation | https://blog.vibecoder.me/dark-mode-implementation-web-app | MEDIUM |
+- https://rtcamp.com/handbook/react-best-practices/accessibility/ (Relevance: MEDIUM)
+- https://www.w3.org/TR/WCAG21/ (Relevance: MEDIUM)

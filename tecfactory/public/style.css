@@ -797,7 +797,7 @@ main {
 
 .form-row {
   display: grid;
-  grid-template-columns: 1fr 1fr auto;
+  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
   gap: 1rem;
   align-items: start;
 }
@@ -808,10 +808,6 @@ main {
 
 .form-row .form-group label {
   white-space: nowrap;
-}
-
-.form-row .form-group:last-child select {
-  min-width: 140px;
 }
 
 .form-row-single {
