@@ -3,8 +3,10 @@
   "title": "Implement DB client and SQL connection pool",
   "priority": 1,
   "type": "improvement",
-  "state": "todo",
+  "state": "developed",
   "description": "Create the database client module using the mssql package. Implements a singleton connection pool, typed query helpers, and reads SQL_CONNECTION_STRING from environment variables. Target: Azure SQL Serverless, database name 'TecFactory', server 'rm-sandbox.database.windows.net'.",
-  "files": ["task-api/src/db/client.ts"],
+  "files": [
+    "task-api/src/db/client.ts"
+  ],
   "origin": "user-assisted"
 }

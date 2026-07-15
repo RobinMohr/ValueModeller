@@ -1,5 +1,34 @@
 # Release Notes — Value Modeller
 
+## 2026-07-15T15:49 — feat: Implement DB client and SQL connection pool
+
+**Task:** `tasks/1_b1f2c3d4_implement-db-client-and-connection-pool.json` → state set to `developed`
+
+**What was implemented:**
+- Created `task-api/src/db/client.ts` — the database client module with:
+  - **Singleton connection pool** — lazily initialized on first call to `getPool()`, concurrent-safe (multiple simultaneous callers share a single connection attempt)
+  - **`buildConfig()`** — reads `SQL_CONNECTION_STRING` (full ADO.NET string) or falls back to individual env vars (`SQL_SERVER`, `SQL_DATABASE`, `SQL_USER`, `SQL_PASSWORD`, `SQL_ENCRYPT`)
+  - **Typed query helpers:**
+    - `query<T>(sql, params)` — executes parameterized SQL, returns full `IResult<T>`
+    - `queryOne<T>(sql, params)` — returns first record or `undefined`
+    - `execute(sql, params)` — returns rows affected count (for INSERT/UPDATE/DELETE)
+  - **`closePool()`** — graceful shutdown for Azure Functions cleanup or tests
+  - **Azure SQL Serverless settings:** encrypt: true, pool max 10, min 0, idle timeout 30s
+- Installed `@types/mssql` as devDependency (mssql v11 doesn't ship its own types)
+
+**Target:** Azure SQL Serverless — `rm-sandbox.database.windows.net`, database `TecFactory`
+
+**Files created:**
+- `task-api/src/db/client.ts`
+
+**Files modified:**
+- `task-api/package.json` — added `@types/mssql` to devDependencies
+- `task-api/package-lock.json` — lockfile updated
+
+**Build:** ✅ task-api `tsc` passes (0 errors)
+
+---
+
 ## 2026-07-15T15:44 — feat: Scaffold Azure Functions Task API project
 
 **Task:** `tasks/1_a0e1b2c3_scaffold-azure-functions-task-api-project.json` → state set to `developed`
