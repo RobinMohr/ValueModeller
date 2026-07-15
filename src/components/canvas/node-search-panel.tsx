@@ -176,7 +176,7 @@ export function NodeSearchPanel() {
     return (
       <button
         onClick={handleToggle}
-        className="absolute top-3 right-3 z-10 flex items-center gap-1.5 rounded-md bg-white px-3 py-1.5 text-sm text-gray-600 shadow-md border border-gray-200 hover:bg-gray-50 hover:text-gray-900 transition-colors"
+        className="absolute top-3 right-3 z-10 flex items-center gap-1.5 rounded-md bg-white dark:bg-gray-800 px-3 py-1.5 text-sm text-gray-600 dark:text-gray-400 shadow-md border border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700 hover:text-gray-900 dark:hover:text-gray-100 transition-colors"
         aria-label="Search nodes (Ctrl+F)"
         title="Search nodes (Ctrl+F)"
       >
@@ -184,16 +184,16 @@ export function NodeSearchPanel() {
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
         </svg>
         <span className="hidden sm:inline">Search</span>
-        <kbd className="hidden sm:inline ml-1 text-xs text-gray-400 bg-gray-100 rounded px-1">⌘F</kbd>
+        <kbd className="hidden sm:inline ml-1 text-xs text-gray-400 dark:text-gray-500 bg-gray-100 dark:bg-gray-700 rounded px-1">⌘F</kbd>
       </button>
     );
   }
 
   return (
-    <div className="absolute top-3 right-3 z-10 w-72 rounded-lg bg-white shadow-lg border border-gray-200 overflow-hidden">
+    <div className="absolute top-3 right-3 z-10 w-72 rounded-lg bg-white dark:bg-gray-800 shadow-lg border border-gray-200 dark:border-gray-700 overflow-hidden">
       {/* Search input */}
-      <div className="flex items-center gap-2 px-3 py-2 border-b border-gray-100">
-        <svg className="w-4 h-4 text-gray-400 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+      <div className="flex items-center gap-2 px-3 py-2 border-b border-gray-100 dark:border-gray-700">
+        <svg className="w-4 h-4 text-gray-400 dark:text-gray-500 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
         </svg>
         <input
@@ -203,12 +203,12 @@ export function NodeSearchPanel() {
           onChange={(e) => setQuery(e.target.value)}
           onKeyDown={handleInputKeyDown}
           placeholder="Search processes…"
-          className="flex-1 text-sm text-gray-900 placeholder-gray-400 outline-none bg-transparent"
+          className="flex-1 text-sm text-gray-900 dark:text-gray-100 placeholder-gray-400 dark:placeholder-gray-500 outline-none bg-transparent"
           aria-label="Search processes by name, description, or SIPOC fields"
         />
         <button
           onClick={handleToggle}
-          className="text-gray-400 hover:text-gray-600 p-0.5"
+          className="text-gray-400 hover:text-gray-600 dark:text-gray-500 dark:hover:text-gray-300 p-0.5"
           aria-label="Close search"
         >
           <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -221,7 +221,7 @@ export function NodeSearchPanel() {
       {query.trim() && (
         <div className="max-h-60 overflow-y-auto">
           {results.length === 0 ? (
-            <div className="px-3 py-4 text-sm text-gray-500 text-center">
+            <div className="px-3 py-4 text-sm text-gray-500 dark:text-gray-400 text-center">
               No processes found
             </div>
           ) : (
@@ -235,20 +235,20 @@ export function NodeSearchPanel() {
                   className={cn(
                     'px-3 py-2 cursor-pointer transition-colors',
                     idx === selectedIndex
-                      ? 'bg-primary-50 text-primary-900'
-                      : 'hover:bg-gray-50 text-gray-700'
+                      ? 'bg-primary-50 dark:bg-primary-900/30 text-primary-900 dark:text-primary-300'
+                      : 'hover:bg-gray-50 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-300'
                   )}
                 >
                   <div className="flex items-center justify-between gap-2">
                     <span className="text-sm font-medium truncate">
                       {result.node.data.label}
                     </span>
-                    <span className="text-xs text-gray-400 flex-shrink-0">
+                    <span className="text-xs text-gray-400 dark:text-gray-500 flex-shrink-0">
                       {result.matchField}
                     </span>
                   </div>
                   {result.matchField !== 'Name' && (
-                    <p className="text-xs text-gray-500 mt-0.5 truncate">
+                    <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5 truncate">
                       {result.matchSnippet}
                     </p>
                   )}
@@ -256,7 +256,7 @@ export function NodeSearchPanel() {
               ))}
             </ul>
           )}
-          <div className="px-3 py-1.5 text-xs text-gray-400 border-t border-gray-100">
+          <div className="px-3 py-1.5 text-xs text-gray-400 dark:text-gray-500 border-t border-gray-100 dark:border-gray-700">
             {results.length} result{results.length !== 1 ? 's' : ''} • ↑↓ navigate • Enter to focus • Esc to close
           </div>
         </div>

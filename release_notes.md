@@ -1484,3 +1484,30 @@ This approach is reliable because:
 
 **Files modified:**
 - `src/components/canvas/node-palette.tsx`
+
+
+
+## 2026-07-15T10:15 — Fix NodeSearchPanel dark mode styles
+
+**What changed:**
+- Added comprehensive dark mode Tailwind classes to all elements in `node-search-panel.tsx`
+- Trigger button (closed state): `dark:bg-gray-800`, `dark:text-gray-400`, `dark:border-gray-700`, `dark:hover:bg-gray-700`, `dark:hover:text-gray-100`
+- Kbd element: `dark:text-gray-500`, `dark:bg-gray-700`
+- Open panel container: `dark:bg-gray-800`, `dark:border-gray-700`
+- Internal border (search input area): `dark:border-gray-700`
+- Search icon: `dark:text-gray-500`
+- Input text: `dark:text-gray-100`, `dark:placeholder-gray-500`
+- Close button: `dark:text-gray-500`, `dark:hover:text-gray-300`
+- No results text: `dark:text-gray-400`
+- Selected result item: `dark:bg-primary-900/30`, `dark:text-primary-300`
+- Unselected result items: `dark:hover:bg-gray-700`, `dark:text-gray-300`
+- Match field label: `dark:text-gray-500`
+- Match snippet text: `dark:text-gray-400`
+- Footer text and border: `dark:text-gray-500`, `dark:border-gray-700`
+
+**Impact:**
+- NodeSearchPanel now renders correctly in dark mode, matching the style patterns used in `keyboard-shortcuts-panel.tsx` and `node-context-menu.tsx`
+- No more bright white search panel/button against the dark canvas background
+
+**Files modified:**
+- `src/components/canvas/node-search-panel.tsx`

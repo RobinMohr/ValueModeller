@@ -2,7 +2,7 @@
   "title": "Fix NodeSearchPanel missing all dark mode styles",
   "priority": 3,
   "type": "problem",
-  "state": "todo",
+  "state": "developed",
   "description": "The NodeSearchPanel (src/components/canvas/node-search-panel.tsx) is completely missing dark mode support. In dark mode, both the trigger button and the open search panel appear as bright white elements against the dark canvas background. Affected elements: (1) Trigger button (closed state): bg-white, text-gray-600, border-gray-200, hover:bg-gray-50, kbd bg-gray-100. (2) Open panel container: bg-white, border-gray-200. (3) Internal borders: border-gray-100. (4) Input: text-gray-900, placeholder-gray-400 without dark equivalents. (5) Result items: bg-primary-50/text-primary-900 (selected) and hover:bg-gray-50/text-gray-700 (unselected) without dark variants. (6) Footer text and dividers: text-gray-400, border-gray-100 without dark variants. Fix: Add dark: variants following the pattern used in keyboard-shortcuts-panel.tsx and node-context-menu.tsx which already have proper dark mode support. Key classes to add: dark:bg-gray-800 (container), dark:border-gray-700 (borders), dark:text-gray-100 (input text), dark:text-gray-400 (placeholder), dark:bg-gray-700 (hover states), dark:bg-primary-900/30 dark:text-primary-300 (selected state).",
   "files": [
     "src/components/canvas/node-search-panel.tsx"
