@@ -3,6 +3,6 @@
   "type": "improvement",
   "priority": 2,
   "description": "If step A is followed by step B, the output and customer from A should auto-fill the input and supplier in step B. The auto-fill should happen when the 2 tasks are connected, unless there are already values for input and supplier",
-  "state": "todo",
+  "state": "in-progress",
   "origin": "user"
 }
