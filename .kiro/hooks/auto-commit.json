@@ -4,10 +4,10 @@
     {
       "name": "Auto-commit on agent completion",
       "trigger": "Stop",
-      "description": "Automatically stages and commits all changes when an agent session completes, ensuring work is preserved in git history.",
+      "description": "Automatically stages and commits all changes when an agent session completes. Builds a descriptive commit message from changed files.",
       "action": {
         "type": "command",
-        "command": "git add -A && git commit -m \"feat: agent changes [auto-commit]\" --allow-empty-message || echo \"Nothing to commit\""
+        "command": "powershell -NoProfile -Command \"$files = git status --porcelain; if (-not $files) { Write-Output 'Nothing to commit'; exit 0 } $lines = $files -split \"`n\" | Where-Object { $_.Trim() }; $count = $lines.Count; $names = $lines | ForEach-Object { ($_ -replace '^..\\s*','') -replace '.+-> ','') } | ForEach-Object { Split-Path $_ -Leaf }; $summary = ($names | Select-Object -First 3) -join ', '; if ($count -gt 3) { $summary += \" (+$($count - 3) more)\" }; git add -A; git commit -m \"chore(kiro): $summary [$count files]\"\""
       }
     }
   ]
