@@ -1,5 +1,30 @@
 # Release Notes — Value Modeller
 
+## 2026-07-15T12:12 — bugfix: Auto-layout now respects actual node sizes
+
+**Task:** `tasks/1_54657ca3_update-formatting-in-the-canvas.json` → state set to `developed`
+
+**Problem:** The auto-layout feature used hardcoded node dimensions (200×90px) which caused overlapping nodes when SIPOC content made them much larger (up to 320px wide and 300-500px tall). After showing full SIPOC content on nodes, the "Auto Layout" button produced cramped, overlapping layouts.
+
+**Fix applied:**
+- Updated `src/utils/auto-layout.ts` with a 3-tier dimension strategy:
+  1. **Measured dimensions** (highest priority): Uses React Flow's `node.measured.width/height` which reflect the actual rendered DOM size after React renders the node
+  2. **Content-based estimation** (fallback): `estimateNodeHeight()` calculates expected height from SIPOC content (title, description, suppliers, inputs, outputs, customers line counts)
+  3. **Larger defaults** (final fallback): Increased from 200×90px to 280×200px for empty/unknown nodes
+- Increased dagre spacing: `nodesep` 50→80px, `ranksep` 100→120px for better breathing room
+- Group nodes use their explicit style dimensions (width/height from node.style)
+- Position calculation now uses per-node dimensions instead of global defaults when converting dagre center coordinates to React Flow top-left coordinates
+
+**Result:** Auto-layout now produces clean, non-overlapping layouts that respect the actual visual size of each node regardless of content amount.
+
+**Files modified:**
+- `src/utils/auto-layout.ts` — Per-node measured dimensions, content estimation, increased defaults/spacing
+
+**Build:** ✅ Passes (`tsc -b && vite build` — 0 errors, 297 modules)
+**Tests:** ✅ All 6 auto-layout tests pass
+
+---
+
 ## 2026-07-15T12:09 — improvement: Create larger, realistic mock data (Insurance Claims Processing)
 
 **Task:** `tasks/2_564052fd_create-mock-data.json` → state set to `developed`
