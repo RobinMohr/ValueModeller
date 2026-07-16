@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { useValueStreamStore } from '../../store/value-stream-store';
 import { Button } from '../ui/button';
 import { ThemeToggle } from '../ui/theme-toggle';
+import { Footer } from '../layout/footer';
 import { cn } from '../../utils/cn';
 import { useFocusTrap } from '../../hooks/use-focus-trap';
 import type { ValueStream } from '../../types/value-stream.types';
@@ -53,7 +54,7 @@ export function LandingPage() {
   );
 
   return (
-    <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
+    <div className="min-h-screen bg-gray-50 dark:bg-gray-900 flex flex-col">
       {/* Header */}
       <header className="bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 shadow-sm">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
@@ -81,7 +82,7 @@ export function LandingPage() {
       </header>
 
       {/* Main content */}
-      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+      <main className="flex-1 max-w-7xl mx-auto w-full px-4 sm:px-6 lg:px-8 py-8">
         {streams.length === 0 ? (
           <EmptyState onCreateClick={() => setShowCreateDialog(true)} />
         ) : viewMode === 'cards' ? (
@@ -106,6 +107,8 @@ export function LandingPage() {
           />
         )}
       </main>
+
+      <Footer />
 
       {/* Create Dialog */}
       {showCreateDialog && (

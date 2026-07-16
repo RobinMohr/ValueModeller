@@ -1,0 +1,9 @@
+{
+  "title": "create footer and legal section",
+  "type": "feature",
+  "priority": 1,
+  "description": "investigate what we would need as a footer and the legal section and create a new task to implement said footer, with alle the legally required information\nuse placeholders, if you dont know the information",
+  "state": "developed",
+  "origin": "user",
+  "id": "42732fbd"
+}

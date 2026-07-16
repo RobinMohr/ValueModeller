@@ -1,5 +1,35 @@
 # Release Notes — Value Modeller
 
+## 2026-07-16T11:30 — feat: Footer and legal section
+
+**Task:** `tasks/1_42732fbd_create-footer-and-legal-section.json` → state set to `developed`
+
+**What was implemented:**
+
+- Added a **Footer component** (`src/components/layout/footer.tsx`) rendered on the LandingPage. Contains:
+  - Company info block with logo, tagline, and address placeholder
+  - "Product" links column (home, documentation placeholder)
+  - "Legal" links column (Impressum, Privacy Policy, Terms of Use)
+  - Bottom bar with copyright notice and hackathon credit
+- Added **Impressum page** (`src/components/legal/impressum-page.tsx`) at `/impressum` — covers §5 TMG requirements (company name, address, managing director, register entry, VAT ID, content responsibility, disclaimer) with clearly marked `[Placeholder]` fields.
+- Added **Privacy Policy page** (`src/components/legal/privacy-page.tsx`) at `/privacy` — covers GDPR / DSGVO requirements: controller identity, data collected (localStorage only, no server transmission), user rights (Art. 15–21 GDPR), data security, changes, supervisory authority — all with placeholders.
+- Added **Terms of Use page** (`src/components/legal/terms-page.tsx`) at `/terms` — covers scope, service description, permitted/prohibited use, IP, data/content ownership, warranty disclaimer, liability limitation, governing law, changes — all with placeholders.
+- Updated **`src/App.tsx`** with three new routes: `/impressum`, `/privacy`, `/terms`.
+- Updated **`src/components/landing/landing-page.tsx`**: added `Footer` import and render, changed wrapper `div` to `flex flex-col`, added `flex-1` and `w-full` to `<main>` so footer stays at bottom.
+- All legal pages include a yellow warning banner reminding that placeholders must be replaced with legally verified content before going live.
+
+**Files modified:**
+- `src/App.tsx`
+- `src/components/landing/landing-page.tsx`
+- `src/components/layout/footer.tsx` *(new)*
+- `src/components/legal/impressum-page.tsx` *(new)*
+- `src/components/legal/privacy-page.tsx` *(new)*
+- `src/components/legal/terms-page.tsx` *(new)*
+
+**Build:** ✅ Passes (`tsc -b && vite build` — 0 errors, 303 modules)
+
+---
+
 ## 2026-07-15T17:09 — feat: Expandable log output in TecFactory list view
 
 **Task:** `tasks/1_68f9f932_make-logs-showable-in-the-list-view.json` → state set to `developed`
