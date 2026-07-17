@@ -1,5 +1,20 @@
 # Release Notes — Value Modeller
 
+## 2026-07-17T11:34 — feat: Show value stream details as comma-separated values
+
+**Task:** `tasks/1_4f26361e_not-summarizing-the-details-of-a-value-stream.json` → state set to `developed`
+
+**What was implemented:**
+
+- **Table view columns** now display the actual comma-separated values (teams, apps, segments) instead of summarized count badges
+- **Expandable detail panel** shows all metadata fields (teams, applications, customer segments, created values, known issues) as comma-separated text instead of colored pill components
+- **Cards view** metadata section now shows labeled comma-separated values (e.g., "Teams: Team A, Team B") instead of count pills
+- Removed the unused `DetailList` pill component and associated color mapping
+
+**Files changed:** `src/components/landing/landing-page.tsx`
+
+---
+
 ## 2026-07-16T11:30 — feat: Footer and legal section
 
 **Task:** `tasks/1_42732fbd_create-footer-and-legal-section.json` → state set to `developed`

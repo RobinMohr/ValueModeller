@@ -1,0 +1,9 @@
+{
+  "title": "not summarizing the details of a value stream",
+  "type": "improvement",
+  "priority": 1,
+  "description": "i dont want you to summarizing the details of a value stream. they should be in a table view and the details should be comma seperated",
+  "state": "developed",
+  "origin": "user",
+  "id": "4f26361e"
+}

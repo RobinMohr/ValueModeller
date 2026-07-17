@@ -262,21 +262,21 @@ function CardsView({ streams, deleteConfirmId, expandedStreamId, onOpen, onDelet
                 </p>
               )}
 
-              {/* Metadata pills */}
+              {/* Metadata details */}
               <div className="mt-3 flex flex-wrap gap-1.5">
                 {stream.involvedTeams && (
-                  <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs bg-blue-50 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300">
-                    {stream.involvedTeams.split('\n').filter(Boolean).length} teams
+                  <span className="text-xs text-gray-600 dark:text-gray-400">
+                    <span className="font-medium text-blue-700 dark:text-blue-300">Teams:</span> {stream.involvedTeams.split('\n').filter(Boolean).join(', ')}
                   </span>
                 )}
                 {stream.applications && (
-                  <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs bg-purple-50 dark:bg-purple-900/30 text-purple-700 dark:text-purple-300">
-                    {stream.applications.split('\n').filter(Boolean).length} apps
+                  <span className="text-xs text-gray-600 dark:text-gray-400">
+                    <span className="font-medium text-purple-700 dark:text-purple-300">Apps:</span> {stream.applications.split('\n').filter(Boolean).join(', ')}
                   </span>
                 )}
                 {stream.customerSegments && (
-                  <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs bg-green-50 dark:bg-green-900/30 text-green-700 dark:text-green-300">
-                    {stream.customerSegments.split('\n').filter(Boolean).length} segments
+                  <span className="text-xs text-gray-600 dark:text-gray-400">
+                    <span className="font-medium text-green-700 dark:text-green-300">Segments:</span> {stream.customerSegments.split('\n').filter(Boolean).join(', ')}
                   </span>
                 )}
               </div>
@@ -350,18 +350,18 @@ function TableView({ streams, deleteConfirmId, expandedStreamId, onOpen, onDelet
           </thead>
           <tbody className="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
             {streams.map((stream) => {
-              const teamCount = stream.involvedTeams ? stream.involvedTeams.split('\n').filter(Boolean).length : 0;
-              const appCount = stream.applications ? stream.applications.split('\n').filter(Boolean).length : 0;
-              const segmentCount = stream.customerSegments ? stream.customerSegments.split('\n').filter(Boolean).length : 0;
+              const teams = stream.involvedTeams ? stream.involvedTeams.split('\n').filter(Boolean) : [];
+              const apps = stream.applications ? stream.applications.split('\n').filter(Boolean) : [];
+              const segments = stream.customerSegments ? stream.customerSegments.split('\n').filter(Boolean) : [];
               const isExpanded = expandedStreamId === stream.id;
 
               return (
                 <TableRow
                   key={stream.id}
                   stream={stream}
-                  teamCount={teamCount}
-                  appCount={appCount}
-                  segmentCount={segmentCount}
+                  teams={teams}
+                  apps={apps}
+                  segments={segments}
                   isExpanded={isExpanded}
                   deleteConfirmId={deleteConfirmId}
                   onOpen={onOpen}
@@ -382,9 +382,9 @@ function TableView({ streams, deleteConfirmId, expandedStreamId, onOpen, onDelet
 
 interface TableRowProps {
   stream: ValueStream;
-  teamCount: number;
-  appCount: number;
-  segmentCount: number;
+  teams: string[];
+  apps: string[];
+  segments: string[];
   isExpanded: boolean;
   deleteConfirmId: string | null;
   onOpen: (id: string) => void;
@@ -393,7 +393,7 @@ interface TableRowProps {
   onToggleDetails: (id: string) => void;
 }
 
-function TableRow({ stream, teamCount, appCount, segmentCount, isExpanded, deleteConfirmId, onOpen, onDelete, onDeleteConfirm, onToggleDetails }: TableRowProps) {
+function TableRow({ stream, teams, apps, segments, isExpanded, deleteConfirmId, onOpen, onDelete, onDeleteConfirm, onToggleDetails }: TableRowProps) {
   return (
     <>
       <tr
@@ -430,29 +430,23 @@ function TableRow({ stream, teamCount, appCount, segmentCount, isExpanded, delet
             {stream.nodes.length}
           </span>
         </td>
-        <td className="px-6 py-4 whitespace-nowrap">
-          {teamCount > 0 ? (
-            <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs bg-blue-50 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300">
-              {teamCount}
-            </span>
+        <td className="px-6 py-4">
+          {teams.length > 0 ? (
+            <span className="text-sm text-gray-700 dark:text-gray-300">{teams.join(', ')}</span>
           ) : (
             <span className="text-xs text-gray-400 dark:text-gray-500">—</span>
           )}
         </td>
-        <td className="px-6 py-4 whitespace-nowrap">
-          {appCount > 0 ? (
-            <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs bg-purple-50 dark:bg-purple-900/30 text-purple-700 dark:text-purple-300">
-              {appCount}
-            </span>
+        <td className="px-6 py-4">
+          {apps.length > 0 ? (
+            <span className="text-sm text-gray-700 dark:text-gray-300">{apps.join(', ')}</span>
           ) : (
             <span className="text-xs text-gray-400 dark:text-gray-500">—</span>
           )}
         </td>
-        <td className="px-6 py-4 whitespace-nowrap">
-          {segmentCount > 0 ? (
-            <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs bg-green-50 dark:bg-green-900/30 text-green-700 dark:text-green-300">
-              {segmentCount}
-            </span>
+        <td className="px-6 py-4">
+          {segments.length > 0 ? (
+            <span className="text-sm text-gray-700 dark:text-gray-300">{segments.join(', ')}</span>
           ) : (
             <span className="text-xs text-gray-400 dark:text-gray-500">—</span>
           )}
@@ -523,28 +517,28 @@ function StreamDetailPanel({ stream }: StreamDetailPanelProps) {
           {/* Created Values */}
           {values.length > 0 && (
             <DetailSection label="Created Values">
-              <DetailList items={values} color="emerald" />
+              <p className="text-sm text-gray-700 dark:text-gray-300">{values.join(', ')}</p>
             </DetailSection>
           )}
 
           {/* Customer Segments */}
           {segments.length > 0 && (
             <DetailSection label="Customer Segments">
-              <DetailList items={segments} color="green" />
+              <p className="text-sm text-gray-700 dark:text-gray-300">{segments.join(', ')}</p>
             </DetailSection>
           )}
 
           {/* Teams */}
           {teams.length > 0 && (
             <DetailSection label="Involved Teams">
-              <DetailList items={teams} color="blue" />
+              <p className="text-sm text-gray-700 dark:text-gray-300">{teams.join(', ')}</p>
             </DetailSection>
           )}
 
           {/* Applications */}
           {apps.length > 0 && (
             <DetailSection label="Applications">
-              <DetailList items={apps} color="purple" />
+              <p className="text-sm text-gray-700 dark:text-gray-300">{apps.join(', ')}</p>
             </DetailSection>
           )}
 
@@ -552,14 +546,7 @@ function StreamDetailPanel({ stream }: StreamDetailPanelProps) {
           {issues.length > 0 && (
             <div className="sm:col-span-2">
               <DetailSection label="Known Issues">
-                <ul className="space-y-1">
-                  {issues.map((issue, i) => (
-                    <li key={i} className="flex items-start gap-2 text-sm text-gray-700 dark:text-gray-300">
-                      <span className="text-red-400 dark:text-red-500 mt-0.5">•</span>
-                      <span>{issue}</span>
-                    </li>
-                  ))}
-                </ul>
+                <p className="text-sm text-gray-700 dark:text-gray-300">{issues.join(', ')}</p>
               </DetailSection>
             </div>
           )}
@@ -588,35 +575,6 @@ function DetailSection({ label, children }: DetailSectionProps) {
     <div>
       <h4 className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-1.5">{label}</h4>
       {children}
-    </div>
-  );
-}
-
-/* ---------- Detail List (pills) ---------- */
-
-interface DetailListProps {
-  items: string[];
-  color: 'blue' | 'purple' | 'green' | 'emerald';
-}
-
-const detailListColors: Record<DetailListProps['color'], string> = {
-  blue: 'bg-blue-50 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300',
-  purple: 'bg-purple-50 dark:bg-purple-900/30 text-purple-700 dark:text-purple-300',
-  green: 'bg-green-50 dark:bg-green-900/30 text-green-700 dark:text-green-300',
-  emerald: 'bg-emerald-50 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-300',
-};
-
-function DetailList({ items, color }: DetailListProps) {
-  return (
-    <div className="flex flex-wrap gap-1.5">
-      {items.map((item, i) => (
-        <span
-          key={i}
-          className={cn('inline-flex items-center px-2 py-0.5 rounded-full text-xs', detailListColors[color])}
-        >
-          {item}
-        </span>
-      ))}
     </div>
   );
 }
