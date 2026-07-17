@@ -1,581 +1,364 @@
-/**
- * QA Agent — Puppeteer Test Script
- * Tests critical user flows for the Value Modeller app
- */
 import puppeteer from 'puppeteer';
 
-const BASE_URL = 'http://localhost:5173';
-const results = [];
+const results = {};
 const consoleErrors = [];
+const pageErrors = [];
 const networkErrors = [];
 
-function log(msg) {
-  console.log(`[QA] ${msg}`);
-}
+const wait = (ms) => new Promise(r => setTimeout(r, ms));
 
-function pass(test) {
-  results.push({ test, status: 'PASS' });
-  log(`✓ PASS: ${test}`);
-}
-
-function fail(test, reason) {
-  results.push({ test, status: 'FAIL', reason });
-  log(`✗ FAIL: ${test} — ${reason}`);
-}
-
-async function waitForSelector(page, selector, timeout = 5000) {
-  try {
-    await page.waitForSelector(selector, { timeout });
-    return true;
-  } catch {
-    return false;
-  }
-}
-
-async function main() {
-  log('Launching browser (headless)...');
-  const browser = await puppeteer.launch({
-    headless: true,
-    args: ['--no-sandbox', '--disable-gpu', '--disable-dev-shm-usage'],
-  });
-
+async function run() {
+  const browser = await puppeteer.launch({ headless: true, args: ['--no-sandbox', '--disable-gpu'] });
   const page = await browser.newPage();
   await page.setViewport({ width: 1920, height: 1080 });
 
-  // Setup console error monitoring
+  // Setup monitoring
   page.on('console', (msg) => {
-    if (msg.type() === 'error') {
-      consoleErrors.push({ text: msg.text(), url: page.url() });
-    }
+    if (msg.type() === 'error') consoleErrors.push(msg.text());
   });
+  page.on('pageerror', (err) => pageErrors.push(err.message));
+  page.on('requestfailed', (req) => networkErrors.push({ url: req.url(), failure: req.failure()?.errorText }));
 
-  page.on('pageerror', (err) => {
-    consoleErrors.push({ text: `Uncaught: ${err.message}`, url: page.url() });
+  // === TEST 1: App loads - landing page ===
+  await page.goto('http://localhost:5173', { waitUntil: 'networkidle0', timeout: 15000 });
+  const title = await page.title();
+  const h1 = await page.$eval('h1', el => el.textContent).catch(() => 'NOT FOUND');
+  results.test1_landing = { title, h1, pass: h1.includes('Value') };
+
+  // === TEST 2: Landing page shows streams ===
+  const openButtons = await page.$$eval('button, a', els =>
+    els.filter(el => el.textContent.includes('Open')).length
+  );
+  results.test2_streams = { openButtons, pass: openButtons >= 1 };
+
+  // === TEST 3: Performance ===
+  const perf = await page.evaluate(() => {
+    const nav = performance.getEntriesByType('navigation')[0];
+    return { domInteractive: Math.round(nav.domInteractive), loadComplete: Math.round(nav.loadEventEnd) };
   });
+  results.test3_perf = { ...perf, pass: perf.loadComplete < 5000 };
 
-  page.on('requestfailed', (req) => {
-    networkErrors.push({ url: req.url(), failure: req.failure()?.errorText });
+  // === TEST 4: Open stream -> canvas renders ===
+  const openLink = await page.$('a[href*="/stream/"]');
+  if (openLink) {
+    await openLink.click();
+  } else {
+    const openBtnHandle = await page.evaluateHandle(() =>
+      [...document.querySelectorAll('button')].find(b => b.textContent.includes('Open'))
+    );
+    if (openBtnHandle.asElement()) await openBtnHandle.asElement().click();
+  }
+  await page.waitForSelector('.react-flow', { timeout: 5000 }).catch(() => null);
+  await wait(1000);
+  const url = page.url();
+  const hasCanvas = await page.$('.react-flow') !== null;
+  results.test4_canvas = { url, hasCanvas, pass: hasCanvas && url.includes('/stream/') };
+
+  // === TEST 5: Canvas nodes and edges ===
+  const nodeCount = await page.$$eval('.react-flow__node', els => els.length);
+  const edgeCount = await page.$$eval('.react-flow__edge', els => els.length);
+  results.test5_nodesEdges = { nodeCount, edgeCount, pass: nodeCount >= 5 && edgeCount >= 5 };
+
+  // === TEST 6: Click node -> side panel opens ===
+  const firstNode = await page.$('.react-flow__node');
+  if (firstNode) {
+    await firstNode.click();
+    await wait(500);
+  }
+  const panelVisible = await page.evaluate(() => {
+    const aside = document.querySelector('aside');
+    return aside ? aside.offsetWidth > 0 : false;
   });
+  results.test6_sidePanel = { panelVisible, pass: panelVisible };
 
-  try {
-    // ====== TEST 1: App loads — landing page renders ======
-    log('Test 1: App loads — landing page renders');
-    await page.goto(BASE_URL, { waitUntil: 'networkidle0', timeout: 15000 });
-    const title = await page.title();
-    const hasLandingContent = await waitForSelector(page, 'h1, [data-testid="landing-page"], .landing-page, main');
-    if (hasLandingContent) {
-      pass('App loads — landing page renders');
-    } else {
-      fail('App loads — landing page renders', 'No landing page content found');
-    }
+  // === TEST 7: Form fields present ===
+  const textareaCount = await page.$$eval('aside textarea', els => els.length);
+  const inputCount = await page.$$eval('aside input', els => els.length);
+  results.test7_formFields = { textareas: textareaCount, inputs: inputCount, pass: textareaCount >= 3 };
 
-    // ====== TEST 2: Landing page has stream cards or create button ======
-    log('Test 2: Landing page has stream cards or create stream option');
-    const hasStreams = await page.evaluate(() => {
-      const body = document.body.innerText;
-      return body.length > 50; // Page has meaningful content
+  // === TEST 8: Edit form field and verify persistence ===
+  if (textareaCount > 0) {
+    const testValue = 'QA_TEST_' + Date.now();
+    await page.evaluate(() => {
+      const ta = document.querySelector('aside textarea');
+      if (ta) { ta.value = ''; ta.dispatchEvent(new Event('input', {bubbles: true})); }
     });
-    const bodyText = await page.evaluate(() => document.body.innerText);
-    if (hasStreams) {
-      pass('Landing page renders with content');
-    } else {
-      fail('Landing page renders with content', 'Page appears empty');
+    await page.type('aside textarea', testValue);
+    await wait(300);
+    // Close panel (click somewhere on canvas)
+    await page.click('.react-flow__pane');
+    await wait(500);
+    // Reopen
+    const nodeReopen = await page.$('.react-flow__node');
+    if (nodeReopen) {
+      await nodeReopen.click();
+      await wait(500);
     }
-
-    // Look for stream cards or Create button
-    const hasCreateOrStream = await page.evaluate(() => {
-      const buttons = Array.from(document.querySelectorAll('button'));
-      const links = Array.from(document.querySelectorAll('a'));
-      const cards = document.querySelectorAll('[class*="card"], [class*="stream"]');
-      return buttons.length > 0 || links.length > 0 || cards.length > 0;
-    });
-    if (hasCreateOrStream) {
-      pass('Landing page has interactive elements (buttons/links/cards)');
-    } else {
-      fail('Landing page has interactive elements', 'No buttons, links, or cards found');
-    }
-
-    // ====== TEST 3: Open a stream — canvas renders ======
-    log('Test 3: Navigate to a stream canvas');
-    
-    // Try clicking a stream card or navigating directly
-    const streamLink = await page.evaluate(() => {
-      // Look for links to /stream/ routes
-      const links = Array.from(document.querySelectorAll('a[href*="stream"]'));
-      if (links.length > 0) return links[0].getAttribute('href');
-      // Look for clickable cards
-      const cards = document.querySelectorAll('[class*="card"], [class*="stream"], [role="button"]');
-      return cards.length > 0 ? 'HAS_CARDS' : null;
-    });
-
-    let navigatedToCanvas = false;
-    if (streamLink && streamLink !== 'HAS_CARDS') {
-      await page.goto(`${BASE_URL}${streamLink}`, { waitUntil: 'networkidle0', timeout: 10000 });
-      navigatedToCanvas = true;
-    } else {
-      // Try clicking the first card/button that looks like a stream
-      const clicked = await page.evaluate(() => {
-        const cards = document.querySelectorAll('[class*="card"], [class*="stream-card"]');
-        for (const card of cards) {
-          if (card instanceof HTMLElement) {
-            card.click();
-            return true;
-          }
-        }
-        // Try any link or button with stream-related text
-        const elements = document.querySelectorAll('a, button, [role="button"]');
-        for (const el of elements) {
-          if (el.textContent && (el.textContent.includes('Open') || el.textContent.includes('Edit') || el.textContent.includes('View'))) {
-            el.click();
-            return true;
-          }
-        }
-        return false;
-      });
-      if (clicked) {
-        await page.waitForNavigation({ waitUntil: 'networkidle0', timeout: 5000 }).catch(() => {});
-        await new Promise(r => setTimeout(r, 1000));
-        navigatedToCanvas = true;
-      }
-    }
-
-    // Check if we're on a canvas page
-    if (navigatedToCanvas) {
-      const hasCanvas = await waitForSelector(page, '.react-flow, [class*="react-flow"], [data-testid="flow-canvas"]', 5000);
-      if (hasCanvas) {
-        pass('Open stream — canvas renders with React Flow');
-      } else {
-        // Maybe the URL changed but content not loaded, wait more
-        await new Promise(r => setTimeout(r, 2000));
-        const hasCanvasRetry = await waitForSelector(page, '.react-flow, [class*="react-flow"]', 3000);
-        if (hasCanvasRetry) {
-          pass('Open stream — canvas renders with React Flow (delayed)');
-        } else {
-          fail('Open stream — canvas renders', 'React Flow canvas not found after navigation');
-        }
-      }
-    } else {
-      // Navigate directly to a stream URL
-      await page.goto(`${BASE_URL}/stream/demo-1`, { waitUntil: 'networkidle0', timeout: 10000 });
-      await new Promise(r => setTimeout(r, 1000));
-      const hasCanvas = await waitForSelector(page, '.react-flow, [class*="react-flow"]', 5000);
-      if (hasCanvas) {
-        pass('Open stream (direct URL) — canvas renders');
-      } else {
-        fail('Open stream — canvas renders', 'Could not navigate to canvas view');
-      }
-    }
-
-    // ====== TEST 4: Canvas has nodes ======
-    log('Test 4: Canvas has nodes');
-    const nodeCount = await page.evaluate(() => {
-      return document.querySelectorAll('.react-flow__node, [class*="react-flow__node"]').length;
-    });
-    if (nodeCount > 0) {
-      pass(`Canvas has nodes (found ${nodeCount})`);
-    } else {
-      // May need to look for different selectors
-      const altNodeCount = await page.evaluate(() => {
-        return document.querySelectorAll('[data-testid*="node"], [class*="sipoc"]').length;
-      });
-      if (altNodeCount > 0) {
-        pass(`Canvas has nodes (found ${altNodeCount} via alt selector)`);
-      } else {
-        fail('Canvas has nodes', `No nodes found on canvas (tried multiple selectors)`);
-      }
-    }
-
-    // ====== TEST 5: Add node — new node appears ======
-    log('Test 5: Add node — new node appears');
-    const initialNodeCount = await page.evaluate(() => {
-      return document.querySelectorAll('.react-flow__node').length;
-    });
-    
-    // Find and click "Add Step" button
-    const addButtonClicked = await page.evaluate(() => {
-      const buttons = Array.from(document.querySelectorAll('button'));
-      const addBtn = buttons.find(b => b.textContent && (b.textContent.includes('Add Step') || b.textContent.includes('Add Node') || b.textContent.includes('+')));
-      if (addBtn) {
-        addBtn.click();
-        return true;
-      }
-      return false;
-    });
-
-    if (addButtonClicked) {
-      await new Promise(r => setTimeout(r, 1000));
-      const newNodeCount = await page.evaluate(() => {
-        return document.querySelectorAll('.react-flow__node').length;
-      });
-      if (newNodeCount > initialNodeCount) {
-        pass(`Add node — new node appeared (${initialNodeCount} → ${newNodeCount})`);
-      } else {
-        fail('Add node — new node appears', `Node count did not increase: ${initialNodeCount} → ${newNodeCount}`);
-      }
-    } else {
-      fail('Add node — new node appears', 'Could not find Add Step/Add Node button');
-    }
-
-    // ====== TEST 6: Click node — side panel opens ======
-    log('Test 6: Click node — side panel opens');
-    const nodeClicked = await page.evaluate(() => {
-      const nodes = document.querySelectorAll('.react-flow__node');
-      if (nodes.length > 0) {
-        nodes[0].click();
-        return true;
-      }
-      return false;
-    });
-
-    if (nodeClicked) {
-      await new Promise(r => setTimeout(r, 500));
-      const panelOpen = await page.evaluate(() => {
-        // Look for side panel indicators
-        const panel = document.querySelector('[role="complementary"], [class*="side-panel"], [class*="sipoc-panel"], [class*="panel"]');
-        if (panel) return true;
-        // Check for form fields that appear when panel opens
-        const form = document.querySelector('textarea, [class*="form"], [class*="sipoc-form"]');
-        return !!form;
-      });
-      if (panelOpen) {
-        pass('Click node — side panel opens');
-      } else {
-        // Try double-click (per code, double-click opens panel)
-        const firstNode = await page.$('.react-flow__node');
-        if (firstNode) {
-          await firstNode.click({ clickCount: 2 });
-          await new Promise(r => setTimeout(r, 500));
-          const panelAfterDouble = await page.evaluate(() => {
-            const textareas = document.querySelectorAll('textarea');
-            return textareas.length > 0;
-          });
-          if (panelAfterDouble) {
-            pass('Click node (double-click) — side panel opens');
-          } else {
-            fail('Click node — side panel opens', 'Panel did not open after single or double click');
-          }
-        } else {
-          fail('Click node — side panel opens', 'Could not find node to click');
-        }
-      }
-    } else {
-      fail('Click node — side panel opens', 'No nodes available to click');
-    }
-
-    // ====== TEST 7: Edit form — changes persist ======
-    log('Test 7: Edit form — changes persist after close/reopen');
-    const testValue = 'QA_TEST_VALUE_' + Date.now();
-    const editResult = await page.evaluate((val) => {
-      const textareas = document.querySelectorAll('textarea');
-      if (textareas.length > 0) {
-        const ta = textareas[0];
-        // Simulate React-controlled input
-        const nativeInputValueSetter = Object.getOwnPropertyDescriptor(window.HTMLTextAreaElement.prototype, 'value').set;
-        nativeInputValueSetter.call(ta, val);
-        ta.dispatchEvent(new Event('input', { bubbles: true }));
-        ta.dispatchEvent(new Event('change', { bubbles: true }));
-        return { edited: true, field: ta.id || ta.name || 'unknown' };
-      }
-      return { edited: false };
-    }, testValue);
-
-    if (editResult.edited) {
-      await new Promise(r => setTimeout(r, 500));
-      // Close panel (press Escape or click elsewhere)
-      await page.keyboard.press('Escape');
-      await new Promise(r => setTimeout(r, 500));
-      
-      // Reopen by clicking the same node
-      const reopened = await page.evaluate(() => {
-        const nodes = document.querySelectorAll('.react-flow__node');
-        if (nodes.length > 0) {
-          nodes[0].click();
-          return true;
-        }
-        return false;
-      });
-      
-      if (reopened) {
-        await new Promise(r => setTimeout(r, 500));
-        const persisted = await page.evaluate((val) => {
-          const textareas = document.querySelectorAll('textarea');
-          for (const ta of textareas) {
-            if (ta.value && ta.value.includes(val)) return true;
-          }
-          return false;
-        }, testValue);
-        
-        if (persisted) {
-          pass('Edit form — changes persist after close/reopen');
-        } else {
-          // Not necessarily a failure - React controlled inputs may not respond to native setter
-          pass('Edit form — form fields accessible (persistence verification inconclusive with native events)');
-        }
-      } else {
-        fail('Edit form — changes persist', 'Could not reopen panel');
-      }
-    } else {
-      fail('Edit form — changes persist', 'No textarea found to edit');
-    }
-
-    // ====== TEST 8: Delete node ======
-    log('Test 8: Delete node — removed from canvas');
-    const preDeleteCount = await page.evaluate(() => {
-      return document.querySelectorAll('.react-flow__node').length;
-    });
-
-    // Try selecting a node and pressing Delete
-    const nodeSelected = await page.evaluate(() => {
-      const nodes = document.querySelectorAll('.react-flow__node');
-      if (nodes.length > 0) {
-        const lastNode = nodes[nodes.length - 1];
-        lastNode.click();
-        return true;
-      }
-      return false;
-    });
-
-    if (nodeSelected) {
-      await new Promise(r => setTimeout(r, 300));
-      await page.keyboard.press('Delete');
-      await new Promise(r => setTimeout(r, 500));
-      
-      const postDeleteCount = await page.evaluate(() => {
-        return document.querySelectorAll('.react-flow__node').length;
-      });
-      
-      if (postDeleteCount < preDeleteCount) {
-        pass(`Delete node — removed from canvas (${preDeleteCount} → ${postDeleteCount})`);
-      } else {
-        // Try Backspace
-        await page.keyboard.press('Backspace');
-        await new Promise(r => setTimeout(r, 500));
-        const postBackspaceCount = await page.evaluate(() => {
-          return document.querySelectorAll('.react-flow__node').length;
-        });
-        if (postBackspaceCount < preDeleteCount) {
-          pass(`Delete node (Backspace) — removed from canvas (${preDeleteCount} → ${postBackspaceCount})`);
-        } else {
-          fail('Delete node — removed from canvas', `Node count unchanged after Delete/Backspace: ${preDeleteCount}`);
-        }
-      }
-    } else {
-      fail('Delete node — removed from canvas', 'No node available to delete');
-    }
-
-    // ====== TEST 9: Edges exist ======
-    log('Test 9: Edges/connections visible');
-    const edgeCount = await page.evaluate(() => {
-      return document.querySelectorAll('.react-flow__edge, [class*="react-flow__edge"]').length;
-    });
-    if (edgeCount > 0) {
-      pass(`Edges visible on canvas (found ${edgeCount})`);
-    } else {
-      fail('Edges visible on canvas', 'No edges found — connections may be broken');
-    }
-
-    // ====== TEST 10: Zoom/Pan ======
-    log('Test 10: Zoom/Pan — no rendering glitches');
-    const paneBefore = await page.evaluate(() => {
-      const pane = document.querySelector('.react-flow__pane');
-      return pane ? pane.getBoundingClientRect() : null;
-    });
-    
-    // Zoom with scroll wheel
-    const flowContainer = await page.$('.react-flow');
-    if (flowContainer) {
-      const box = await flowContainer.boundingBox();
-      if (box) {
-        await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
-        await page.mouse.wheel({ deltaY: -100 });
-        await new Promise(r => setTimeout(r, 500));
-        
-        const nodesAfterZoom = await page.evaluate(() => {
-          return document.querySelectorAll('.react-flow__node').length;
-        });
-        // If nodes still exist after zoom, rendering is fine
-        if (nodesAfterZoom >= 0) {
-          pass('Zoom/Pan — no rendering glitches (nodes still visible after zoom)');
-        }
-      } else {
-        pass('Zoom/Pan — canvas container exists (could not get boundingBox)');
-      }
-    } else {
-      fail('Zoom/Pan', 'React Flow container not found');
-    }
-
-    // ====== TEST 11: Navigate back — returns to landing page ======
-    log('Test 11: Navigate back — returns to landing page');
-    // Look for back button
-    const backClicked = await page.evaluate(() => {
-      const buttons = Array.from(document.querySelectorAll('button, a'));
-      const backBtn = buttons.find(b => {
-        const text = b.textContent || '';
-        const ariaLabel = b.getAttribute('aria-label') || '';
-        return text.includes('Back') || text.includes('←') || text.includes('Home') || 
-               ariaLabel.includes('back') || ariaLabel.includes('home') ||
-               (b instanceof HTMLAnchorElement && b.href && b.href.endsWith('/'));
-      });
-      if (backBtn) {
-        backBtn.click();
-        return true;
-      }
-      return false;
-    });
-
-    if (backClicked) {
-      await page.waitForNavigation({ timeout: 5000 }).catch(() => {});
-      await new Promise(r => setTimeout(r, 1000));
-    } else {
-      await page.goto(BASE_URL, { waitUntil: 'networkidle0', timeout: 10000 });
-    }
-    
-    const backOnLanding = await page.evaluate(() => {
-      return window.location.pathname === '/';
-    });
-    if (backOnLanding) {
-      pass('Navigate back — returns to landing page');
-    } else {
-      fail('Navigate back — returns to landing page', `Ended up at ${await page.evaluate(() => window.location.pathname)}`);
-    }
-
-    // ====== TEST 12: Visual checks ======
-    log('Test 12: Visual regression checks');
-    await page.goto(BASE_URL, { waitUntil: 'networkidle0', timeout: 10000 });
-    
-    // Check for overlapping elements (basic check)
-    const visualIssues = await page.evaluate(() => {
-      const issues = [];
-      
-      // Check for overflow/clipping issues
-      const allElements = document.querySelectorAll('*');
-      let offScreenCount = 0;
-      for (const el of allElements) {
-        const rect = el.getBoundingClientRect();
-        if (rect.width > 0 && rect.height > 0) {
-          if (rect.right < 0 || rect.bottom < 0 || rect.left > window.innerWidth + 100) {
-            offScreenCount++;
-          }
-        }
-      }
-      if (offScreenCount > 10) {
-        issues.push(`${offScreenCount} elements positioned off-screen`);
-      }
-
-      // Check for very small text
-      const textElements = document.querySelectorAll('p, span, label, h1, h2, h3, h4, h5, h6');
-      let tinyTextCount = 0;
-      for (const el of textElements) {
-        const style = window.getComputedStyle(el);
-        const fontSize = parseFloat(style.fontSize);
-        if (fontSize < 10 && el.textContent.trim().length > 0) {
-          tinyTextCount++;
-        }
-      }
-      if (tinyTextCount > 5) {
-        issues.push(`${tinyTextCount} elements with very small text (<10px)`);
-      }
-
-      // Check for zero-height containers with content
-      const containers = document.querySelectorAll('div, section, main, aside');
-      let collapsedCount = 0;
-      for (const el of containers) {
-        const rect = el.getBoundingClientRect();
-        if (rect.height === 0 && el.children.length > 0 && el.textContent.trim().length > 0) {
-          collapsedCount++;
-        }
-      }
-      if (collapsedCount > 0) {
-        issues.push(`${collapsedCount} collapsed containers with content`);
-      }
-
-      return issues;
-    });
-
-    if (visualIssues.length === 0) {
-      pass('Visual checks — no major layout issues detected');
-    } else {
-      fail('Visual checks', visualIssues.join('; '));
-    }
-
-    // ====== TEST 13: Accessibility basic checks ======
-    log('Test 13: Basic accessibility checks');
-    const a11yIssues = await page.evaluate(() => {
-      const issues = [];
-      
-      // Check images without alt
-      const imgs = document.querySelectorAll('img');
-      const noAlt = Array.from(imgs).filter(img => !img.alt && !img.getAttribute('role'));
-      if (noAlt.length > 0) issues.push(`${noAlt.length} images without alt text`);
-      
-      // Check buttons without accessible name
-      const buttons = document.querySelectorAll('button');
-      const noLabel = Array.from(buttons).filter(btn => 
-        !btn.textContent?.trim() && !btn.getAttribute('aria-label') && !btn.getAttribute('title')
-      );
-      if (noLabel.length > 0) issues.push(`${noLabel.length} buttons without accessible name`);
-      
-      // Check form inputs without labels
-      const inputs = document.querySelectorAll('input, textarea, select');
-      const noLabelInput = Array.from(inputs).filter(input => {
-        const id = input.id;
-        if (id && document.querySelector(`label[for="${id}"]`)) return false;
-        if (input.getAttribute('aria-label')) return false;
-        if (input.closest('label')) return false;
-        return true;
-      });
-      if (noLabelInput.length > 0) issues.push(`${noLabelInput.length} form inputs without labels`);
-      
-      return issues;
-    });
-
-    if (a11yIssues.length === 0) {
-      pass('Accessibility — no basic issues');
-    } else {
-      // Report but don't fail hard for minor a11y
-      for (const issue of a11yIssues) {
-        log(`  ⚠ A11y: ${issue}`);
-      }
-      results.push({ test: 'Accessibility checks', status: 'WARN', reason: a11yIssues.join('; ') });
-    }
-
-  } catch (err) {
-    fail('Unexpected error during testing', err.message);
-  } finally {
-    await browser.close();
+    const fieldValue = await page.$eval('aside textarea', el => el.value).catch(() => '');
+    results.test8_persistence = { pass: fieldValue.includes('QA_TEST_') };
+  } else {
+    results.test8_persistence = { pass: false, reason: 'no textareas' };
   }
 
-  // ====== SUMMARY ======
-  log('\n========== TEST RESULTS SUMMARY ==========');
-  const passes = results.filter(r => r.status === 'PASS').length;
-  const fails = results.filter(r => r.status === 'FAIL').length;
-  const warns = results.filter(r => r.status === 'WARN').length;
-  log(`PASS: ${passes} | FAIL: ${fails} | WARN: ${warns}`);
-  
-  if (fails > 0) {
-    log('\nFailed tests:');
-    results.filter(r => r.status === 'FAIL').forEach(r => {
-      log(`  ✗ ${r.test}: ${r.reason}`);
+  // === TEST 9: Add node ===
+  const nodeCountBefore = await page.$$eval('.react-flow__node', els => els.length);
+  const addStepClicked = await page.evaluate(() => {
+    const btn = [...document.querySelectorAll('button')].find(b => b.textContent.includes('Add Step'));
+    if (btn) { btn.click(); return true; }
+    return false;
+  });
+  await wait(500);
+  const nodeCountAfter = await page.$$eval('.react-flow__node', els => els.length);
+  results.test9_addNode = { before: nodeCountBefore, after: nodeCountAfter, pass: nodeCountAfter > nodeCountBefore };
+
+  // === TEST 10: Delete node ===
+  // The newly added node should have opened its panel; find delete button
+  const deleteClicked = await page.evaluate(() => {
+    const btn = [...document.querySelectorAll('button')].find(b => b.textContent.includes('Delete'));
+    if (btn) { btn.click(); return true; }
+    return false;
+  });
+  await wait(300);
+  // Confirm delete
+  const confirmClicked = await page.evaluate(() => {
+    const btn = [...document.querySelectorAll('button')].find(b => b.textContent.includes('Confirm') || (b.textContent.includes('Delete') && b.className.includes('red')));
+    if (btn) { btn.click(); return true; }
+    return false;
+  });
+  await wait(500);
+  const nodeCountAfterDelete = await page.$$eval('.react-flow__node', els => els.length);
+  results.test10_deleteNode = { after: nodeCountAfterDelete, pass: nodeCountAfterDelete < nodeCountAfter };
+
+  // === TEST 11: Zoom controls ===
+  const controls = await page.evaluate(() => {
+    const zoomIn = document.querySelector('.react-flow__controls-zoomin, button[aria-label*="zoom in"]');
+    const zoomOut = document.querySelector('.react-flow__controls-zoomout, button[aria-label*="zoom out"]');
+    const fitView = document.querySelector('.react-flow__controls-fitview, button[aria-label*="fit view"]');
+    return { zoomIn: !!zoomIn, zoomOut: !!zoomOut, fitView: !!fitView };
+  });
+  results.test11_zoomControls = { ...controls, pass: controls.zoomIn && controls.zoomOut && controls.fitView };
+
+  // === TEST 12: Dark mode toggle ===
+  const htmlClassBefore = await page.evaluate(() => document.documentElement.className);
+  const toggled = await page.evaluate(() => {
+    const btn = [...document.querySelectorAll('button')].find(b => {
+      const label = b.getAttribute('aria-label') || '';
+      return label.toLowerCase().includes('theme') || label.toLowerCase().includes('toggle');
     });
+    if (btn) { btn.click(); return true; }
+    return false;
+  });
+  await wait(300);
+  const htmlClassAfter = await page.evaluate(() => document.documentElement.className);
+  results.test12_darkMode = { before: htmlClassBefore.substring(0, 20), after: htmlClassAfter.substring(0, 20), toggled, pass: toggled && htmlClassBefore !== htmlClassAfter };
+
+  // === TEST 13: Dark mode visual - MiniMap not white ===
+  const darkActive = htmlClassAfter.includes('dark');
+  if (darkActive) {
+    const minimapBg = await page.evaluate(() => {
+      const mm = document.querySelector('.react-flow__minimap');
+      return mm ? getComputedStyle(mm).backgroundColor : 'NOT FOUND';
+    });
+    results.test13_darkVisual = { minimapBg, pass: !minimapBg.includes('255, 255, 255') };
+  } else {
+    // Toggle again to get to dark
+    await page.evaluate(() => {
+      const btn = [...document.querySelectorAll('button')].find(b => {
+        const label = b.getAttribute('aria-label') || '';
+        return label.toLowerCase().includes('theme');
+      });
+      if (btn) btn.click();
+    });
+    await wait(300);
+    const minimapBg = await page.evaluate(() => {
+      const mm = document.querySelector('.react-flow__minimap');
+      return mm ? getComputedStyle(mm).backgroundColor : 'NOT FOUND';
+    });
+    const nowDark = await page.evaluate(() => document.documentElement.classList.contains('dark'));
+    results.test13_darkVisual = { minimapBg, nowDark, pass: !minimapBg.includes('255, 255, 255') || minimapBg === 'NOT FOUND' };
   }
 
-  if (consoleErrors.length > 0) {
-    log(`\nConsole errors captured (${consoleErrors.length}):`);
-    consoleErrors.slice(0, 10).forEach(e => log(`  [ERROR] ${e.text}`));
+  // === TEST 14: Context menu ===
+  const nodeForCtx = await page.$('.react-flow__node');
+  if (nodeForCtx) {
+    await nodeForCtx.click({ button: 'right' });
+    await wait(500);
   }
+  const ctxItems = await page.evaluate(() => {
+    const menu = document.querySelector('[role="menu"]');
+    if (!menu) return [];
+    return [...menu.querySelectorAll('button, [role="menuitem"]')].map(e => e.textContent.trim());
+  });
+  results.test14_contextMenu = { items: ctxItems.slice(0, 6), pass: ctxItems.length >= 2 };
+  // Dismiss
+  await page.keyboard.press('Escape');
+  await wait(200);
 
-  if (networkErrors.length > 0) {
-    log(`\nNetwork errors (${networkErrors.length}):`);
-    networkErrors.slice(0, 5).forEach(e => log(`  [NET] ${e.url} — ${e.failure}`));
+  // === TEST 15: Auto-layout button ===
+  const hasAutoLayout = await page.evaluate(() => {
+    return !!([...document.querySelectorAll('button')].find(b =>
+      b.textContent.includes('Auto') || (b.getAttribute('aria-label') || '').includes('layout')
+    ));
+  });
+  results.test15_autoLayout = { found: hasAutoLayout, pass: hasAutoLayout };
+
+  // === TEST 16: Undo/Redo ===
+  const hasUndo = await page.evaluate(() =>
+    !!([...document.querySelectorAll('button')].find(b => (b.getAttribute('aria-label') || '').includes('Undo')))
+  );
+  const hasRedo = await page.evaluate(() =>
+    !!([...document.querySelectorAll('button')].find(b => (b.getAttribute('aria-label') || '').includes('Redo')))
+  );
+  results.test16_undoRedo = { undo: hasUndo, redo: hasRedo, pass: hasUndo && hasRedo };
+
+  // === TEST 17: Export/Import ===
+  const hasExport = await page.evaluate(() =>
+    !!([...document.querySelectorAll('button')].find(b => (b.getAttribute('aria-label') || '').toLowerCase().includes('export') || b.textContent.includes('Export')))
+  );
+  const hasImport = await page.evaluate(() =>
+    !!([...document.querySelectorAll('button')].find(b => (b.getAttribute('aria-label') || '').toLowerCase().includes('import') || b.textContent.includes('Import')))
+  );
+  results.test17_exportImport = { export: hasExport, import: hasImport, pass: hasExport && hasImport };
+
+  // === TEST 18: Node palette ===
+  const paletteItems = await page.$$eval('[draggable="true"]', els => els.length);
+  results.test18_palette = { items: paletteItems, pass: paletteItems >= 2 };
+
+  // === TEST 19: Connection handles ===
+  const handleCount = await page.$$eval('.react-flow__handle', els => els.length);
+  const currentNodes = await page.$$eval('.react-flow__node', els => els.length);
+  results.test19_handles = { handles: handleCount, nodes: currentNodes, pass: handleCount >= currentNodes };
+
+  // === TEST 20: Form accessibility ===
+  const a11y = await page.evaluate(() => {
+    const aside = document.querySelector('aside');
+    if (!aside) return { total: 0, labeled: 0, unlabeled: 0 };
+    const fields = aside.querySelectorAll('input, textarea');
+    let labeled = 0, unlabeled = 0;
+    fields.forEach(f => {
+      const id = f.id;
+      const hasLabel = id && document.querySelector(`label[for="${id}"]`);
+      const hasAria = f.getAttribute('aria-label') || f.getAttribute('aria-labelledby');
+      if (hasLabel || hasAria) labeled++; else unlabeled++;
+    });
+    return { total: fields.length, labeled, unlabeled };
+  });
+  results.test20_a11y = { ...a11y, pass: a11y.unlabeled === 0 };
+
+  // === TEST 21: Save indicator ===
+  const hasSaveIndicator = await page.evaluate(() => {
+    return !!document.body.textContent.match(/Saved|Saving/);
+  });
+  results.test21_save = { found: hasSaveIndicator, pass: hasSaveIndicator };
+
+  // === TEST 22: Back navigation button ===
+  const hasBackBtn = await page.evaluate(() => {
+    return !!([...document.querySelectorAll('button, a')].find(e =>
+      e.textContent.includes('Back') || (e.getAttribute('aria-label') || '').includes('Back')
+    ));
+  });
+  results.test22_backNav = { found: hasBackBtn, pass: hasBackBtn };
+
+  // === TEST 23: Responsive 768px ===
+  await page.setViewport({ width: 768, height: 1024 });
+  await wait(500);
+  const overflow768 = await page.evaluate(() => ({
+    bodyScrollWidth: document.body.scrollWidth,
+    viewportWidth: window.innerWidth,
+    hasOverflow: document.body.scrollWidth > window.innerWidth
+  }));
+  results.test23_responsive768 = { ...overflow768, pass: !overflow768.hasOverflow };
+
+  // === TEST 24: Responsive 640px ===
+  await page.setViewport({ width: 640, height: 900 });
+  await wait(500);
+  const overflow640 = await page.evaluate(() => ({
+    bodyScrollWidth: document.body.scrollWidth,
+    viewportWidth: window.innerWidth,
+    hasOverflow: document.body.scrollWidth > window.innerWidth
+  }));
+  results.test24_responsive640 = { ...overflow640, pass: !overflow640.hasOverflow };
+
+  // === TEST 25: Navigate back to landing page ===
+  await page.setViewport({ width: 1920, height: 1080 });
+  const backBtnClicked = await page.evaluate(() => {
+    const btn = [...document.querySelectorAll('button, a')].find(e =>
+      e.textContent.includes('Back') || (e.getAttribute('aria-label') || '').includes('Back')
+    );
+    if (btn) { btn.click(); return true; }
+    return false;
+  });
+  await wait(1000);
+  const finalUrl = page.url();
+  results.test25_backToLanding = { url: finalUrl, pass: finalUrl.endsWith('/') || finalUrl === 'http://localhost:5173/' };
+
+  // === TEST 26: Create stream dialog ===
+  await page.goto('http://localhost:5173', { waitUntil: 'networkidle0' });
+  await wait(300);
+  await page.evaluate(() => {
+    const btn = [...document.querySelectorAll('button')].find(b => b.textContent.includes('Create') || b.textContent.includes('New'));
+    if (btn) btn.click();
+  });
+  await wait(500);
+  const dialogCheck = await page.evaluate(() => {
+    const d = document.querySelector('[role="dialog"]');
+    if (!d) return { found: false };
+    return {
+      found: true,
+      ariaModal: d.getAttribute('aria-modal'),
+      ariaLabelledby: d.getAttribute('aria-labelledby'),
+    };
+  });
+  results.test26_createDialog = { ...dialogCheck, pass: dialogCheck.found && dialogCheck.ariaModal === 'true' };
+
+  // === TEST 27: Second stream loads ===
+  await page.keyboard.press('Escape');
+  await wait(300);
+  await page.goto('http://localhost:5173', { waitUntil: 'networkidle0' });
+  const allLinks = await page.$$('a[href*="/stream/"]');
+  if (allLinks.length >= 2) {
+    await allLinks[1].click();
+    await page.waitForSelector('.react-flow', { timeout: 5000 }).catch(() => null);
+    await wait(1000);
   }
+  const sdlcNodes = await page.$$eval('.react-flow__node', els => els.length);
+  results.test27_secondStream = { nodes: sdlcNodes, pass: sdlcNodes >= 10 };
 
-  // Output structured results as JSON for parsing
-  console.log('\n---JSON_RESULTS_START---');
-  console.log(JSON.stringify({ results, consoleErrors, networkErrors }, null, 2));
-  console.log('---JSON_RESULTS_END---');
+  // === TEST 28: Search panel ===
+  await page.goto('http://localhost:5173', { waitUntil: 'networkidle0' });
+  const openFirst = await page.$('a[href*="/stream/"]');
+  if (openFirst) await openFirst.click();
+  await page.waitForSelector('.react-flow', { timeout: 5000 }).catch(() => null);
+  await wait(500);
+  const hasSearch = await page.evaluate(() => {
+    return !!([...document.querySelectorAll('button')].find(b =>
+      (b.getAttribute('aria-label') || '').toLowerCase().includes('search') ||
+      b.textContent.includes('Search') || b.textContent.includes('Ctrl+F')
+    ));
+  });
+  results.test28_search = { found: hasSearch, pass: hasSearch };
+
+  // === ERRORS SUMMARY ===
+  results.errors = {
+    consoleErrors: consoleErrors.length,
+    details: consoleErrors.slice(0, 10),
+    pageErrors: pageErrors.length,
+    pageDetails: pageErrors.slice(0, 5),
+    networkErrors: networkErrors.length,
+    networkDetails: networkErrors.slice(0, 5)
+  };
+
+  // Summary
+  const allTests = Object.entries(results).filter(([k]) => k.startsWith('test'));
+  const passed = allTests.filter(([, v]) => v.pass).length;
+  const failed = allTests.filter(([, v]) => !v.pass).map(([k, v]) => ({ test: k, detail: v }));
+  results.summary = { total: allTests.length, passed, failed };
+
+  console.log(JSON.stringify(results, null, 2));
+  await browser.close();
 }
 
-main().catch(err => {
-  console.error('Fatal error:', err);
+run().catch(e => {
+  console.error('FATAL:', e.message);
   process.exit(1);
 });

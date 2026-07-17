@@ -1,5 +1,22 @@
 # Release Notes — Value Modeller
 
+## 2026-07-17T13:45 — chore: Confirm TecAlliance brand colors (already implemented)
+
+**Task:** `tasks/2_f12b4128_update-visuals-for-value-stream.json` → state set to `developed`
+
+**Summary:** Task requested TecAlliance standard brand colors in the Value Modeller. This was already fully implemented by a prior iteration (2026-07-17T12:28 — "Update website design to TecAlliance Brand Guidelines"). Verified brand color usage across 12 source files (23 matches) including:
+- Ignition Mango `#FF8700` as primary accent (buttons, focus rings, logos)
+- Circuit Slate `#4B5568` for structural elements (slate overrides in Tailwind)
+- Burnout Rubber `#2E2E2E` for body text
+- Pure White `#FFFFFF` for backgrounds
+- Barlow/Inter typography via Google Fonts
+
+No code changes needed — marked as developed.
+
+**Build:** ✅ Passes (`tsc -b && vite build` — 0 errors, 303 modules)
+
+---
+
 ## 2026-07-17T12:28 — feat: Update website design to TecAlliance Brand Guidelines
 
 **Task:** `tasks/2_1f2d9585_update-website-design.json` → state set to `developed`
