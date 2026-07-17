@@ -78,24 +78,34 @@ export function NodeSearchPanel() {
   const [selectedIndex, setSelectedIndex] = useState(0);
   const inputRef = useRef<HTMLInputElement>(null);
   const { fitView } = useReactFlow();
-  const nodes = useGraphStore((s) => s.nodes);
 
-  // Compute results when query changes
+  // Compute search results and highlight matching nodes when query changes.
+  // Intentionally excludes `nodes` from deps to avoid an infinite loop:
+  // setState({ nodes }) would trigger a re-render with a new nodes reference,
+  // which would re-trigger this effect endlessly.
   useEffect(() => {
-    const searchResults = searchNodes(nodes, query);
+    const currentNodes = useGraphStore.getState().nodes;
+    const searchResults = searchNodes(currentNodes, query);
     setResults(searchResults);
     setSelectedIndex(0);
 
-    // Highlight matching nodes on the canvas by selecting them
     if (query.trim()) {
       const matchingIds = searchResults.map((r) => r.node.id);
-      const updatedNodes = nodes.map((n) => ({
+      const updatedNodes = currentNodes.map((n) => ({
         ...n,
         selected: matchingIds.includes(n.id),
       }));
       useGraphStore.setState({ nodes: updatedNodes });
+    } else {
+      // Clear selection when query is empty
+      const updatedNodes = currentNodes.map((n) => ({
+        ...n,
+        selected: false,
+      }));
+      useGraphStore.setState({ nodes: updatedNodes });
     }
-  }, [query, nodes]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [query]);
 
   // Keyboard shortcut: Ctrl+F to open search
   useEffect(() => {
