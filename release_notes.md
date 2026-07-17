@@ -1,5 +1,41 @@
 # Release Notes — Value Modeller
 
+## 2026-07-17T12:28 — feat: Update website design to TecAlliance Brand Guidelines
+
+**Task:** `tasks/2_1f2d9585_update-website-design.json` → state set to `developed`
+
+**What was implemented:**
+
+Applied TecAlliance Brand Guidelines to the Value Modeller web application:
+
+- **Colour system:** Replaced generic blue primary palette with TecAlliance corporate colours:
+  - Primary accent: Ignition Mango `#FF8700` (buttons, focus rings, logo backgrounds)
+  - Body text: Burnout Rubber `#2E2E2E`
+  - Structural elements use Circuit Slate `#4B5568` (via existing Tailwind slate scale)
+  - Pure White `#FFFFFF` remains the dominant background
+- **Typography:** Added Google Fonts (Barlow, Barlow Condensed, Inter):
+  - Body text now uses Inter (previously system fonts)
+  - All headings (h1–h6) now use Barlow via `@layer base` rule
+  - `font-heading` and `font-heading-condensed` Tailwind utilities available for explicit use
+- **Components updated:**
+  - Primary buttons: `bg-primary-500` (brand orange) instead of `bg-primary-600` (blue)
+  - Focus rings: orange `rgba(255, 135, 0, 0.4)` instead of indigo
+  - Logo icon backgrounds: updated from `primary-600` to `primary-500`
+  - Landing page, app-shell, and footer headers use `font-heading` class
+
+**Files changed:**
+- `tailwind.config.js` — brand colour palette + font-family config
+- `index.html` — Google Fonts preconnect + stylesheet, body text colour
+- `src/index.css` — Inter body font, Barlow heading rule, orange focus rings
+- `src/components/ui/button.tsx` — primary variant colour update
+- `src/components/layout/app-shell.tsx` — logo + heading font
+- `src/components/landing/landing-page.tsx` — logo + heading font
+- `src/components/layout/footer.tsx` — logo + heading font
+
+**Build:** ✅ Passes (`tsc -b && vite build` — 0 errors, 303 modules)
+
+---
+
 ## 2026-07-17T11:34 — feat: Show value stream details as comma-separated values
 
 **Task:** `tasks/1_4f26361e_not-summarizing-the-details-of-a-value-stream.json` → state set to `developed`

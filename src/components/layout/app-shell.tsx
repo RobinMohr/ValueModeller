@@ -73,7 +73,7 @@ export function AppShell() {
       {/* Skip navigation link for screen reader / keyboard users */}
       <a
         href="#canvas-main"
-        className="sr-only focus:not-sr-only focus:absolute focus:top-2 focus:left-2 focus:z-50 focus:px-4 focus:py-2 focus:bg-primary-600 focus:text-white focus:rounded-md focus:text-sm focus:font-medium"
+        className="sr-only focus:not-sr-only focus:absolute focus:top-2 focus:left-2 focus:z-50 focus:px-4 focus:py-2 focus:bg-primary-500 focus:text-white focus:rounded-md focus:text-sm focus:font-medium"
       >
         Skip to canvas
       </a>
@@ -90,13 +90,13 @@ export function AppShell() {
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
             </svg>
           </button>
-          <div className="w-8 h-8 rounded-lg bg-primary-600 flex items-center justify-center">
+          <div className="w-8 h-8 rounded-lg bg-primary-500 flex items-center justify-center">
             <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
             </svg>
           </div>
           <div className="flex flex-col">
-            <h1 className="text-lg font-bold text-gray-900 dark:text-gray-100 leading-tight">
+            <h1 className="text-lg font-bold text-gray-900 dark:text-gray-100 leading-tight font-heading">
               {stream?.name ?? 'Value Modeller'}
             </h1>
             {stream?.description && (

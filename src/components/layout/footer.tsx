@@ -11,12 +11,12 @@ export function Footer() {
           {/* Company Info */}
           <div>
             <div className="flex items-center gap-2 mb-3">
-              <div className="w-7 h-7 rounded-md bg-primary-600 flex items-center justify-center">
+              <div className="w-7 h-7 rounded-md bg-primary-500 flex items-center justify-center">
                 <svg className="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
                 </svg>
               </div>
-              <span className="text-sm font-semibold text-gray-900 dark:text-gray-100">Value Modeller</span>
+              <span className="text-sm font-semibold text-gray-900 dark:text-gray-100 font-heading">Value Modeller</span>
             </div>
             <p className="text-xs text-gray-500 dark:text-gray-400 leading-relaxed">
               A tool for product owners to visualise and manage SIPOC process chains for value stream modelling.
