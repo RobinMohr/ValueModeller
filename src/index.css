@@ -38,17 +38,17 @@
 
 .react-flow__node [role="button"]:focus-visible {
   outline: none;
-  box-shadow: 0 0 0 3px rgba(255, 135, 0, 0.4);
+  box-shadow: 0 0 0 3px rgba(220, 38, 38, 0.4);
   border-radius: 0.5rem;
 }
 
 .dark .react-flow__node [role="button"]:focus-visible {
-  box-shadow: 0 0 0 3px rgba(255, 135, 0, 0.5);
+  box-shadow: 0 0 0 3px rgba(220, 38, 38, 0.5);
 }
 
 /* Accessibility: ensure Controls buttons have visible focus */
 .react-flow__controls button:focus-visible {
-  outline: 2px solid #FF8700;
+  outline: 2px solid #DC2626;
   outline-offset: 2px;
 }
 

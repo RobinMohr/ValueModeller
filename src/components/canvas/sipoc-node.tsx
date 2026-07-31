@@ -150,8 +150,8 @@ export const SipocNodeComponent = memo(function SipocNodeComponent({
             <SipocSection
               label="Outputs"
               content={data.outputs}
-              colorClass="text-orange-600"
-              darkColorClass="dark:text-orange-400"
+              colorClass="text-red-600"
+              darkColorClass="dark:text-red-400"
             />
             <SipocSection
               label="Customers"

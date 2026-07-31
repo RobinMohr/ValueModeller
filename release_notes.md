@@ -1,5 +1,29 @@
 # Release Notes — Value Modeller
 
+## 2026-07-31T10:06 — feat: Change all orange accent colors to red
+
+**Task:** `tasks/2_9649bc80_red.json` → state set to `developed`
+
+**What was implemented:**
+
+Replaced the orange (Ignition Mango #FF8700) primary accent color with red (#DC2626) throughout the application.
+
+**Changes:**
+- `tailwind.config.js` — Entire primary color palette changed from orange shades to red shades (50 through 900). The 500 value is now `#DC2626` instead of `#FF8700`.
+- `src/index.css` — Focus ring box-shadows changed from `rgba(255, 135, 0, ...)` to `rgba(220, 38, 38, ...)`. Controls focus outline changed from `#FF8700` to `#DC2626`.
+- `src/components/canvas/sipoc-node.tsx` — "Outputs" SIPOC section label color changed from `text-orange-600`/`dark:text-orange-400` to `text-red-600`/`dark:text-red-400`.
+
+All components using `primary-*` Tailwind classes (buttons, focus rings, badges, toggles, etc.) now render in red instead of orange with no per-file changes needed.
+
+**Files modified:**
+- `tailwind.config.js`
+- `src/index.css`
+- `src/components/canvas/sipoc-node.tsx`
+
+**Build:** ✅ Passes (`tsc -b && vite build` — 0 errors, 303 modules)
+
+---
+
 ## 2026-07-17T13:45 — chore: Confirm TecAlliance brand colors (already implemented)
 
 **Task:** `tasks/2_f12b4128_update-visuals-for-value-stream.json` → state set to `developed`
